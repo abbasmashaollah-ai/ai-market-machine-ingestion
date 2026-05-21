@@ -15,10 +15,24 @@ The script verifies that `DATABASE_URL` is present and that the macro writer can
 - it does not run automatically on Railway startup
 - it defaults to a dry check
 - it only writes when `--confirm-write` is passed
+- it accepts `postgresql://` and `postgres://` URLs on the confirmed write path
+- if the Postgres driver is missing, it prints a clear dependency message
 - it does not create tables
 - it does not run migrations
 - it does not delete data
 - it does not print `DATABASE_URL`
+
+## Failure Output
+
+When a confirmed smoke write fails, the script prints:
+
+- `status`
+- `written`, `skipped`, `failed`
+- `error_type`
+- `sanitized_error_message`
+
+The sanitized error message must not include `DATABASE_URL`, usernames, passwords, tokens, or other credentials.
+Postgres and SQLAlchemy driver connection strings are redacted before printing.
 
 ## Smoke Record
 
