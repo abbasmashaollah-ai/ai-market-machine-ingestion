@@ -10,6 +10,7 @@ The client layer provides:
 - shared HTTP transport dependency injection
 - request metadata construction through FRED endpoint helpers
 - API key forwarding through query parameters
+- explicit `file_type=json` request handling for FRED payloads
 
 ## Boundary
 
@@ -29,3 +30,4 @@ This layer does not:
 - The client returns raw decoded payloads only, with observation payloads preserved as decoded response objects so downstream tools can inspect response keys safely.
 - Tests should mock the HTTP transport dependency and must not make live FRED calls.
 - API keys are forwarded through query parameters, not embedded in logs or response handling.
+- The client request builders include `file_type=json` by default so FRED responses are parsed consistently as JSON.

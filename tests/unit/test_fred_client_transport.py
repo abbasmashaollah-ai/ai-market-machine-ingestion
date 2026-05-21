@@ -20,6 +20,7 @@ class FredClientTransportTests(unittest.TestCase):
         metadata = transport.request.call_args[0][0]
         self.assertIn("/fred/series/observations?series_id=CPIAUCSL", metadata.url)
         self.assertEqual(metadata.query_params["api_key"], "secret")
+        self.assertEqual(metadata.query_params["file_type"], "json")
         self.assertEqual(result, {"observations": [{"series_id": "CPIAUCSL"}]})
 
     def test_metadata_request_uses_expected_path_and_params(self) -> None:
@@ -36,6 +37,7 @@ class FredClientTransportTests(unittest.TestCase):
         metadata = transport.request.call_args[0][0]
         self.assertIn("/fred/series?series_id=CPIAUCSL", metadata.url)
         self.assertEqual(metadata.query_params["api_key"], "secret")
+        self.assertEqual(metadata.query_params["file_type"], "json")
         self.assertEqual(result, {"id": "CPIAUCSL"})
 
     def test_api_key_passed_via_params_not_logged(self) -> None:
@@ -51,6 +53,7 @@ class FredClientTransportTests(unittest.TestCase):
 
         metadata = transport.request.call_args[0][0]
         self.assertEqual(metadata.query_params["api_key"], "secret")
+        self.assertEqual(metadata.query_params["file_type"], "json")
         self.assertNotIn("secret", metadata.url)
 
     def test_client_returns_raw_payload(self) -> None:

@@ -31,6 +31,7 @@ The probe checks these series by default:
   - `observations_count`
   - `fred_error` when present
   - request params with `api_key` removed
+  - `file_type=json`
 
 ## Response Shape
 
@@ -39,6 +40,8 @@ The probe understands the common FRED observation payload shape with rows under 
 ## Environment Loading
 
 If `python-dotenv` is available in the local environment, the probe attempts to load a local `.env` file before reading `FRED_API_KEY`. This is optional and never committed; `.env.example` remains the template file in the repository.
+
+All FRED probe requests default to `file_type=json` so response parsing is stable and the debug-safe path can inspect the JSON payload shape directly.
 
 ## Boundary
 

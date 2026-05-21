@@ -87,6 +87,7 @@ class FredLiveProbeTests(unittest.TestCase):
             timeout_seconds=30.0,
         )
         self.assertEqual(metadata.query_params["api_key"], "secret")
+        self.assertEqual(metadata.query_params["file_type"], "json")
         self.assertNotIn("secret", metadata.url)
 
     def test_empty_response_text_is_reported(self) -> None:
@@ -140,3 +141,4 @@ class FredLiveProbeTests(unittest.TestCase):
         self.assertEqual(results[0].summary, ProbeSummary(series_id="GDP", row_count=1, first_date="2026-01-01", last_date="2026-01-01"))
         self.assertEqual(results[0].payload, {"observations": [{"date": "2026-01-01"}], "notes": "ok"})
         self.assertEqual(results[0].response.status_code, 200)
+        self.assertEqual(results[0].request_metadata.query_params["file_type"], "json")

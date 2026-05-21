@@ -12,7 +12,7 @@ def series_metadata_path(series_id: str) -> str:
 
 
 def series_observations_params(api_key: str | None = None, *, observation_start: str | None = None, observation_end: str | None = None) -> dict[str, str]:
-    params: dict[str, str] = {}
+    params: dict[str, str] = {"file_type": "json"}
     if api_key is not None:
         params["api_key"] = api_key
     if observation_start is not None:
@@ -23,7 +23,7 @@ def series_observations_params(api_key: str | None = None, *, observation_start:
 
 
 def series_metadata_params(api_key: str | None = None) -> dict[str, str]:
-    params: dict[str, str] = {}
+    params: dict[str, str] = {"file_type": "json"}
     if api_key is not None:
         params["api_key"] = api_key
     return params
@@ -35,7 +35,7 @@ def series_observations_query(
     observation_start: str | None = None,
     observation_end: str | None = None,
 ) -> dict[str, str]:
-    params: dict[str, str] = {}
+    params: dict[str, str] = {"file_type": "json"}
     if api_key is not None:
         params["api_key"] = api_key
     if observation_start is not None:
