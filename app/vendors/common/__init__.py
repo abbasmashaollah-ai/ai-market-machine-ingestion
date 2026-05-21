@@ -1,0 +1,1 @@
+"""Shared vendor infrastructure primitives."""
