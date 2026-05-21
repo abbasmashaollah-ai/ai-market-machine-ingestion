@@ -99,3 +99,26 @@ class MacroWriterTests(unittest.TestCase):
     def test_build_macro_writer_wraps_connection(self) -> None:
         writer = build_macro_writer(self.conn)
         self.assertIsInstance(writer, MacroWriter)
+
+    def test_failed_write_carries_safe_error_details(self) -> None:
+        class FailingConnection:
+            def execute(self, sql: str, params: tuple[object, ...]):
+                raise RuntimeError("postgresql://user:secret@example/db password=secret DATABASE_URL=ignored")
+
+            def commit(self) -> None:
+                return None
+
+            def rollback(self) -> None:
+                return None
+
+            def close(self) -> None:
+                return None
+
+        writer = MacroWriter(FailingConnection())
+        result = writer.write([self._record()])
+
+        self.assertEqual(result.status, WriteStatus.FAILURE)
+        self.assertEqual(result.details["error_type"], "RuntimeError")
+        self.assertIn("error_message", result.details)
+        self.assertNotIn("secret", result.message)
+        self.assertNotIn("DATABASE_URL", result.message)

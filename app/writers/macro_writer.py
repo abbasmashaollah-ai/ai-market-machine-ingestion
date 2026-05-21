@@ -5,6 +5,7 @@ from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from decimal import Decimal, InvalidOperation
+import re
 from typing import Protocol
 
 from app.models.normalized import NormalizedMacroObservation
@@ -85,6 +86,14 @@ def _row_from_record(record: NormalizedMacroObservation) -> MacroObservationRow:
     )
 
 
+def _sanitize_error_message(message: str) -> str:
+    sanitized = message
+    sanitized = re.sub(r"(?i)(postgres(?:ql)?://)([^\s:@/]+)(?::([^\s@/]+))?@", r"\1<redacted>@", sanitized)
+    sanitized = re.sub(r"(?i)(password|passwd|pwd|token|secret|key)=([^\s&]+)", r"\1=<redacted>", sanitized)
+    sanitized = re.sub(r"(?i)DATABASE_URL", "database connection", sanitized)
+    return sanitized
+
+
 class MacroWriter:
     writer_name = "macro_writer"
 
@@ -158,14 +167,23 @@ class MacroWriter:
             connection.commit()
         except Exception as exc:
             connection.rollback()
+            error_type = exc.__class__.__name__
+            error_message = _sanitize_error_message(str(exc))
             return WriterResult(
                 writer_name=self.writer_name,
                 status=WriteStatus.FAILURE,
                 written_count=written,
                 skipped_count=skipped,
                 failed_count=len(records) - written - skipped,
-                message=str(exc),
-                details={"written": written, "updated": updated, "skipped": skipped, "failed": len(records) - written - skipped},
+                message=f"{error_type}: {error_message}",
+                details={
+                    "written": written,
+                    "updated": updated,
+                    "skipped": skipped,
+                    "failed": len(records) - written - skipped,
+                    "error_type": error_type,
+                    "error_message": error_message,
+                },
             )
 
         return WriterResult(

@@ -18,6 +18,7 @@ The writer persists normalized macro observations to `macro_rate_observations` o
 - uses an `INSERT ... ON CONFLICT ... DO UPDATE` strategy when the backend supports it
 - commits once per batch
 - rolls back on failure
+- on failure, returns safe `WriterResult.message` and `WriterResult.details` fields with `error_type` and sanitized `error_message`
 
 ## Boundary
 

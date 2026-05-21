@@ -125,15 +125,20 @@ def run_smoke_check(*, confirm_write: bool) -> SmokeCheckResult:
         )
 
     status = result.status.value
+    details = getattr(result, "details", {})
+    if not isinstance(details, dict):
+        details = {}
     return SmokeCheckResult(
         database_url_present=True,
         confirm_write=True,
-        would_write=True,
+        would_write=result.status.value != "failure",
         status=status,
         message=f"Smoke write completed status={status}",
         written_count=result.written_count,
         skipped_count=result.skipped_count,
         failed_count=result.failed_count,
+        error_type=str(details.get("error_type")) if details.get("error_type") else None,
+        sanitized_error_message=str(details.get("error_message")) if details.get("error_message") else None,
     )
 
 

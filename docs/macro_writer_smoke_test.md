@@ -33,6 +33,7 @@ When a confirmed smoke write fails, the script prints:
 
 The sanitized error message must not include `DATABASE_URL`, usernames, passwords, tokens, or other credentials.
 Postgres and SQLAlchemy driver connection strings are redacted before printing.
+The writer is expected to return safe `error_type` and sanitized `error_message` metadata in `WriterResult.details`.
 
 ## Smoke Record
 
