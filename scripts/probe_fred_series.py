@@ -28,6 +28,20 @@ def build_default_window(days: int = 14) -> tuple[str, str]:
     return start_date.isoformat(), end_date.isoformat()
 
 
+def build_default_five_year_window() -> tuple[str, str]:
+    end_date = date.today()
+    start_date = end_date - timedelta(days=5 * 365)
+    return start_date.isoformat(), end_date.isoformat()
+
+
+def extract_observation_rows(payload: object) -> list[dict[str, object]]:
+    if isinstance(payload, dict) and isinstance(payload.get("observations"), list):
+        return [row for row in payload["observations"] if isinstance(row, dict)]
+    if isinstance(payload, list):
+        return [row for row in payload if isinstance(row, dict)]
+    return []
+
+
 def summarize_observations(series_id: str, observations: list[dict[str, object]]) -> ProbeSummary:
     dates = [str(row.get("date")) for row in observations if row.get("date")]
     return ProbeSummary(
@@ -51,15 +65,16 @@ def run_probe(
     if client is None:
         client = UnsupportedFredClient(FredClientConfig(api_key=api_key), http_client=UrlLibHttpClient())
     if observation_start is None or observation_end is None:
-        observation_start, observation_end = build_default_window()
+        observation_start, observation_end = build_default_five_year_window()
 
     summaries: list[ProbeSummary] = []
     for series_id in series_ids:
-        observations = client.fetch_series_observations_raw(
+        payload = client.fetch_series_observations_raw(
             series_id,
             observation_start=observation_start,
             observation_end=observation_end,
         )
+        observations = extract_observation_rows(payload)
         summaries.append(summarize_observations(series_id, observations))
     return summaries
 
@@ -72,7 +87,7 @@ def _write_output(path: str, summaries: list[ProbeSummary]) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Probe FRED series connectivity.")
     parser.add_argument("--series", nargs="*", default=list(DEFAULT_SERIES))
-    parser.add_argument("--days", type=int, default=14)
+    parser.add_argument("--days", type=int, default=5 * 365)
     parser.add_argument("--output", help="Optional JSON output path.")
     args = parser.parse_args()
 

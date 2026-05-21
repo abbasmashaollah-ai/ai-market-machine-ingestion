@@ -38,7 +38,9 @@ class FredLiveProbeTests(unittest.TestCase):
     def test_mocked_successful_probe_summary(self) -> None:
         os.environ["FRED_API_KEY"] = "secret"
         client = Mock()
-        client.fetch_series_observations_raw.return_value = [{"date": "2026-01-01"}, {"date": "2026-01-02"}]
+        client.fetch_series_observations_raw.return_value = {
+            "observations": [{"date": "2026-01-01"}, {"date": "2026-01-02"}]
+        }
 
         summaries = run_probe(series_ids=("GDP",), observation_start="2026-01-01", observation_end="2026-01-02", client=client)
 
@@ -46,6 +48,10 @@ class FredLiveProbeTests(unittest.TestCase):
         called_args = client.fetch_series_observations_raw.call_args[1]
         self.assertEqual(called_args["observation_start"], "2026-01-01")
         self.assertEqual(called_args["observation_end"], "2026-01-02")
+
+    def test_extracts_observations_key_payload(self) -> None:
+        rows = probe_module.extract_observation_rows({"observations": [{"date": "2026-01-01"}]})
+        self.assertEqual(rows, [{"date": "2026-01-01"}])
 
     def test_no_live_api_calls_during_tests(self) -> None:
         os.environ["FRED_API_KEY"] = "secret"

@@ -17,11 +17,15 @@ The probe checks these series by default:
 ## Behavior
 
 - reads `FRED_API_KEY` from the environment
-- fetches only small recent observation windows
+- fetches only a recent observation window, defaulting to the last five years
 - prints a safe summary with `series_id`, `row_count`, `first_date`, and `last_date`
 - never prints the API key
 - does not write to the database
 - does not write files unless an explicit output flag is provided
+
+## Response Shape
+
+The probe understands the common FRED observation payload shape with rows under the `observations` key. It also accepts a plain list of observation rows for mocked or alternate transport responses.
 
 ## Boundary
 
