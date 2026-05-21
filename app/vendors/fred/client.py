@@ -7,8 +7,8 @@ from app.vendors.common.http import HttpClient, HttpResponse, RequestMetadata
 from app.vendors.fred.endpoints import (
     series_metadata_params,
     series_metadata_path,
-    series_observations_params,
     series_observations_path,
+    series_observations_query,
 )
 
 
@@ -32,14 +32,24 @@ class UnsupportedFredClient:
         self.config = config
         self.http_client = http_client
 
-    def fetch_series_observations_raw(self, series_id: str) -> list[dict[str, object]]:
+    def fetch_series_observations_raw(
+        self,
+        series_id: str,
+        *,
+        observation_start: str | None = None,
+        observation_end: str | None = None,
+    ) -> list[dict[str, object]]:
         if self.http_client is None:
             raise NotImplementedError("FRED client transport is not configured.")
         request_metadata = RequestMetadata(
             method="GET",
             url=self._build_url(series_observations_path(series_id)),
             timeout_seconds=self.config.timeout_seconds,
-            query_params=series_observations_params(self.config.api_key),
+            query_params=series_observations_query(
+                self.config.api_key,
+                observation_start=observation_start,
+                observation_end=observation_end,
+            ),
         )
         response = self.http_client.request(request_metadata)
         return self._extract_raw_list(response)
