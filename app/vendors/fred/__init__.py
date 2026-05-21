@@ -1,0 +1,1 @@
+"""FRED vendor foundation."""
