@@ -34,3 +34,4 @@ This layer does not:
 - Validation is pure and deterministic.
 - Results are structured so they can later be persisted by a writer layer, but persistence is out of scope here.
 - Duplicate candle detection is handled in-memory for a batch and uses the approved uniqueness key shape.
+- FRED `"."` observation values are treated as missing/unavailable during dry-run reporting and validation.

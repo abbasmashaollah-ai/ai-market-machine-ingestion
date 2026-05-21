@@ -37,8 +37,11 @@ class FredMacroDryRunResult:
     rows_fetched: int
     rows_normalized: int
     validation_failures: int
-    first_date: str | None
-    last_date: str | None
+    validation_failure_reasons: dict[str, int] = field(default_factory=dict)
+    sample_failed_dates: tuple[str, ...] = field(default_factory=tuple)
+    sample_failed_values: tuple[str, ...] = field(default_factory=tuple)
+    first_date: str | None = None
+    last_date: str | None = None
 
 
 def _resolve_series(series_id: str) -> FREDSeriesDefinition:
@@ -73,6 +76,12 @@ def _extract_observations(payload: dict[str, object]) -> list[dict[str, object]]
     return []
 
 
+def _normalize_raw_value(value: object) -> object | None:
+    if value == ".":
+        return None
+    return value
+
+
 def execute_fred_macro_dry_run(
     request: FredMacroPipelineRequest,
     fred_client: FredClient,
@@ -88,12 +97,27 @@ def execute_fred_macro_dry_run(
         observations = _extract_observations(payload)
         normalized_rows: list[NormalizedMacroObservation] = []
         validation_failures = 0
+        validation_failure_reasons: dict[str, int] = {}
+        sample_failed_dates: list[str] = []
+        sample_failed_values: list[str] = []
         for observation in observations:
             enriched_observation = dict(observation)
             enriched_observation["series_id"] = task.series_id
+            enriched_observation["value"] = _normalize_raw_value(enriched_observation.get("value"))
             normalized = fred_observation_to_normalized_macro(enriched_observation)
             normalized_rows.append(normalized)
-            validation_failures += sum(1 for result in validate_macro_observation(normalized) if not result.passed)
+            validation_results = validate_macro_observation(normalized)
+            failed_results = [result for result in validation_results if not result.passed]
+            validation_failures += len(failed_results)
+            for failed_result in failed_results:
+                validation_failure_reasons[failed_result.check_name] = validation_failure_reasons.get(failed_result.check_name, 0) + 1
+            if failed_results:
+                date_value = safe_text(observation.get("date"))
+                raw_value = observation.get("value")
+                if date_value is not None:
+                    sample_failed_dates.append(date_value)
+                if raw_value is not None:
+                    sample_failed_values.append(str(raw_value))
         dates = [safe_text(row.get("date")) for row in observations if safe_text(row.get("date"))]
         results.append(
             FredMacroDryRunResult(
@@ -101,6 +125,9 @@ def execute_fred_macro_dry_run(
                 rows_fetched=len(observations),
                 rows_normalized=len(normalized_rows),
                 validation_failures=validation_failures,
+                validation_failure_reasons=validation_failure_reasons,
+                sample_failed_dates=tuple(sample_failed_dates[:5]),
+                sample_failed_values=tuple(sample_failed_values[:5]),
                 first_date=dates[0] if dates else None,
                 last_date=dates[-1] if dates else None,
             )

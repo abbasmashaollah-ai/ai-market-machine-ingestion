@@ -71,6 +71,51 @@ class FredMacroDryRunTests(unittest.TestCase):
         )
         results = execute_fred_macro_dry_run(request, client)
         self.assertGreaterEqual(results[0].validation_failures, 1)
+        self.assertIn("value_present", results[0].validation_failure_reasons)
+
+    def test_dot_missing_observation_values(self) -> None:
+        request = FredMacroPipelineRequest(
+            series_ids=("GDP",),
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 31),
+        )
+        client = FakeFredClient(
+            payloads={
+                "GDP": {
+                    "observations": [
+                        {"series_id": "GDP", "date": "2026-01-01", "value": "."},
+                    ]
+                }
+            }
+        )
+        results = execute_fred_macro_dry_run(request, client)
+        self.assertEqual(results[0].rows_fetched, 1)
+        self.assertEqual(results[0].rows_normalized, 1)
+        self.assertEqual(results[0].validation_failures, 1)
+        self.assertEqual(results[0].sample_failed_dates, ("2026-01-01",))
+        self.assertEqual(results[0].sample_failed_values, (".",))
+        self.assertIn("value_present", results[0].validation_failure_reasons)
+
+    def test_failure_reason_reporting(self) -> None:
+        request = FredMacroPipelineRequest(
+            series_ids=("GDP",),
+            start_date=date(2026, 1, 1),
+            end_date=date(2026, 1, 31),
+        )
+        client = FakeFredClient(
+            payloads={
+                "GDP": {
+                    "observations": [
+                        {"series_id": "GDP", "date": "2026-01-01", "value": "."},
+                        {"series_id": "GDP", "date": "2026-01-02", "value": "."},
+                    ]
+                }
+            }
+        )
+        results = execute_fred_macro_dry_run(request, client)
+        self.assertEqual(results[0].validation_failure_reasons["value_present"], 2)
+        self.assertEqual(results[0].sample_failed_dates, ("2026-01-01", "2026-01-02"))
+        self.assertEqual(results[0].sample_failed_values, (".", "."))
 
     def test_script_selection_logic(self) -> None:
         default_selection = probe_module.select_series_ids(series_ids=None, category=None, include_all=False)

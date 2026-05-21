@@ -18,10 +18,17 @@ The script fetches FRED macro observations, normalizes them in memory, validates
   - `rows_fetched`
   - `rows_normalized`
   - `validation_failures`
+  - `failure_reasons`
   - `first_date`
   - `last_date`
 - does not write to the database
 - does not write files unless `--output` is explicitly provided
+
+## Validation Reporting
+
+When validation fails, the dry run also tracks sample failed dates and sample failed values in memory so operators can understand whether the issue is missing data, formatting drift, or another validation rule.
+
+FRED `"."` observation values are treated as missing or unavailable. They are counted as validation failures, but they are not interpreted as a signal.
 
 ## Boundary
 

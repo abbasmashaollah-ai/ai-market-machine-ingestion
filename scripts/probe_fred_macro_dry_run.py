@@ -73,6 +73,7 @@ def main() -> int:
         print(
             f"series_id={result.series_id} rows_fetched={result.rows_fetched} "
             f"rows_normalized={result.rows_normalized} validation_failures={result.validation_failures} "
+            f"failure_reasons={result.validation_failure_reasons} "
             f"first_date={result.first_date} last_date={result.last_date}"
         )
 
