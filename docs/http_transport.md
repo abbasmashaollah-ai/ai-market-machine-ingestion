@@ -31,4 +31,5 @@ This layer does not:
 
 - The transport uses the Python standard library `urllib`.
 - JSON parsing is opportunistic; raw text remains available when JSON decoding fails.
+- `HttpResponse` exposes convenience properties for `status_code`, `raw_text_length`, and `parsed_json` while preserving the underlying metadata and raw text.
 - Tests should mock transport behavior and avoid live network traffic.

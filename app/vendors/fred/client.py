@@ -38,7 +38,7 @@ class UnsupportedFredClient:
         *,
         observation_start: str | None = None,
         observation_end: str | None = None,
-    ) -> list[dict[str, object]]:
+    ) -> dict[str, object]:
         if self.http_client is None:
             raise NotImplementedError("FRED client transport is not configured.")
         request_metadata = RequestMetadata(
@@ -52,7 +52,7 @@ class UnsupportedFredClient:
             ),
         )
         response = self.http_client.request(request_metadata)
-        return self._extract_raw_list(response)
+        return self._extract_raw_payload(response)
 
     def fetch_series_metadata_raw(self, series_id: str) -> dict[str, object]:
         if self.http_client is None:
@@ -64,10 +64,14 @@ class UnsupportedFredClient:
             query_params=series_metadata_params(self.config.api_key),
         )
         response = self.http_client.request(request_metadata)
-        return self._extract_raw_dict(response)
+        return self._extract_raw_payload(response)
 
     def fetch_series_observations(self, series_id: str) -> list[dict[str, object]]:
-        return self.fetch_series_observations_raw(series_id)
+        payload = self.fetch_series_observations_raw(series_id)
+        observations = payload.get("observations")
+        if isinstance(observations, list):
+            return observations
+        return []
 
     def fetch_series_metadata(self, series_id: str) -> dict[str, object]:
         return self.fetch_series_metadata_raw(series_id)
@@ -75,16 +79,10 @@ class UnsupportedFredClient:
     def _build_url(self, path: str) -> str:
         return f"{self.config.base_url.rstrip('/')}{path}"
 
-    def _extract_raw_list(self, response: HttpResponse) -> list[dict[str, object]]:
-        payload = response.json
-        if isinstance(payload, dict) and "observations" in payload and isinstance(payload["observations"], list):
-            return payload["observations"]
-        if isinstance(payload, list):
-            return payload
-        return []
-
-    def _extract_raw_dict(self, response: HttpResponse) -> dict[str, object]:
+    def _extract_raw_payload(self, response: HttpResponse) -> dict[str, object]:
         payload = response.json
         if isinstance(payload, dict):
             return payload
+        if isinstance(payload, list):
+            return {"observations": payload}
         return {}

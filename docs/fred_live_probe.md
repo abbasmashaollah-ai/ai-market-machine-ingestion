@@ -23,7 +23,14 @@ The probe checks these series by default:
 - never prints the API key
 - does not write to the database
 - does not write files unless an explicit output flag is provided
-- supports `--debug-safe` for zero-row series, printing only response keys and any FRED error message without secrets
+- supports `--debug-safe` for zero-row series, printing only:
+  - `series_id`
+  - `status_code`
+  - `raw_text_length`
+  - `response_keys`
+  - `observations_count`
+  - `fred_error` when present
+  - request params with `api_key` removed
 
 ## Response Shape
 

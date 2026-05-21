@@ -26,6 +26,6 @@ This layer does not:
 
 ## Design Notes
 
-- The client returns raw decoded payloads only.
+- The client returns raw decoded payloads only, with observation payloads preserved as decoded response objects so downstream tools can inspect response keys safely.
 - Tests should mock the HTTP transport dependency and must not make live FRED calls.
 - API keys are forwarded through query parameters, not embedded in logs or response handling.

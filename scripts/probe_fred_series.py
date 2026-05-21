@@ -8,8 +8,9 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
-from app.vendors.common.http import UrlLibHttpClient
+from app.vendors.common.http import RequestMetadata, UrlLibHttpClient
 from app.vendors.fred.client import FredClientConfig, UnsupportedFredClient
+from app.vendors.fred.endpoints import series_observations_path, series_observations_query
 
 
 DEFAULT_SERIES = ("GDP", "CPIAUCSL", "UNRATE")
@@ -27,6 +28,8 @@ class ProbeSummary:
 class ProbeResult:
     summary: ProbeSummary
     payload: object
+    response: Any
+    request_metadata: RequestMetadata
 
 
 def load_local_env_if_available() -> bool:
@@ -70,6 +73,27 @@ def extract_safe_debug_details(payload: object) -> dict[str, object]:
     return {"response_keys": keys, "fred_error": error_message}
 
 
+def build_series_request_metadata(
+    *,
+    base_url: str,
+    api_key: str,
+    series_id: str,
+    observation_start: str,
+    observation_end: str,
+    timeout_seconds: float,
+) -> RequestMetadata:
+    return RequestMetadata(
+        method="GET",
+        url=f"{base_url.rstrip('/')}{series_observations_path(series_id)}",
+        timeout_seconds=timeout_seconds,
+        query_params=series_observations_query(
+            api_key,
+            observation_start=observation_start,
+            observation_end=observation_end,
+        ),
+    )
+
+
 def summarize_observations(series_id: str, observations: list[dict[str, object]]) -> ProbeSummary:
     dates = [str(row.get("date")) for row in observations if row.get("date")]
     return ProbeSummary(
@@ -96,16 +120,32 @@ def run_probe_details(
     if observation_start is None or observation_end is None:
         observation_start, observation_end = build_default_five_year_window()
 
+    http_client = client.http_client
+    if http_client is None:
+        raise RuntimeError("FRED HTTP transport is required for the probe")
+
     results: list[ProbeResult] = []
     for series_id in series_ids:
-        payload = client.fetch_series_observations_raw(
-            series_id,
+        request_metadata = build_series_request_metadata(
+            base_url=client.config.base_url,
+            api_key=api_key,
+            series_id=series_id,
             observation_start=observation_start,
             observation_end=observation_end,
+            timeout_seconds=client.config.timeout_seconds,
         )
+        response = http_client.request(request_metadata)
+        payload = response.parsed_json
         observations = extract_observation_rows(payload)
         summary = summarize_observations(series_id, observations)
-        results.append(ProbeResult(summary=summary, payload=payload))
+        results.append(
+            ProbeResult(
+                summary=summary,
+                payload=payload,
+                response=response,
+                request_metadata=request_metadata,
+            )
+        )
     return results
 
 
@@ -116,12 +156,15 @@ def run_probe(
     observation_end: str | None = None,
     client: UnsupportedFredClient | None = None,
 ) -> list[ProbeSummary]:
-    return [result.summary for result in run_probe_details(
-        series_ids=series_ids,
-        observation_start=observation_start,
-        observation_end=observation_end,
-        client=client,
-    )]
+    return [
+        result.summary
+        for result in run_probe_details(
+            series_ids=series_ids,
+            observation_start=observation_start,
+            observation_end=observation_end,
+            client=client,
+        )
+    ]
 
 
 def _write_output(path: str, summaries: list[ProbeSummary]) -> None:
@@ -134,7 +177,11 @@ def main() -> int:
     parser.add_argument("--series", nargs="*", default=list(DEFAULT_SERIES))
     parser.add_argument("--days", type=int, default=5 * 365)
     parser.add_argument("--output", help="Optional JSON output path.")
-    parser.add_argument("--debug-safe", action="store_true", help="Print safe debug details when a series has no rows.")
+    parser.add_argument(
+        "--debug-safe",
+        action="store_true",
+        help="Print safe debug details when a series has no rows.",
+    )
     args = parser.parse_args()
 
     observation_start, observation_end = build_default_window(args.days)
@@ -151,12 +198,19 @@ def main() -> int:
         )
         if args.debug_safe and summary.row_count == 0:
             debug_details = extract_safe_debug_details(result.payload)
+            request_params = {k: v for k, v in result.request_metadata.query_params.items() if k != "api_key"}
+            observations_count = len(extract_observation_rows(result.response.parsed_json))
             print(
+                f"series_id={summary.series_id} "
+                f"status_code={result.response.status_code} "
+                f"raw_text_length={result.response.raw_text_length} "
                 f"response_keys={debug_details['response_keys']} "
-                f"fred_error={debug_details['fred_error']}"
+                f"observations_count={observations_count} "
+                f"fred_error={debug_details['fred_error']} "
+                f"request_params={request_params}"
             )
     if args.output:
-        _write_output(args.output, summaries)
+        _write_output(args.output, [result.summary for result in results])
     return 0
 
 

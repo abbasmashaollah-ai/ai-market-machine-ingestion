@@ -6,6 +6,8 @@ from pathlib import Path
 from unittest.mock import Mock
 from unittest.mock import patch
 
+from app.vendors.common.http import HttpResponse, ResponseMetadata
+
 MODULE_PATH = Path(__file__).resolve().parents[2] / "scripts" / "probe_fred_series.py"
 SPEC = util.spec_from_file_location("probe_fred_series", MODULE_PATH)
 probe_module = util.module_from_spec(SPEC)
@@ -19,6 +21,7 @@ run_probe = probe_module.run_probe
 run_probe_details = probe_module.run_probe_details
 summarize_observations = probe_module.summarize_observations
 extract_safe_debug_details = probe_module.extract_safe_debug_details
+build_series_request_metadata = probe_module.build_series_request_metadata
 
 
 class FredLiveProbeTests(unittest.TestCase):
@@ -48,17 +51,22 @@ class FredLiveProbeTests(unittest.TestCase):
 
     def test_mocked_successful_probe_summary(self) -> None:
         os.environ["FRED_API_KEY"] = "secret"
+        transport = Mock()
+        transport.request.return_value = HttpResponse(
+            metadata=ResponseMetadata(status_code=200, elapsed_seconds=0.1),
+            text='{"observations": [{"date": "2026-01-01"}, {"date": "2026-01-02"}]}',
+            json={"observations": [{"date": "2026-01-01"}, {"date": "2026-01-02"}]},
+        )
         client = Mock()
-        client.fetch_series_observations_raw.return_value = {
-            "observations": [{"date": "2026-01-01"}, {"date": "2026-01-02"}]
-        }
+        client.http_client = transport
+        client.config = Mock(base_url="https://api.stlouisfed.org", timeout_seconds=30.0)
 
         summaries = run_probe(series_ids=("GDP",), observation_start="2026-01-01", observation_end="2026-01-02", client=client)
 
         self.assertEqual(summaries, [ProbeSummary(series_id="GDP", row_count=2, first_date="2026-01-01", last_date="2026-01-02")])
-        called_args = client.fetch_series_observations_raw.call_args[1]
-        self.assertEqual(called_args["observation_start"], "2026-01-01")
-        self.assertEqual(called_args["observation_end"], "2026-01-02")
+        called_args = transport.request.call_args[0][0]
+        self.assertEqual(called_args.query_params["observation_start"], "2026-01-01")
+        self.assertEqual(called_args.query_params["observation_end"], "2026-01-02")
 
     def test_extracts_observations_key_payload(self) -> None:
         rows = probe_module.extract_observation_rows({"observations": [{"date": "2026-01-01"}]})
@@ -69,21 +77,66 @@ class FredLiveProbeTests(unittest.TestCase):
         self.assertEqual(details["response_keys"], ["error_message", "observations"])
         self.assertEqual(details["fred_error"], "rate limit reached")
 
+    def test_build_series_request_metadata_redacts_api_key(self) -> None:
+        metadata = build_series_request_metadata(
+            base_url="https://api.stlouisfed.org",
+            api_key="secret",
+            series_id="GDP",
+            observation_start="2026-01-01",
+            observation_end="2026-01-02",
+            timeout_seconds=30.0,
+        )
+        self.assertEqual(metadata.query_params["api_key"], "secret")
+        self.assertNotIn("secret", metadata.url)
+
+    def test_empty_response_text_is_reported(self) -> None:
+        response = HttpResponse(
+            metadata=ResponseMetadata(status_code=200, elapsed_seconds=0.1),
+            text="",
+            json=None,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.raw_text_length, 0)
+        self.assertIsNone(response.parsed_json)
+
+    def test_non_200_response_is_reported(self) -> None:
+        response = HttpResponse(
+            metadata=ResponseMetadata(status_code=503, elapsed_seconds=0.1),
+            text='{"error_message": "service unavailable"}',
+            json={"error_message": "service unavailable"},
+        )
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.raw_text_length, len('{"error_message": "service unavailable"}'))
+        self.assertEqual(response.parsed_json["error_message"], "service unavailable")
+
     def test_no_live_api_calls_during_tests(self) -> None:
         os.environ["FRED_API_KEY"] = "secret"
+        transport = Mock()
+        transport.request.return_value = HttpResponse(
+            metadata=ResponseMetadata(status_code=200, elapsed_seconds=0.1),
+            text="{}",
+            json={},
+        )
         client = Mock()
-        client.fetch_series_observations_raw.return_value = []
+        client.http_client = transport
+        client.config = Mock(base_url="https://api.stlouisfed.org", timeout_seconds=30.0)
         run_probe(series_ids=("GDP",), client=client)
-        client.fetch_series_observations_raw.assert_called_once()
+        transport.request.assert_called_once()
 
     def test_run_probe_details_with_mocked_payload(self) -> None:
         os.environ["FRED_API_KEY"] = "secret"
+        transport = Mock()
+        transport.request.return_value = HttpResponse(
+            metadata=ResponseMetadata(status_code=200, elapsed_seconds=0.1),
+            text='{"observations": [{"date": "2026-01-01"}], "notes": "ok"}',
+            json={"observations": [{"date": "2026-01-01"}], "notes": "ok"},
+        )
         client = Mock()
-        client.fetch_series_observations_raw.return_value = {
-            "observations": [{"date": "2026-01-01"}],
-            "notes": "ok",
-        }
+        client.http_client = transport
+        client.config = Mock(base_url="https://api.stlouisfed.org", timeout_seconds=30.0)
 
         results = run_probe_details(series_ids=("GDP",), observation_start="2026-01-01", observation_end="2026-01-02", client=client)
 
-        self.assertEqual(results, [ProbeResult(summary=ProbeSummary(series_id="GDP", row_count=1, first_date="2026-01-01", last_date="2026-01-01"), payload={"observations": [{"date": "2026-01-01"}], "notes": "ok"})])
+        self.assertEqual(results[0].summary, ProbeSummary(series_id="GDP", row_count=1, first_date="2026-01-01", last_date="2026-01-01"))
+        self.assertEqual(results[0].payload, {"observations": [{"date": "2026-01-01"}], "notes": "ok"})
+        self.assertEqual(results[0].response.status_code, 200)

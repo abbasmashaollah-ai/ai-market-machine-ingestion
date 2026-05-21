@@ -39,6 +39,18 @@ class HttpResponse:
     text: str
     json: Any | None = None
 
+    @property
+    def status_code(self) -> int:
+        return self.metadata.status_code
+
+    @property
+    def raw_text_length(self) -> int:
+        return len(self.text)
+
+    @property
+    def parsed_json(self) -> Any | None:
+        return self.json
+
 
 class HttpClient(Protocol):
     def request(self, metadata: RequestMetadata) -> HttpResponse:
