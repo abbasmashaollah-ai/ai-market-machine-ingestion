@@ -122,3 +122,77 @@ class MacroWriterTests(unittest.TestCase):
         self.assertIn("error_message", result.details)
         self.assertNotIn("secret", result.message)
         self.assertNotIn("DATABASE_URL", result.message)
+
+    def test_psycopg2_style_connection_uses_cursor_execute(self) -> None:
+        calls: list[tuple[str, tuple[object, ...]]] = []
+
+        class FakeCursor:
+            def execute(self, sql: str, params: tuple[object, ...]):
+                calls.append((sql, params))
+                return type("Result", (), {"rowcount": 1})()
+
+            def close(self) -> None:
+                return None
+
+        class FakeConnection:
+            def __init__(self) -> None:
+                self.committed = False
+                self.rolled_back = False
+
+            def cursor(self) -> FakeCursor:
+                return FakeCursor()
+
+            def commit(self) -> None:
+                self.committed = True
+
+            def rollback(self) -> None:
+                self.rolled_back = True
+
+            def close(self) -> None:
+                return None
+
+        connection = FakeConnection()
+        writer = MacroWriter(connection)
+        result = writer.write([self._record()])
+
+        self.assertEqual(result.status, WriteStatus.SUCCESS)
+        self.assertTrue(connection.committed)
+        self.assertFalse(connection.rolled_back)
+        self.assertEqual(len(calls), 1)
+        self.assertIn("VALUES (%s, %s, %s, %s, %s, %s, %s)", calls[0][0])
+        self.assertEqual(calls[0][1][0], "GDP")
+
+    def test_psycopg2_style_connection_rolls_back_on_failure(self) -> None:
+        class FakeCursor:
+            def execute(self, sql: str, params: tuple[object, ...]):
+                raise RuntimeError("postgresql://user:secret@example/db password=secret")
+
+            def close(self) -> None:
+                return None
+
+        class FakeConnection:
+            def __init__(self) -> None:
+                self.committed = False
+                self.rolled_back = False
+
+            def cursor(self) -> FakeCursor:
+                return FakeCursor()
+
+            def commit(self) -> None:
+                self.committed = True
+
+            def rollback(self) -> None:
+                self.rolled_back = True
+
+            def close(self) -> None:
+                return None
+
+        connection = FakeConnection()
+        writer = MacroWriter(connection)
+        result = writer.write([self._record()])
+
+        self.assertEqual(result.status, WriteStatus.FAILURE)
+        self.assertFalse(connection.committed)
+        self.assertTrue(connection.rolled_back)
+        self.assertEqual(result.details["error_type"], "RuntimeError")
+        self.assertNotIn("secret", result.message)

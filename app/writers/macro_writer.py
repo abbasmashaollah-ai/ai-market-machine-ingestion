@@ -18,6 +18,7 @@ class _ExecuteResult(Protocol):
 
 class _ConnectionLike(Protocol):
     def execute(self, sql: str, params: tuple[object, ...]) -> _ExecuteResult: ...
+    def cursor(self): ...
     def commit(self) -> None: ...
     def rollback(self) -> None: ...
     def close(self) -> None: ...
@@ -94,6 +95,28 @@ def _sanitize_error_message(message: str) -> str:
     return sanitized
 
 
+def _insert_sql(*, placeholder: str) -> str:
+    return (
+        """
+        INSERT INTO macro_rate_observations (
+            series_id,
+            observation_date,
+            value,
+            source,
+            release_timestamp,
+            revision_timestamp,
+            created_at
+        )
+        VALUES ({placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder}, {placeholder})
+        ON CONFLICT(series_id, observation_date, source)
+        DO UPDATE SET
+            value = excluded.value,
+            release_timestamp = excluded.release_timestamp,
+            revision_timestamp = excluded.revision_timestamp
+        """
+    ).format(placeholder=placeholder).strip()
+
+
 class MacroWriter:
     writer_name = "macro_writer"
 
@@ -129,36 +152,24 @@ class MacroWriter:
         connection = self._resolve_connection()
         written = 0
         updated = 0
+        cursor = None
         try:
+            if hasattr(connection, "cursor") and not hasattr(connection, "execute"):
+                cursor = connection.cursor()
             for row in rows:
-                result = connection.execute(
-                    """
-                    INSERT INTO macro_rate_observations (
-                        series_id,
-                        observation_date,
-                        value,
-                        source,
-                        release_timestamp,
-                        revision_timestamp,
-                        created_at
-                    )
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                    ON CONFLICT(series_id, observation_date, source)
-                    DO UPDATE SET
-                        value = excluded.value,
-                        release_timestamp = excluded.release_timestamp,
-                        revision_timestamp = excluded.revision_timestamp
-                    """.strip(),
-                    (
-                        row.series_id,
-                        row.observation_date,
-                        row.value,
-                        row.source,
-                        row.release_timestamp,
-                        row.revision_timestamp,
-                        row.created_at,
-                    ),
+                params = (
+                    row.series_id,
+                    row.observation_date,
+                    row.value,
+                    row.source,
+                    row.release_timestamp,
+                    row.revision_timestamp,
+                    row.created_at,
                 )
+                if cursor is not None:
+                    result = cursor.execute(_insert_sql(placeholder="%s"), params)
+                else:
+                    result = connection.execute(_insert_sql(placeholder="?"), params)
                 rowcount = getattr(result, "rowcount", 0)
                 if rowcount == 1:
                     written += 1
@@ -185,6 +196,9 @@ class MacroWriter:
                     "error_message": error_message,
                 },
             )
+        finally:
+            if cursor is not None and hasattr(cursor, "close"):
+                cursor.close()
 
         return WriterResult(
             writer_name=self.writer_name,
