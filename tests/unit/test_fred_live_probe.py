@@ -4,6 +4,7 @@ import unittest
 from importlib import util
 from pathlib import Path
 from unittest.mock import Mock
+from unittest.mock import patch
 
 MODULE_PATH = Path(__file__).resolve().parents[2] / "scripts" / "probe_fred_series.py"
 SPEC = util.spec_from_file_location("probe_fred_series", MODULE_PATH)
@@ -13,8 +14,11 @@ sys.modules[SPEC.name] = probe_module
 SPEC.loader.exec_module(probe_module)
 
 ProbeSummary = probe_module.ProbeSummary
+ProbeResult = probe_module.ProbeResult
 run_probe = probe_module.run_probe
+run_probe_details = probe_module.run_probe_details
 summarize_observations = probe_module.summarize_observations
+extract_safe_debug_details = probe_module.extract_safe_debug_details
 
 
 class FredLiveProbeTests(unittest.TestCase):
@@ -27,8 +31,15 @@ class FredLiveProbeTests(unittest.TestCase):
 
     def test_missing_api_key_behavior(self) -> None:
         os.environ.pop("FRED_API_KEY", None)
-        with self.assertRaises(RuntimeError):
-            run_probe(client=Mock())
+        with patch.object(probe_module, "load_local_env_if_available", return_value=False):
+            with self.assertRaises(RuntimeError):
+                run_probe(client=Mock())
+
+    def test_optional_dotenv_loading(self) -> None:
+        fake_dotenv = Mock()
+        fake_dotenv.load_dotenv.return_value = True
+        with patch.dict(sys.modules, {"dotenv": fake_dotenv}):
+            self.assertTrue(probe_module.load_local_env_if_available())
 
     def test_safe_output_does_not_include_api_key(self) -> None:
         summary = summarize_observations("GDP", [{"date": "2026-01-01"}])
@@ -53,9 +64,26 @@ class FredLiveProbeTests(unittest.TestCase):
         rows = probe_module.extract_observation_rows({"observations": [{"date": "2026-01-01"}]})
         self.assertEqual(rows, [{"date": "2026-01-01"}])
 
+    def test_debug_safe_details_are_secret_free(self) -> None:
+        details = extract_safe_debug_details({"observations": [], "error_message": "rate limit reached"})
+        self.assertEqual(details["response_keys"], ["error_message", "observations"])
+        self.assertEqual(details["fred_error"], "rate limit reached")
+
     def test_no_live_api_calls_during_tests(self) -> None:
         os.environ["FRED_API_KEY"] = "secret"
         client = Mock()
         client.fetch_series_observations_raw.return_value = []
         run_probe(series_ids=("GDP",), client=client)
         client.fetch_series_observations_raw.assert_called_once()
+
+    def test_run_probe_details_with_mocked_payload(self) -> None:
+        os.environ["FRED_API_KEY"] = "secret"
+        client = Mock()
+        client.fetch_series_observations_raw.return_value = {
+            "observations": [{"date": "2026-01-01"}],
+            "notes": "ok",
+        }
+
+        results = run_probe_details(series_ids=("GDP",), observation_start="2026-01-01", observation_end="2026-01-02", client=client)
+
+        self.assertEqual(results, [ProbeResult(summary=ProbeSummary(series_id="GDP", row_count=1, first_date="2026-01-01", last_date="2026-01-01"), payload={"observations": [{"date": "2026-01-01"}], "notes": "ok"})])

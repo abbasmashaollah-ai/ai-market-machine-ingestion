@@ -20,7 +20,7 @@ class FredClientTransportTests(unittest.TestCase):
         metadata = transport.request.call_args[0][0]
         self.assertIn("/fred/series/observations?series_id=CPIAUCSL", metadata.url)
         self.assertEqual(metadata.query_params["api_key"], "secret")
-        self.assertEqual(result, [{"series_id": "CPIAUCSL"}])
+        self.assertEqual(result, {"observations": [{"series_id": "CPIAUCSL"}]})
 
     def test_metadata_request_uses_expected_path_and_params(self) -> None:
         transport = Mock()
@@ -64,7 +64,7 @@ class FredClientTransportTests(unittest.TestCase):
 
         result = client.fetch_series_observations_raw("CPIAUCSL")
 
-        self.assertEqual(result, [{"series_id": "CPIAUCSL"}])
+        self.assertEqual(result, {"observations": [{"series_id": "CPIAUCSL"}]})
 
     def test_no_live_http_calls(self) -> None:
         client = UnsupportedFredClient(FredClientConfig(api_key="secret"))
