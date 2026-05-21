@@ -7,3 +7,7 @@ name = "ai-market-machine-ingestion"
 version = "0.1.0"
 description = "Vendor data ingestion and operational tracking for ai-market-machine"
 requires-python = ">=3.11"
+
+[project.scripts]
+railway-healthcheck = "scripts.railway_healthcheck:main"
+railway-start = "scripts.railway_start:main"
