@@ -19,3 +19,7 @@ class VendorTimeoutError(VendorError):
 
 class InvalidVendorResponseError(VendorError):
     """Raised when a vendor response cannot be parsed or validated."""
+
+
+class VendorHttpStatusError(VendorError):
+    """Raised when an HTTP response returns an unexpected status."""
