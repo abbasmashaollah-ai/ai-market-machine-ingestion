@@ -1,0 +1,9 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ai-market-machine-ingestion"
+version = "0.1.0"
+description = "Vendor data ingestion and operational tracking for ai-market-machine"
+requires-python = ">=3.11"
