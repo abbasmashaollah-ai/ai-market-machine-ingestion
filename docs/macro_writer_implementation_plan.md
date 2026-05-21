@@ -10,6 +10,7 @@ This plan is constrained by:
 - `docs/fred_macro_dry_run.md`
 - `docs/data_contracts.md`
 - `docs/codex_rules.md`
+- `docs/local_macro_rate_observations_contract.md`
 - `docs/macro_rate_observations_writer_contract.md` from `ai-market-machine-data`
 
 `ai-market-machine-data` remains the schema owner. This repository may only implement the ingestion-side writer behavior after the external table contract is confirmed and approved.
@@ -47,28 +48,15 @@ The writer should map `NormalizedMacroObservation` to a canonical row using the 
 - `observation_date`
 - `source`
 - `value`
-- `vendor`
-- `ingestion_run_id`
-- `normalization_version`
-- `quality_status`
 - `created_at`
-- `updated_at`
 
 ### Nullable columns
 
-- `symbol`
-- `symbol_id`
-- `market_date`
-- `timeframe`
-- `adjusted`
-- `vendor`
-- `ingestion_run_id`
-- `normalization_version`
-- `quality_status`
-- `updated_at`
-- any contract-approved provenance fields such as notes, metadata, or lineage references if the external schema includes them
+- `value`
+- `release_timestamp`
+- `revision_timestamp`
 
-Note: the exact required/nullable split must be reconciled with the external `macro_rate_observations_writer_contract.md` before implementation. This plan assumes the writer-side row has the same operational shape as other ingestion-approved canonical rows and can carry lineage and quality context.
+Note: the required/nullable split above is copied from the known data-service contract and should be treated as the local reference until the external contract is revalidated.
 
 ## Field Mapping From `NormalizedMacroObservation`
 
@@ -77,15 +65,10 @@ Note: the exact required/nullable split must be reconciled with the external `ma
 | `symbol` | `symbol` | Preserve when present. |
 | `symbol_id` | `symbol_id` | Preserve when present. |
 | `timestamp` | `observation_date` | Store the UTC-normalized observation date component, not the full timestamp, unless the external contract explicitly requires a timestamp column. |
-| `market_date` | `market_date` | Preserve if already present. |
-| `timeframe` | `timeframe` | Preserve if the target contract supports it. |
-| `adjusted` | `adjusted` | Preserve explicit boolean contract when supported. |
 | `value` | `value` | Numeric observation value or `null` for missing FRED data. |
-| `vendor` | `vendor` | Expected to be `fred` for FRED macro observations. |
 | `source` | `source` | Use the approved source label from the normalized record. |
-| `ingestion_run_id` | `ingestion_run_id` | Preserve run tracking. |
-| `normalization_version` | `normalization_version` | Preserve transformation provenance. |
-| `quality_status` | `quality_status` | Preserve validation outcome. |
+
+If the external contract includes additional provenance fields beyond the local reference, they should be added only after schema-owner confirmation.
 
 ## FRED "." Missing Values
 
