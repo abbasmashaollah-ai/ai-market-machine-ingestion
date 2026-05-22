@@ -7,6 +7,9 @@
 The command:
 
 - accepts `--series-id`
+- accepts repeated `--series-id`
+- accepts `--category`
+- accepts `--all`
 - accepts `--start-date`
 - accepts `--end-date`
 - computes the same checkpoint key used by the manual persistence command
@@ -28,6 +31,7 @@ It does not:
 
 The command prints:
 
+- one safe checkpoint line per selected series
 - `checkpoint_found`
 - `checkpoint_key`
 - `series_id`
@@ -36,6 +40,7 @@ The command prints:
 - `planned_end_date`
 - `last_successful_observation_date`
 - `updated_at`
+- one aggregate line with `checkpoint_total` and `checkpoint_found_total`
 
 ## Safety
 

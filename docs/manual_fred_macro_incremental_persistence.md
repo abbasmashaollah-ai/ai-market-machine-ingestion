@@ -35,6 +35,19 @@ Each series summary prints:
 - `planned_end_date`
 - `write_confirmed`
 - `status`
+- `error_message`
+
+After the per-series lines, the command prints one aggregate summary line with:
+
+- `series_total`
+- `series_completed`
+- `series_failed`
+- `series_skipped`
+- `total_rows_fetched`
+- `total_rows_valid`
+- `total_rows_invalid`
+- `total_rows_written`
+- `total_validation_failures`
 
 ## Safety
 
@@ -91,6 +104,7 @@ Checkpoint persistence is a read/write operation against the approved checkpoint
   - `checkpoint_key=fred:macro_observations:GDP:1d:2025-01-01:2025-12-31`
   - `updated_at` unchanged
   - `last_successful_observation_date=2025-10-01`
+- Batch runtime hardening now supports repeated `--series-id` inputs and prints an aggregate summary line for manual multi-series runs
 
 ## Readiness Diagnostic
 

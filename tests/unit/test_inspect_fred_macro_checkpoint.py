@@ -114,3 +114,35 @@ class InspectFredMacroCheckpointTests(unittest.TestCase):
 
         store.load.assert_called_once()
         open_connection.assert_called_once()
+
+    def test_inspect_cli_supports_multiple_series(self) -> None:
+        mod = self._module()
+        with patch.dict(os.environ, {"DATABASE_URL": "postgresql://example/db"}, clear=True), patch.object(
+            mod, "load_local_env_if_available", return_value=False
+        ), patch.object(mod, "_open_connection") as open_connection, patch.object(
+            mod, "ManualFREDMacroCheckpointStore"
+        ) as store_cls, patch("builtins.print") as print_mock, patch(
+            "sys.argv",
+            [
+                "inspect_fred_macro_checkpoint.py",
+                "--series-id",
+                "GDP",
+                "--series-id",
+                "UNRATE",
+                "--start-date",
+                "2025-01-01",
+                "--end-date",
+                "2025-12-31",
+            ],
+        ):
+            store = Mock()
+            store.load.side_effect = [None, None]
+            store_cls.return_value = store
+            open_connection.return_value = Mock()
+
+            exit_code = mod.main()
+
+        self.assertEqual(exit_code, 0)
+        printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
+        self.assertIn("checkpoint_total=2 checkpoint_found_total=0", printed)
+        self.assertEqual(store.load.call_count, 2)

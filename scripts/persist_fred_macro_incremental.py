@@ -29,13 +29,25 @@ def _print_summary(summary) -> None:
             f"planned_start_date={row.planned_start_date.isoformat()} "
             f"planned_end_date={row.planned_end_date.isoformat()} "
             f"write_confirmed={str(row.write_confirmed).lower()} "
-            f"status={row.status}"
+            f"status={row.status} "
+            f"error_message={row.error_message if row.error_message else 'None'}"
         )
+    print(
+        f"series_total={summary.series_total} "
+        f"series_completed={summary.series_completed} "
+        f"series_failed={summary.series_failed} "
+        f"series_skipped={summary.series_skipped} "
+        f"total_rows_fetched={summary.total_rows_fetched} "
+        f"total_rows_valid={summary.total_rows_valid} "
+        f"total_rows_invalid={summary.total_rows_invalid} "
+        f"total_rows_written={summary.total_rows_written} "
+        f"total_validation_failures={summary.total_validation_failures}"
+    )
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Persist incremental FRED macro observations.")
-    parser.add_argument("--series-id", nargs="*", help="Specific FRED series IDs to persist.")
+    parser.add_argument("--series-id", action="append", help="Specific FRED series IDs to persist.")
     parser.add_argument("--category", help="Persist a single category.")
     parser.add_argument("--all", action="store_true", help="Persist all active catalog series.")
     parser.add_argument("--start-date", required=True, help="Start date in YYYY-MM-DD format.")

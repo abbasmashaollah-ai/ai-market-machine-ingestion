@@ -275,6 +275,51 @@ class PersistFredMacroIncrementalTests(unittest.TestCase):
         writer.write.assert_called_once()
         self.assertEqual(summary.series_summaries[0].rows_written, 1)
         self.assertTrue(summary.series_summaries[0].write_confirmed)
+        self.assertEqual(summary.series_total, 1)
+        self.assertEqual(summary.series_completed, 1)
+        self.assertEqual(summary.series_failed, 0)
+        self.assertEqual(summary.series_skipped, 0)
+        self.assertEqual(summary.total_rows_written, 1)
+
+    def test_multi_series_one_success_one_skipped_summary_totals(self) -> None:
+        mod = self._module()
+        fake_client = Mock()
+        fake_client.fetch_series_observations_raw.side_effect = [
+            {"observations": [{"series_id": "GDP", "date": "2025-01-01", "value": "1.0"}]},
+            {"observations": [{"series_id": "UNRATE", "date": "2025-01-10", "value": "1.0"}]},
+        ]
+        writer = Mock()
+        writer.write.return_value = type("Result", (), {"written_count": 1, "status": WriteStatus.SUCCESS})()
+        checkpoint_store = Mock()
+        checkpoint_store.load.side_effect = [
+            None,
+            type(
+                "Checkpoint",
+                (),
+                {"last_successful_observation_date": date(2025, 1, 10), "checkpoint_key": "fred:macro_observations:UNRATE:1d:2025-01-01:2025-12-31"},
+            )(),
+        ]
+
+        with patch("app.ingestion.manual.fred_macro_incremental_persist._build_fred_client", return_value=fake_client):
+            summary = mod.build_manual_fred_macro_incremental_persist(
+                series_ids=("GDP", "UNRATE"),
+                start_date=date(2025, 1, 1),
+                end_date=date(2025, 12, 31),
+                api_key="fred-secret",
+                writer=writer,
+                confirmed_write=True,
+                checkpoint_store=checkpoint_store,
+                use_checkpoint=True,
+                update_checkpoint=True,
+            )
+
+        self.assertEqual(summary.series_total, 2)
+        self.assertEqual(summary.series_completed, 1)
+        self.assertEqual(summary.series_skipped, 1)
+        self.assertEqual(summary.total_rows_written, 1)
+        self.assertEqual(summary.series_summaries[0].series_id, "GDP")
+        self.assertEqual(summary.series_summaries[1].status, "skipped_already_current")
+        self.assertEqual(checkpoint_store.update_successful_observation_date.call_count, 1)
 
     def test_checkpoint_update_after_successful_confirmed_write(self) -> None:
         mod = self._module()
@@ -385,6 +430,63 @@ class PersistFredMacroIncrementalTests(unittest.TestCase):
         checkpoint_store.update_successful_observation_date.assert_not_called()
         self.assertEqual(summary.series_summaries[0].rows_written, 0)
 
+    def test_failed_series_does_not_update_checkpoint(self) -> None:
+        mod = self._module()
+        fake_client = Mock()
+        fake_client.fetch_series_observations_raw.side_effect = RuntimeError("postgresql://user:secret@example/db")
+        writer = Mock()
+        checkpoint_store = Mock()
+
+        with patch("app.ingestion.manual.fred_macro_incremental_persist._build_fred_client", return_value=fake_client):
+            summary = mod.build_manual_fred_macro_incremental_persist(
+                series_ids=("GDP",),
+                start_date=date(2025, 1, 1),
+                end_date=date(2025, 12, 31),
+                api_key="fred-secret",
+                writer=writer,
+                confirmed_write=True,
+                checkpoint_store=checkpoint_store,
+                use_checkpoint=True,
+                update_checkpoint=True,
+            )
+
+        self.assertEqual(summary.series_summaries[0].status, "failed")
+        self.assertNotIn("secret", summary.series_summaries[0].error_message or "")
+        checkpoint_store.update_successful_observation_date.assert_not_called()
+
+    def test_failed_series_does_not_hide_successful_series(self) -> None:
+        mod = self._module()
+        fake_client = Mock()
+        fake_client.fetch_series_observations_raw.side_effect = [
+            {"observations": [{"series_id": "GDP", "date": "2025-01-01", "value": "1.0"}]},
+            RuntimeError("postgresql://user:secret@example/db"),
+        ]
+        writer = Mock()
+        writer.write.return_value = type("Result", (), {"written_count": 1, "status": WriteStatus.SUCCESS})()
+        checkpoint_store = Mock()
+
+        with patch("app.ingestion.manual.fred_macro_incremental_persist._build_fred_client", return_value=fake_client):
+            summary = mod.build_manual_fred_macro_incremental_persist(
+                series_ids=("GDP", "UNRATE"),
+                start_date=date(2025, 1, 1),
+                end_date=date(2025, 12, 31),
+                api_key="fred-secret",
+                writer=writer,
+                confirmed_write=True,
+                checkpoint_store=checkpoint_store,
+                use_checkpoint=True,
+                update_checkpoint=True,
+            )
+
+        self.assertEqual(summary.series_total, 2)
+        self.assertEqual(summary.series_completed, 1)
+        self.assertEqual(summary.series_failed, 1)
+        self.assertEqual(summary.total_rows_written, 1)
+        self.assertEqual(summary.series_summaries[0].status, "completed")
+        self.assertEqual(summary.series_summaries[1].status, "failed")
+        self.assertNotIn("secret", summary.series_summaries[1].error_message or "")
+        checkpoint_store.update_successful_observation_date.assert_called_once()
+
     def test_missing_database_url_only_fails_on_confirmed_write_path(self) -> None:
         mod = self._module()
         with patch.dict(os.environ, {"FRED_API_KEY": "fred-secret"}, clear=True), patch.object(
@@ -422,6 +524,47 @@ class PersistFredMacroIncrementalTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 mod.main()
 
+    def test_repeated_series_id_cli_selects_multiple_series(self) -> None:
+        mod = self._module()
+        with patch.dict(os.environ, {"FRED_API_KEY": "fred-secret", "DATABASE_URL": "postgresql://example/db"}, clear=True), patch.object(
+            mod, "load_local_env_if_available", return_value=False
+        ), patch.object(mod, "select_incremental_series_ids", return_value=("GDP", "UNRATE")) as select_mock, patch.object(
+            mod, "_open_connection"
+        ) as open_connection, patch.object(mod, "MacroWriter") as writer_cls, patch.object(
+            mod, "build_manual_fred_macro_incremental_persist"
+        ) as build_mock, patch.object(
+            mod, "_print_summary"
+        ), patch(
+            "sys.argv",
+            [
+                "persist_fred_macro_incremental.py",
+                "--series-id",
+                "GDP",
+                "--series-id",
+                "UNRATE",
+                "--start-date",
+                "2025-01-01",
+                "--end-date",
+                "2025-12-31",
+            ],
+        ):
+            build_mock.return_value.series_summaries = ()
+            build_mock.return_value.series_total = 0
+            build_mock.return_value.series_completed = 0
+            build_mock.return_value.series_failed = 0
+            build_mock.return_value.series_skipped = 0
+            build_mock.return_value.total_rows_fetched = 0
+            build_mock.return_value.total_rows_valid = 0
+            build_mock.return_value.total_rows_invalid = 0
+            build_mock.return_value.total_rows_written = 0
+            build_mock.return_value.total_validation_failures = 0
+            mod.main()
+
+        select_mock.assert_called_once()
+        self.assertEqual(select_mock.call_args.kwargs["series_ids"], ("GDP", "UNRATE"))
+        open_connection.assert_not_called()
+        writer_cls.assert_not_called()
+
     def test_sanitized_failure_output(self) -> None:
         mod = self._module()
         fake_client = Mock()
@@ -457,6 +600,53 @@ class PersistFredMacroIncrementalTests(unittest.TestCase):
         printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
         self.assertNotIn("secret", printed)
         self.assertNotIn("DATABASE_URL", printed)
+
+    def test_print_summary_includes_aggregate_totals(self) -> None:
+        mod = self._module()
+        summary = type(
+            "Summary",
+            (),
+            {
+                "series_summaries": (
+                    type(
+                        "Row",
+                        (),
+                        {
+                            "series_id": "GDP",
+                            "requested_start_date": date(2025, 1, 1),
+                            "effective_start_date": date(2025, 1, 1),
+                            "rows_fetched": 1,
+                            "rows_valid": 1,
+                            "rows_invalid": 0,
+                            "rows_written": 1,
+                            "validation_failures": 0,
+                            "planned_start_date": date(2025, 1, 1),
+                            "planned_end_date": date(2025, 12, 31),
+                            "write_confirmed": True,
+                            "status": "completed",
+                            "error_message": None,
+                        },
+                    )(),
+                ),
+                "series_total": 1,
+                "series_completed": 1,
+                "series_failed": 0,
+                "series_skipped": 0,
+                "total_rows_fetched": 1,
+                "total_rows_valid": 1,
+                "total_rows_invalid": 0,
+                "total_rows_written": 1,
+                "total_validation_failures": 0,
+            },
+        )()
+
+        with patch("builtins.print") as print_mock:
+            mod._print_summary(summary)
+
+        printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
+        self.assertIn("series_total=1", printed)
+        self.assertIn("series_completed=1", printed)
+        self.assertIn("total_rows_written=1", printed)
 
     def test_no_direct_db_writes(self) -> None:
         mod = self._module()
