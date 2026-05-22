@@ -117,6 +117,10 @@ def _insert_sql(*, placeholder: str) -> str:
     ).format(placeholder=placeholder).strip()
 
 
+def _is_dbapi_connection(connection: object) -> bool:
+    return all(hasattr(connection, attr) for attr in ("cursor", "commit", "rollback"))
+
+
 class MacroWriter:
     writer_name = "macro_writer"
 
@@ -213,6 +217,8 @@ class MacroWriter:
         connection = self._connection
         if not hasattr(connection, "execute") and callable(connection):
             connection = connection()
+        if _is_dbapi_connection(connection):
+            return connection  # already-open DB-API connection
         if hasattr(connection, "__enter__") and hasattr(connection, "__exit__"):
             return connection.__enter__()
         return connection

@@ -196,3 +196,45 @@ class MacroWriterTests(unittest.TestCase):
         self.assertTrue(connection.rolled_back)
         self.assertEqual(result.details["error_type"], "RuntimeError")
         self.assertNotIn("secret", result.message)
+
+    def test_already_open_dbapi_connection_is_not_entered(self) -> None:
+        class FakeCursor:
+            def execute(self, sql: str, params: tuple[object, ...]):
+                return type("Result", (), {"rowcount": 1})()
+
+            def close(self) -> None:
+                return None
+
+        class FakeConnection:
+            def __init__(self) -> None:
+                self.enter_called = False
+                self.committed = False
+                self.rolled_back = False
+
+            def cursor(self) -> FakeCursor:
+                return FakeCursor()
+
+            def commit(self) -> None:
+                self.committed = True
+
+            def rollback(self) -> None:
+                self.rolled_back = True
+
+            def close(self) -> None:
+                return None
+
+            def __enter__(self):  # pragma: no cover - should not be called
+                self.enter_called = True
+                return self
+
+            def __exit__(self, exc_type, exc, tb):  # pragma: no cover - should not be called
+                return False
+
+        connection = FakeConnection()
+        writer = MacroWriter(connection)
+        result = writer.write([self._record()])
+
+        self.assertEqual(result.status, WriteStatus.SUCCESS)
+        self.assertFalse(connection.enter_called)
+        self.assertTrue(connection.committed)
+        self.assertFalse(connection.rolled_back)

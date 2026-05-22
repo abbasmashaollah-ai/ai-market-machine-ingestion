@@ -10,6 +10,7 @@ The writer persists normalized macro observations to `macro_rate_observations` o
 
 - accepts a DB-API connection, a connection factory, or a connection-like object
 - uses `connection.execute()` when available and falls back to `connection.cursor().execute()` for DB-API connections such as psycopg2
+- already-open DB-API connections are used directly and are not re-entered as context managers
 - `build_macro_writer(connection)` requires an explicit connection or factory
 - maps `NormalizedMacroObservation` into the approved macro rate row shape
 - does not supply `id`
