@@ -47,3 +47,9 @@ The command does not:
 
 `ai-market-machine-data` remains the schema owner.
 
+## Production Verification Log
+
+- Verified the manual command inventory with `python -m scripts.verify_manual_ingestion_commands`
+- Ran the dry persistence preview for `GDP` over `2025-01-01` to `2025-12-31`
+- Confirmed write was skipped because `DATABASE_URL` was not configured locally
+- No database row-count verification was performed in this environment because the confirmed-write path was not available
