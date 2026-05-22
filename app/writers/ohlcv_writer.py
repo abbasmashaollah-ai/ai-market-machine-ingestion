@@ -68,27 +68,56 @@ class OhlcvWriter:
     def _utc_now(self) -> datetime:
         return datetime.now(timezone.utc)
 
-    def _contract(self, connection: object) -> dict[str, bool]:
+    def _contract(self, connection: object) -> tuple[set[str], bool]:
         rows = self._fetch_all(
             connection,
             """
             SELECT column_name
             FROM information_schema.columns
-            WHERE table_name = %s
+            WHERE table_schema = %s AND table_name = %s
             """.strip(),
-            ("canonical_ohlcv",),
+            ("public", "canonical_ohlcv"),
         )
         columns = {str(row.get("column_name")) for row in rows if row.get("column_name")}
-        required = {"symbol", "timestamp", "timeframe", "adjusted", "open", "high", "low", "close", "volume", "source"}
-        if not required.issubset(columns):
-            raise RuntimeError("canonical_ohlcv schema contract is not available for manual OHLCV persistence.")
-        return {
-            "adjustment_status": "adjustment_status" in columns,
-            "data_quality_status": "data_quality_status" in columns,
-            "created_at": "created_at" in columns,
-            "updated_at": "updated_at" in columns,
-            "id": "id" in columns,
+        required = {
+            "symbol",
+            "timestamp",
+            "open",
+            "high",
+            "low",
+            "close",
+            "volume",
+            "source",
+            "adjustment_status",
+            "data_quality_status",
+            "timeframe",
+            "adjusted",
         }
+        missing_columns = required - columns
+        if missing_columns:
+            raise RuntimeError(
+                "canonical_ohlcv schema contract is not available for manual OHLCV persistence. "
+                f"Missing columns: {', '.join(sorted(missing_columns))}."
+            )
+        index_rows = self._fetch_all(
+            connection,
+            """
+            SELECT indexdef
+            FROM pg_indexes
+            WHERE schemaname = %s AND tablename = %s
+            """.strip(),
+            ("public", "canonical_ohlcv"),
+        )
+        index_defs = [str(row.get("indexdef") or "") for row in index_rows]
+        conflict_target = any(
+            "UNIQUE" in index_def.upper()
+            and "symbol" in index_def
+            and "timestamp" in index_def
+            and "timeframe" in index_def
+            and "adjusted" in index_def
+            for index_def in index_defs
+        )
+        return columns, conflict_target
 
     def _dedupe(self, records: list[NormalizedOHLCVRecord]) -> tuple[list[NormalizedOHLCVRecord], int]:
         unique: "OrderedDict[tuple[object, ...], NormalizedOHLCVRecord]" = OrderedDict()
@@ -104,18 +133,20 @@ class OhlcvWriter:
     def write(self, records: list[NormalizedOHLCVRecord]) -> WriterResult:
         if not records:
             return WriterResult(writer_name=self.writer_name, status=WriteStatus.SKIPPED, skipped_count=0)
+        connection = None
         try:
             connection = self._connection()
-            contract = self._contract(connection)
+            columns_present, conflict_target = self._contract(connection)
+            if not conflict_target:
+                raise RuntimeError(
+                    "canonical_ohlcv uniqueness contract is not available for manual OHLCV persistence. "
+                    "Expected a unique constraint or index on symbol + timestamp + timeframe + adjusted."
+                )
             unique_records, skipped = self._dedupe(records)
-            columns = ["symbol", "timestamp", "open", "high", "low", "close", "volume", "source", "timeframe", "adjusted"]
-            if contract["adjustment_status"]:
-                columns.append("adjustment_status")
-            if contract["data_quality_status"]:
-                columns.append("data_quality_status")
-            if contract["created_at"]:
+            columns = ["symbol", "timestamp", "open", "high", "low", "close", "volume", "source", "adjustment_status", "data_quality_status", "timeframe", "adjusted"]
+            if "created_at" in columns_present:
                 columns.append("created_at")
-            if contract["updated_at"]:
+            if "updated_at" in columns_present:
                 columns.append("updated_at")
             update_clauses = [
                 "open = excluded.open",
@@ -124,14 +155,12 @@ class OhlcvWriter:
                 "close = excluded.close",
                 "volume = excluded.volume",
                 "source = excluded.source",
+                "adjustment_status = excluded.adjustment_status",
+                "data_quality_status = excluded.data_quality_status",
                 "timeframe = excluded.timeframe",
                 "adjusted = excluded.adjusted",
             ]
-            if contract["adjustment_status"]:
-                update_clauses.append("adjustment_status = excluded.adjustment_status")
-            if contract["data_quality_status"]:
-                update_clauses.append("data_quality_status = excluded.data_quality_status")
-            if contract["updated_at"]:
+            if "updated_at" in columns_present:
                 update_clauses.append("updated_at = excluded.updated_at")
 
             for record in unique_records:
@@ -144,16 +173,14 @@ class OhlcvWriter:
                     record.close,
                     record.volume,
                     record.source,
+                    "adjusted" if record.adjusted else "unadjusted",
+                    record.quality_status or "pending",
                     record.timeframe,
                     record.adjusted,
                 ]
-                if contract["adjustment_status"]:
-                    row.append("adjusted" if record.adjusted else "unadjusted")
-                if contract["data_quality_status"]:
-                    row.append(record.quality_status or "pending")
-                if contract["created_at"]:
+                if "created_at" in columns_present:
                     row.append(self._utc_now())
-                if contract["updated_at"]:
+                if "updated_at" in columns_present:
                     row.append(self._utc_now())
                 self._execute(
                     connection,
@@ -173,7 +200,6 @@ class OhlcvWriter:
                 skipped_count=skipped,
             )
         except Exception as exc:
-            connection = locals().get("connection")
             if connection is not None and hasattr(connection, "rollback"):
                 connection.rollback()
             message = f"{exc.__class__.__name__}: {exc}"
