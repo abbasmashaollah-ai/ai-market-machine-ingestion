@@ -25,6 +25,7 @@ class VerifyManualIngestionCommandsTests(unittest.TestCase):
 
         self.assertEqual(exit_code, 0)
         printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
+        self.assertIn("scripts.inspect_fred_macro_checkpoint", printed)
         self.assertIn("scripts.preview_fred_macro_incremental", printed)
         self.assertIn("scripts.dry_run_fred_macro_incremental", printed)
         self.assertIn("scripts.persist_fred_macro_incremental", printed)
@@ -37,6 +38,7 @@ class VerifyManualIngestionCommandsTests(unittest.TestCase):
             mod.main()
 
         import_names = [call.args[0] for call in import_mock.mock_calls if call.args]
+        self.assertIn("scripts.inspect_fred_macro_checkpoint", import_names)
         self.assertIn("scripts.preview_fred_macro_incremental", import_names)
         self.assertIn("scripts.dry_run_fred_macro_incremental", import_names)
         self.assertIn("scripts.persist_fred_macro_incremental", import_names)
@@ -44,4 +46,3 @@ class VerifyManualIngestionCommandsTests(unittest.TestCase):
     def test_no_db_writes_or_scheduler_behavior(self) -> None:
         mod = self._module()
         self.assertTrue(hasattr(mod, "MODULES"))
-

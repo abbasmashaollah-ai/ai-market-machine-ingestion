@@ -6,6 +6,7 @@
 
 The script imports these manual command modules:
 
+- `scripts.inspect_fred_macro_checkpoint`
 - `scripts.preview_fred_macro_incremental`
 - `scripts.dry_run_fred_macro_incremental`
 - `scripts.persist_fred_macro_incremental`
@@ -28,4 +29,3 @@ The script does not:
 This is an operator-run verification only.
 
 `ai-market-machine-data` remains the schema owner.
-

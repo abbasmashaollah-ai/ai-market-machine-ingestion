@@ -4,6 +4,7 @@ import importlib
 
 
 MODULES = (
+    "scripts.inspect_fred_macro_checkpoint",
     "scripts.preview_fred_macro_incremental",
     "scripts.dry_run_fred_macro_incremental",
     "scripts.persist_fred_macro_incremental",
@@ -23,4 +24,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

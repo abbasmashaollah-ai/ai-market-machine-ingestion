@@ -25,6 +25,23 @@ def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _parse_date_value(value: object) -> date:
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str) and value:
+        return date.fromisoformat(value)
+    return date.today()
+
+
+def _parse_datetime_value(value: object) -> datetime:
+    if isinstance(value, datetime):
+        return value
+    if isinstance(value, str) and value:
+        normalized = value.replace("Z", "+00:00")
+        return datetime.fromisoformat(normalized)
+    return _utc_now()
+
+
 def _use_cursor(connection: object) -> bool:
     return hasattr(connection, "cursor") and not hasattr(connection, "execute")
 
@@ -197,18 +214,14 @@ class ManualFREDMacroCheckpointStore:
             dataset=str(row.get("dataset") or metadata.get("dataset") or "macro_observations"),
             series_id=str(row.get("symbol") or metadata.get("series_id") or ""),
             timeframe=str(row.get("timeframe") or metadata.get("timeframe") or "1d"),
-            planned_start_date=date.fromisoformat(
-                str(row.get("start_date") or metadata.get("planned_start_date") or date.today().isoformat())
-            ),
-            planned_end_date=date.fromisoformat(
-                str(row.get("end_date") or metadata.get("planned_end_date") or date.today().isoformat())
-            ),
+            planned_start_date=_parse_date_value(row.get("start_date") or metadata.get("planned_start_date")),
+            planned_end_date=_parse_date_value(row.get("end_date") or metadata.get("planned_end_date")),
             status=ManualFREDMacroCheckpointStatus(str(row.get("status") or "planned")),
             last_successful_observation_date=(
-                date.fromisoformat(str(row.get("last_successful_date"))) if row.get("last_successful_date") else None
+                _parse_date_value(row.get("last_successful_date")) if row.get("last_successful_date") else None
             ),
-            created_at=_utc_now(),
-            updated_at=_utc_now(),
+            created_at=_parse_datetime_value(row.get("created_at")),
+            updated_at=_parse_datetime_value(row.get("updated_at")),
         )
 
     def save(self, checkpoint: ManualFREDMacroCheckpoint) -> None:

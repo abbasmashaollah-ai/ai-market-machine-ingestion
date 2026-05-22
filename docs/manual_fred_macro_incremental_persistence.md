@@ -46,6 +46,8 @@ Checkpoint updates only happen when both `--confirm-write` and `--update-checkpo
 
 When `--use-checkpoint` is enabled and the stored checkpoint has a `last_successful_observation_date`, the command resumes from the next day. If that effective start date is after the requested end date, the command skips safely, reports zero rows, and does not update the checkpoint.
 
+When resumed fetches still return rows at or before the stored `last_successful_observation_date`, those rows are filtered out before validation and write. If nothing remains after filtering, the command reports `skipped_already_current`, writes nothing, and does not update the checkpoint.
+
 The command does not:
 
 - create tables
@@ -73,6 +75,7 @@ Checkpoint persistence is a read/write operation against the approved checkpoint
 - Checkpoint-enabled confirmed write now succeeds with `--use-checkpoint --update-checkpoint` and writes `rows_written=4` for `GDP` over `2025-01-01` to `2025-12-31`
 - Checkpoint resume behavior now advances the effective start date by one day after `last_successful_observation_date`
 - Manual resumed runs now report both `requested_start_date=2025-01-01` and `effective_start_date=2025-10-02` for `GDP`, showing checkpoint-based trimming of the fetch window
+- Checkpoint verification is available through `python -m scripts.inspect_fred_macro_checkpoint --series-id GDP --start-date 2025-01-01 --end-date 2025-12-31`
 
 ## Readiness Diagnostic
 

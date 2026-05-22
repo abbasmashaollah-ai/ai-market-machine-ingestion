@@ -101,6 +101,37 @@ def _resolve_effective_start_date(
     return requested_start_date
 
 
+def _observation_date_from_row(row: dict[str, object]) -> date | None:
+    raw_date = row.get("date") or row.get("observation_date")
+    if isinstance(raw_date, date):
+        return raw_date
+    if isinstance(raw_date, str) and raw_date:
+        try:
+            return date.fromisoformat(raw_date)
+        except ValueError:
+            return None
+    return None
+
+
+def _filter_resumed_observations(
+    *,
+    observations: list[dict[str, object]],
+    checkpoint: ManualFREDMacroCheckpoint | None,
+) -> tuple[list[dict[str, object]], int]:
+    if checkpoint is None or checkpoint.last_successful_observation_date is None:
+        return observations, 0
+    filtered: list[dict[str, object]] = []
+    skipped = 0
+    boundary = checkpoint.last_successful_observation_date
+    for observation in observations:
+        observation_date = _observation_date_from_row(observation)
+        if observation_date is not None and observation_date <= boundary:
+            skipped += 1
+            continue
+        filtered.append(observation)
+    return filtered, skipped
+
+
 def build_manual_fred_macro_incremental_persist(
     *,
     series_ids: tuple[str, ...],
@@ -123,9 +154,12 @@ def build_manual_fred_macro_incremental_persist(
         if use_checkpoint and checkpoint_store is not None:
             checkpoint = checkpoint_store.load(checkpoint_key)
             checkpoint_loaded = checkpoint is not None
+        resume_checkpoint = checkpoint if (
+            checkpoint_loaded and isinstance(getattr(checkpoint, "last_successful_observation_date", None), date)
+        ) else None
         effective_start = _resolve_effective_start_date(
             requested_start_date=requested_start,
-            checkpoint=checkpoint if checkpoint_loaded else None,
+            checkpoint=resume_checkpoint,
         )
         if effective_start > end_date:
             summaries.append(
@@ -153,6 +187,30 @@ def build_manual_fred_macro_incremental_persist(
             observation_end=end_date.isoformat(),
         )
         observations = _extract_observations(payload)
+        observations, resumed_skipped = _filter_resumed_observations(
+            observations=observations,
+            checkpoint=resume_checkpoint,
+        )
+        if resumed_skipped and not observations:
+            summaries.append(
+                ManualFREDMacroIncrementalPersistRow(
+                    series_id=series_id,
+                    requested_start_date=requested_start,
+                    effective_start_date=effective_start,
+                    rows_fetched=0,
+                    rows_valid=0,
+                    rows_invalid=0,
+                    rows_written=0,
+                    validation_failures=0,
+                    planned_start_date=requested_start,
+                    planned_end_date=end_date,
+                    write_confirmed=confirmed_write,
+                    checkpoint_key=checkpoint_key,
+                    checkpoint_loaded=checkpoint_loaded,
+                    status="skipped_already_current",
+                )
+            )
+            continue
         valid_rows, rows_invalid, validation_failures = _build_valid_records(
             series_id=series_id,
             observations=observations,

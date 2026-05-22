@@ -37,3 +37,4 @@ The store does not:
 - checkpoint metadata persisted without raw Python dict adaptation errors
 - live table shape used: `checkpoint_id`, `vendor`, `dataset`, `symbol`, `timeframe`, `start_date`, `end_date`, `last_successful_date`, `status`, `attempt_count`, `created_at`, `updated_at`, `metadata`
 - checkpoint store is also used for checkpoint-based resume behavior, advancing the effective start date to the day after `last_successful_date`
+- checkpoint inspection is available through [docs/manual_fred_macro_checkpoint_inspection.md](manual_fred_macro_checkpoint_inspection.md)
