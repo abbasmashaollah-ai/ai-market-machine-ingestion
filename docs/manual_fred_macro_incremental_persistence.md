@@ -16,6 +16,8 @@ The CLI:
 - requires `DATABASE_URL` only when `--confirm-write` is used
 - uses the existing manual incremental selection and dry-run fetch/validate flow
 - writes only through `MacroWriter`
+- supports `--use-checkpoint` to read an existing checkpoint contract
+- supports `--update-checkpoint` to persist last successful observation metadata after confirmed successful writes
 
 ## Output
 
@@ -37,6 +39,8 @@ Without `--confirm-write`, the command performs fetch, normalize, and validate o
 
 With `--confirm-write`, it writes only valid observations through the approved macro writer.
 
+Checkpoint updates only happen when both `--confirm-write` and `--update-checkpoint` are present and the write succeeds.
+
 The command does not:
 
 - create tables
@@ -44,6 +48,9 @@ The command does not:
 - persist checkpoints
 - schedule work
 - run automatically on Railway startup
+- create or alter schema
+
+Checkpoint persistence is a read/write operation against the approved checkpoint contract only. If the expected checkpoint table or columns are unavailable, the command fails safely with a clear message.
 
 `ai-market-machine-data` remains the schema owner.
 
@@ -56,7 +63,12 @@ The command does not:
 - Readiness check passed with `dry_run_ready=true`, `confirmed_write_ready=true`, and `missing=[]`
 - Confirmed command: `python -m scripts.persist_fred_macro_incremental --series-id GDP --start-date 2025-01-01 --end-date 2025-12-31 --confirm-write`
 - Result: `rows_fetched=4`, `rows_valid=4`, `rows_invalid=0`, `rows_written=4`, `validation_failures=0`, `write_confirmed=true`
+- Dry checkpoint load with `--use-checkpoint` failed safely because the checkpoint table contract is not available yet in this environment: missing `checkpoint_id` and `metadata` columns on `ingestion_checkpoints`
 
 ## Readiness Diagnostic
 
 Use `python -m scripts.check_manual_fred_persistence_readiness` to check whether the environment is ready for a manual confirmed write without opening a database connection or printing secrets.
+
+## Checkpoint Contract
+
+See [docs/manual_fred_macro_checkpoint_contract.md](manual_fred_macro_checkpoint_contract.md) for the in-memory checkpoint shape that the manual checkpoint store reads and writes through the approved checkpoint table contract.

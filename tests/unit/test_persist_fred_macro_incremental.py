@@ -5,6 +5,8 @@ import unittest
 from datetime import date
 from unittest.mock import Mock, patch
 
+from app.writers.canonical_writer import WriteStatus
+
 
 class PersistFredMacroIncrementalTests(unittest.TestCase):
     def setUp(self) -> None:
@@ -45,6 +47,31 @@ class PersistFredMacroIncrementalTests(unittest.TestCase):
         printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
         self.assertIn("write_confirmed=false", printed)
 
+    def test_no_checkpoint_update_on_dry_run(self) -> None:
+        mod = self._module()
+        checkpoint_store = Mock()
+        fake_client = Mock()
+        fake_client.fetch_series_observations_raw.return_value = {
+            "observations": [{"series_id": "GDP", "date": "2025-01-01", "value": "1.0"}]
+        }
+
+        with patch("app.ingestion.manual.fred_macro_incremental_persist._build_fred_client", return_value=fake_client):
+            summary = mod.build_manual_fred_macro_incremental_persist(
+                series_ids=("GDP",),
+                start_date=date(2025, 1, 1),
+                end_date=date(2025, 12, 31),
+                api_key="fred-secret",
+                writer=None,
+                confirmed_write=False,
+                checkpoint_store=checkpoint_store,
+                use_checkpoint=True,
+                update_checkpoint=True,
+            )
+
+        checkpoint_store.load.assert_called_once()
+        checkpoint_store.update_successful_observation_date.assert_not_called()
+        self.assertEqual(summary.series_summaries[0].rows_written, 0)
+
     def test_confirm_write_routes_valid_records_through_macro_writer(self) -> None:
         mod = self._module()
         fake_client = Mock()
@@ -68,6 +95,33 @@ class PersistFredMacroIncrementalTests(unittest.TestCase):
         self.assertEqual(summary.series_summaries[0].rows_written, 1)
         self.assertTrue(summary.series_summaries[0].write_confirmed)
 
+    def test_checkpoint_update_after_successful_confirmed_write(self) -> None:
+        mod = self._module()
+        fake_client = Mock()
+        fake_client.fetch_series_observations_raw.return_value = {
+            "observations": [{"series_id": "GDP", "date": "2025-01-10", "value": "1.0"}]
+        }
+        writer = Mock()
+        writer.write.return_value = type("Result", (), {"written_count": 1, "status": WriteStatus.SUCCESS})()
+        checkpoint_store = Mock()
+        checkpoint_store.load.return_value = None
+
+        with patch("app.ingestion.manual.fred_macro_incremental_persist._build_fred_client", return_value=fake_client):
+            summary = mod.build_manual_fred_macro_incremental_persist(
+                series_ids=("GDP",),
+                start_date=date(2025, 1, 1),
+                end_date=date(2025, 12, 31),
+                api_key="fred-secret",
+                writer=writer,
+                confirmed_write=True,
+                checkpoint_store=checkpoint_store,
+                use_checkpoint=True,
+                update_checkpoint=True,
+            )
+
+        checkpoint_store.update_successful_observation_date.assert_called_once()
+        self.assertEqual(summary.series_summaries[0].rows_written, 1)
+
     def test_invalid_records_are_not_written(self) -> None:
         mod = self._module()
         fake_client = Mock()
@@ -89,6 +143,33 @@ class PersistFredMacroIncrementalTests(unittest.TestCase):
         writer.write.assert_not_called()
         self.assertEqual(summary.series_summaries[0].rows_valid, 0)
         self.assertEqual(summary.series_summaries[0].rows_invalid, 1)
+        self.assertEqual(summary.series_summaries[0].rows_written, 0)
+
+    def test_no_checkpoint_update_on_failed_write(self) -> None:
+        mod = self._module()
+        fake_client = Mock()
+        fake_client.fetch_series_observations_raw.return_value = {
+            "observations": [{"series_id": "GDP", "date": "2025-01-10", "value": "1.0"}]
+        }
+        writer = Mock()
+        writer.write.return_value = type("Result", (), {"written_count": 0, "status": WriteStatus.FAILURE})()
+        checkpoint_store = Mock()
+        checkpoint_store.load.return_value = None
+
+        with patch("app.ingestion.manual.fred_macro_incremental_persist._build_fred_client", return_value=fake_client):
+            summary = mod.build_manual_fred_macro_incremental_persist(
+                series_ids=("GDP",),
+                start_date=date(2025, 1, 1),
+                end_date=date(2025, 12, 31),
+                api_key="fred-secret",
+                writer=writer,
+                confirmed_write=True,
+                checkpoint_store=checkpoint_store,
+                use_checkpoint=True,
+                update_checkpoint=True,
+            )
+
+        checkpoint_store.update_successful_observation_date.assert_not_called()
         self.assertEqual(summary.series_summaries[0].rows_written, 0)
 
     def test_missing_database_url_only_fails_on_confirmed_write_path(self) -> None:
@@ -175,4 +256,3 @@ class PersistFredMacroIncrementalTests(unittest.TestCase):
     def test_no_secrets_printed(self) -> None:
         mod = self._module()
         self.assertTrue(hasattr(mod, "_print_summary"))
-

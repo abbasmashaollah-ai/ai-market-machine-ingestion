@@ -6,6 +6,7 @@ from datetime import date
 
 from app.ingestion.manual.fred_macro_incremental import select_incremental_series_ids
 from app.ingestion.manual.fred_macro_incremental_persist import build_manual_fred_macro_incremental_persist
+from app.state.manual_fred_macro_checkpoint_store import ManualFREDMacroCheckpointStore
 from app.writers.macro_writer import MacroWriter
 from scripts.persist_fred_macro import _open_connection, load_local_env_if_available
 
@@ -37,6 +38,8 @@ def main() -> int:
     parser.add_argument("--start-date", required=True, help="Start date in YYYY-MM-DD format.")
     parser.add_argument("--end-date", required=True, help="End date in YYYY-MM-DD format.")
     parser.add_argument("--confirm-write", action="store_true", help="Actually write valid rows.")
+    parser.add_argument("--use-checkpoint", action="store_true", help="Load checkpoint state before fetching.")
+    parser.add_argument("--update-checkpoint", action="store_true", help="Persist checkpoint state after successful confirmed writes.")
     args = parser.parse_args()
 
     load_local_env_if_available()
@@ -51,14 +54,17 @@ def main() -> int:
     )
 
     writer = None
+    checkpoint_store = None
     connection = None
     try:
-        if args.confirm_write:
+        if args.confirm_write or args.use_checkpoint or args.update_checkpoint:
             database_url = os.getenv("DATABASE_URL")
             if not database_url:
-                raise RuntimeError("DATABASE_URL is required when --confirm-write is used")
+                raise RuntimeError("DATABASE_URL is required when checkpoint or confirm-write options are used")
             connection = _open_connection(database_url)
-            writer = MacroWriter(connection)
+            checkpoint_store = ManualFREDMacroCheckpointStore(connection)
+            if args.confirm_write:
+                writer = MacroWriter(connection)
 
         summary = build_manual_fred_macro_incremental_persist(
             series_ids=series_ids,
@@ -67,6 +73,9 @@ def main() -> int:
             api_key=api_key,
             writer=writer,
             confirmed_write=args.confirm_write,
+            checkpoint_store=checkpoint_store,
+            use_checkpoint=args.use_checkpoint,
+            update_checkpoint=args.update_checkpoint,
         )
         _print_summary(summary)
     finally:
@@ -77,4 +86,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
