@@ -53,6 +53,9 @@ The command does not:
 - Ran the dry persistence preview for `GDP` over `2025-01-01` to `2025-12-31`
 - Confirmed write was skipped because `DATABASE_URL` was not configured locally
 - No database row-count verification was performed in this environment because the confirmed-write path was not available
+- Readiness check passed with `dry_run_ready=true`, `confirmed_write_ready=true`, and `missing=[]`
+- Confirmed command: `python -m scripts.persist_fred_macro_incremental --series-id GDP --start-date 2025-01-01 --end-date 2025-12-31 --confirm-write`
+- Result: `rows_fetched=4`, `rows_valid=4`, `rows_invalid=0`, `rows_written=4`, `validation_failures=0`, `write_confirmed=true`
 
 ## Readiness Diagnostic
 
