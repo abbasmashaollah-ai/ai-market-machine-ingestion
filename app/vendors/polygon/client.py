@@ -89,3 +89,13 @@ class UnsupportedPolygonClient:
         if isinstance(payload, list):
             return payload
         return []
+
+
+def build_polygon_http_client(base_url: str = "https://api.polygon.io") -> HttpClient:
+    from app.vendors.common.http import UrlLibHttpClient
+
+    return UrlLibHttpClient()
+
+
+def build_polygon_client(config: PolygonClientConfig, http_client: HttpClient | None = None) -> UnsupportedPolygonClient:
+    return UnsupportedPolygonClient(config, http_client=http_client or build_polygon_http_client(config.base_url))

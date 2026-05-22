@@ -16,6 +16,7 @@ The command:
 - requires `POLYGON_API_KEY`
 - requires `DATABASE_URL` only when checkpoint or confirmed-write options are used
 - writes only through `app/writers/ohlcv_writer.py`
+- uses the shared Polygon HTTP transport for live fetches when `POLYGON_API_KEY` is present
 
 ## Output
 

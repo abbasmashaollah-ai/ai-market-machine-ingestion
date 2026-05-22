@@ -15,7 +15,7 @@ from app.state.manual_polygon_ohlcv import (
     build_manual_polygon_ohlcv_checkpoint,
 )
 from app.state.manual_polygon_ohlcv_checkpoint_store import ManualPolygonOHLCVCheckpointStore
-from app.vendors.polygon.client import PolygonClientConfig, UnsupportedPolygonClient
+from app.vendors.polygon.client import PolygonClientConfig, UnsupportedPolygonClient, build_polygon_client
 from app.vendors.polygon.mapper import polygon_aggregate_to_normalized_ohlcv
 from app.writers.canonical_writer import WriteStatus
 from app.writers.ohlcv_writer import OhlcvWriter
@@ -64,7 +64,7 @@ def _sanitize_error_message(message: str) -> str:
 
 
 def _build_polygon_client(api_key: str) -> UnsupportedPolygonClient:
-    return UnsupportedPolygonClient(PolygonClientConfig(api_key=api_key))
+    return build_polygon_client(PolygonClientConfig(api_key=api_key))
 
 
 def _build_checkpoint_key(*, symbol: str, timeframe: str, start_date: date, end_date: date) -> str:

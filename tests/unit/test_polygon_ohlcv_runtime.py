@@ -38,6 +38,23 @@ class PolygonOhlcvRuntimeTests(unittest.TestCase):
         self.assertEqual(summary.total_rows_fetched, 1)
         self.assertEqual(summary.total_rows_valid, 1)
 
+    def test_dry_run_uses_live_transport_factory_when_key_present(self) -> None:
+        from app.ingestion.manual.polygon_ohlcv_incremental import build_manual_polygon_ohlcv_incremental
+
+        fake_client = Mock()
+        fake_client.fetch_aggregates_raw.return_value = []
+        with patch("app.ingestion.manual.polygon_ohlcv_incremental._build_polygon_client", return_value=fake_client) as client_mock:
+            summary = build_manual_polygon_ohlcv_incremental(
+                symbols=("SPY",),
+                start_date=date(2025, 1, 2),
+                end_date=date(2025, 1, 10),
+                timeframe="1d",
+                api_key="polygon-secret",
+            )
+
+        client_mock.assert_called_once()
+        self.assertEqual(summary.total_rows_fetched, 0)
+
     def test_validation_failure_reporting(self) -> None:
         from app.ingestion.manual.polygon_ohlcv_incremental import build_manual_polygon_ohlcv_incremental
 

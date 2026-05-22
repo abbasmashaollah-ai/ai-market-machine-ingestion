@@ -11,6 +11,7 @@ The runtime is manual-only and provides:
 - checkpoint-based resume behavior through `ingestion_checkpoints`
 - checkpoint inspection for manual verification
 - per-symbol summaries and aggregate summaries
+- live HTTP transport wiring through the shared standard-library client when `POLYGON_API_KEY` is present
 
 ## Safety
 
