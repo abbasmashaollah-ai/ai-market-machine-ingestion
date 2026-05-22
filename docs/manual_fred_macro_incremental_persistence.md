@@ -64,6 +64,8 @@ Checkpoint persistence is a read/write operation against the approved checkpoint
 - Confirmed command: `python -m scripts.persist_fred_macro_incremental --series-id GDP --start-date 2025-01-01 --end-date 2025-12-31 --confirm-write`
 - Result: `rows_fetched=4`, `rows_valid=4`, `rows_invalid=0`, `rows_written=4`, `validation_failures=0`, `write_confirmed=true`
 - Dry checkpoint load with `--use-checkpoint` failed safely because the checkpoint table contract is not available yet in this environment: missing `checkpoint_id` and `metadata` columns on `ingestion_checkpoints`
+- Checkpoint metadata persistence is now JSON-adapted for psycopg/Postgres-compatible execution when the approved checkpoint contract is available
+- Checkpoint-enabled confirmed write now succeeds with `--use-checkpoint --update-checkpoint` and writes `rows_written=4` for `GDP` over `2025-01-01` to `2025-12-31`
 
 ## Readiness Diagnostic
 
