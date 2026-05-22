@@ -10,6 +10,9 @@ The script imports these manual command modules:
 - `scripts.preview_fred_macro_incremental`
 - `scripts.dry_run_fred_macro_incremental`
 - `scripts.persist_fred_macro_incremental`
+- `scripts.dry_run_polygon_ohlcv_incremental`
+- `scripts.persist_polygon_ohlcv_incremental`
+- `scripts.inspect_polygon_ohlcv_checkpoint`
 
 It verifies each module exposes a callable `main()` entrypoint and prints a safe inventory line for each.
 

@@ -26,6 +26,9 @@ class VerifyManualIngestionCommandsTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
         self.assertIn("scripts.inspect_fred_macro_checkpoint", printed)
+        self.assertIn("scripts.dry_run_polygon_ohlcv_incremental", printed)
+        self.assertIn("scripts.persist_polygon_ohlcv_incremental", printed)
+        self.assertIn("scripts.inspect_polygon_ohlcv_checkpoint", printed)
         self.assertIn("scripts.preview_fred_macro_incremental", printed)
         self.assertIn("scripts.dry_run_fred_macro_incremental", printed)
         self.assertIn("scripts.persist_fred_macro_incremental", printed)
@@ -39,6 +42,9 @@ class VerifyManualIngestionCommandsTests(unittest.TestCase):
 
         import_names = [call.args[0] for call in import_mock.mock_calls if call.args]
         self.assertIn("scripts.inspect_fred_macro_checkpoint", import_names)
+        self.assertIn("scripts.dry_run_polygon_ohlcv_incremental", import_names)
+        self.assertIn("scripts.persist_polygon_ohlcv_incremental", import_names)
+        self.assertIn("scripts.inspect_polygon_ohlcv_checkpoint", import_names)
         self.assertIn("scripts.preview_fred_macro_incremental", import_names)
         self.assertIn("scripts.dry_run_fred_macro_incremental", import_names)
         self.assertIn("scripts.persist_fred_macro_incremental", import_names)

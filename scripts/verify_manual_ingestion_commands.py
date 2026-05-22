@@ -8,6 +8,9 @@ MODULES = (
     "scripts.preview_fred_macro_incremental",
     "scripts.dry_run_fred_macro_incremental",
     "scripts.persist_fred_macro_incremental",
+    "scripts.dry_run_polygon_ohlcv_incremental",
+    "scripts.persist_polygon_ohlcv_incremental",
+    "scripts.inspect_polygon_ohlcv_checkpoint",
 )
 
 

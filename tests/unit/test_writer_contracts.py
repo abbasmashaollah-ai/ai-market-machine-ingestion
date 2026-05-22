@@ -25,8 +25,7 @@ class WriterContractTests(unittest.TestCase):
         self.assertEqual(summary.failed_writers, 1)
 
     def test_placeholder_writers_raise_not_implemented(self) -> None:
-        with self.assertRaises(NotImplementedError):
-            OhlcvWriter().write([])
+        self.assertEqual(OhlcvWriter().write([]).status, WriteStatus.SKIPPED)
         with self.assertRaises(NotImplementedError):
             MacroWriter().write([])
         with self.assertRaises(NotImplementedError):
