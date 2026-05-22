@@ -53,3 +53,7 @@ The command does not:
 - Ran the dry persistence preview for `GDP` over `2025-01-01` to `2025-12-31`
 - Confirmed write was skipped because `DATABASE_URL` was not configured locally
 - No database row-count verification was performed in this environment because the confirmed-write path was not available
+
+## Readiness Diagnostic
+
+Use `python -m scripts.check_manual_fred_persistence_readiness` to check whether the environment is ready for a manual confirmed write without opening a database connection or printing secrets.
