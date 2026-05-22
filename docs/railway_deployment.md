@@ -9,6 +9,8 @@ This repository can deploy to Railway as a safe worker placeholder.
 
 Both commands only verify imports and config shape. They do not trigger ingestion, backfills, schedulers, vendor calls, or database writes.
 
+Manual operator verification commands such as `python -m scripts.verify_manual_ingestion_commands` are separate and are not wired into Railway startup.
+
 ## Health behavior
 
 The healthcheck validates:
