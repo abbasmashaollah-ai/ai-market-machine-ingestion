@@ -17,6 +17,7 @@ The command:
 - requires `DATABASE_URL` only when checkpoint or confirmed-write options are used
 - writes only through `app/writers/ohlcv_writer.py`
 - uses the shared Polygon HTTP transport for live fetches when `POLYGON_API_KEY` is present
+- persists symbol-based canonical OHLCV rows; `symbol_id` is not required
 
 ## Output
 

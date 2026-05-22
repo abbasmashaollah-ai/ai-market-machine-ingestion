@@ -99,6 +99,25 @@ def _normalize_and_validate(symbol: str, raw_records: list[dict[str, object]], t
             invalid += 1
             validation_failures += 1
             continue
+        if normalized.symbol is None and normalized.symbol_id is not None:
+            normalized = NormalizedOHLCVRecord(
+                symbol=normalized.symbol_id,
+                symbol_id=normalized.symbol_id,
+                timestamp=normalized.timestamp,
+                market_date=normalized.market_date,
+                timeframe=normalized.timeframe,
+                adjusted=normalized.adjusted,
+                open=normalized.open,
+                high=normalized.high,
+                low=normalized.low,
+                close=normalized.close,
+                volume=normalized.volume,
+                vendor=normalized.vendor,
+                source=normalized.source,
+                ingestion_run_id=normalized.ingestion_run_id,
+                normalization_version=normalized.normalization_version,
+                quality_status=normalized.quality_status,
+            )
         failures = [item for item in validate_ohlcv_record(normalized) if not item.passed]
         duplicate_failures = detect_duplicate_candles(valid + [normalized])
         if failures or duplicate_failures:

@@ -30,12 +30,33 @@ This repository documents approved table contracts at a high level only.
 
 Uniqueness rule:
 
-- `symbol_id + timestamp + timeframe + adjusted`
+- `symbol + timestamp + timeframe + adjusted`
 
 Adjusted vs unadjusted rule:
 
 - Adjusted and unadjusted records are distinct canonical variants.
 - The `adjusted` flag must be explicit and preserved.
+
+Canonical column shape:
+
+- `id`
+- `symbol`
+- `timestamp`
+- `open`
+- `high`
+- `low`
+- `close`
+- `volume`
+- `source`
+- `adjustment_status`
+- `data_quality_status`
+- `timeframe`
+- `adjusted`
+
+Symbol contract note:
+
+- `symbol_id` is not required for the approved `canonical_ohlcv` contract yet.
+- Ingestion must remain symbol-based until `symbol_master` is populated and a later schema migration explicitly introduces `symbol_id` if needed.
 
 Timestamp/timezone rule:
 

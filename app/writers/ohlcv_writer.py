@@ -79,22 +79,22 @@ class OhlcvWriter:
             ("canonical_ohlcv",),
         )
         columns = {str(row.get("column_name")) for row in rows if row.get("column_name")}
-        required = {"symbol_id", "timestamp", "timeframe", "adjusted", "open", "high", "low", "close", "volume", "vendor", "source"}
+        required = {"symbol", "timestamp", "timeframe", "adjusted", "open", "high", "low", "close", "volume", "source"}
         if not required.issubset(columns):
             raise RuntimeError("canonical_ohlcv schema contract is not available for manual OHLCV persistence.")
         return {
-            "ingestion_run_id": "ingestion_run_id" in columns,
-            "normalization_version": "normalization_version" in columns,
-            "quality_status": "quality_status" in columns,
+            "adjustment_status": "adjustment_status" in columns,
+            "data_quality_status": "data_quality_status" in columns,
             "created_at": "created_at" in columns,
             "updated_at": "updated_at" in columns,
+            "id": "id" in columns,
         }
 
     def _dedupe(self, records: list[NormalizedOHLCVRecord]) -> tuple[list[NormalizedOHLCVRecord], int]:
         unique: "OrderedDict[tuple[object, ...], NormalizedOHLCVRecord]" = OrderedDict()
         skipped = 0
         for record in records:
-            key = (record.symbol_id or record.symbol, record.timestamp, record.timeframe, record.adjusted)
+            key = (record.symbol or record.symbol_id, record.timestamp, record.timeframe, record.adjusted)
             if key in unique:
                 skipped += 1
                 continue
@@ -104,59 +104,53 @@ class OhlcvWriter:
     def write(self, records: list[NormalizedOHLCVRecord]) -> WriterResult:
         if not records:
             return WriterResult(writer_name=self.writer_name, status=WriteStatus.SKIPPED, skipped_count=0)
-        connection = self._connection()
-        contract = self._contract(connection)
-        unique_records, skipped = self._dedupe(records)
-        columns = ["symbol_id", "timestamp", "timeframe", "adjusted", "open", "high", "low", "close", "volume", "vendor", "source"]
-        if contract["ingestion_run_id"]:
-            columns.append("ingestion_run_id")
-        if contract["normalization_version"]:
-            columns.append("normalization_version")
-        if contract["quality_status"]:
-            columns.append("quality_status")
-        if contract["created_at"]:
-            columns.append("created_at")
-        if contract["updated_at"]:
-            columns.append("updated_at")
-        update_clauses = [
-            "open = excluded.open",
-            "high = excluded.high",
-            "low = excluded.low",
-            "close = excluded.close",
-            "volume = excluded.volume",
-            "vendor = excluded.vendor",
-            "source = excluded.source",
-        ]
-        if contract["ingestion_run_id"]:
-            update_clauses.append("ingestion_run_id = excluded.ingestion_run_id")
-        if contract["normalization_version"]:
-            update_clauses.append("normalization_version = excluded.normalization_version")
-        if contract["quality_status"]:
-            update_clauses.append("quality_status = excluded.quality_status")
-        if contract["updated_at"]:
-            update_clauses.append("updated_at = excluded.updated_at")
-
         try:
+            connection = self._connection()
+            contract = self._contract(connection)
+            unique_records, skipped = self._dedupe(records)
+            columns = ["symbol", "timestamp", "open", "high", "low", "close", "volume", "source", "timeframe", "adjusted"]
+            if contract["adjustment_status"]:
+                columns.append("adjustment_status")
+            if contract["data_quality_status"]:
+                columns.append("data_quality_status")
+            if contract["created_at"]:
+                columns.append("created_at")
+            if contract["updated_at"]:
+                columns.append("updated_at")
+            update_clauses = [
+                "open = excluded.open",
+                "high = excluded.high",
+                "low = excluded.low",
+                "close = excluded.close",
+                "volume = excluded.volume",
+                "source = excluded.source",
+                "timeframe = excluded.timeframe",
+                "adjusted = excluded.adjusted",
+            ]
+            if contract["adjustment_status"]:
+                update_clauses.append("adjustment_status = excluded.adjustment_status")
+            if contract["data_quality_status"]:
+                update_clauses.append("data_quality_status = excluded.data_quality_status")
+            if contract["updated_at"]:
+                update_clauses.append("updated_at = excluded.updated_at")
+
             for record in unique_records:
                 row: list[object] = [
-                    record.symbol_id or record.symbol,
+                    record.symbol or record.symbol_id,
                     record.timestamp,
-                    record.timeframe,
-                    record.adjusted,
                     record.open,
                     record.high,
                     record.low,
                     record.close,
                     record.volume,
-                    record.vendor,
                     record.source,
+                    record.timeframe,
+                    record.adjusted,
                 ]
-                if contract["ingestion_run_id"]:
-                    row.append(record.ingestion_run_id)
-                if contract["normalization_version"]:
-                    row.append(record.normalization_version)
-                if contract["quality_status"]:
-                    row.append(record.quality_status)
+                if contract["adjustment_status"]:
+                    row.append("adjusted" if record.adjusted else "unadjusted")
+                if contract["data_quality_status"]:
+                    row.append(record.quality_status or "pending")
                 if contract["created_at"]:
                     row.append(self._utc_now())
                 if contract["updated_at"]:
@@ -166,7 +160,7 @@ class OhlcvWriter:
                     f"""
                     INSERT INTO canonical_ohlcv ({", ".join(columns)})
                     VALUES ({", ".join(["%s"] * len(columns))})
-                    ON CONFLICT (symbol_id, timestamp, timeframe, adjusted) DO UPDATE SET
+                    ON CONFLICT (symbol, timestamp, timeframe, adjusted) DO UPDATE SET
                         {", ".join(update_clauses)}
                     """.strip(),
                     tuple(row),
@@ -179,13 +173,15 @@ class OhlcvWriter:
                 skipped_count=skipped,
             )
         except Exception as exc:
-            connection.rollback()
+            connection = locals().get("connection")
+            if connection is not None and hasattr(connection, "rollback"):
+                connection.rollback()
             message = f"{exc.__class__.__name__}: {exc}"
             return WriterResult(
                 writer_name=self.writer_name,
                 status=WriteStatus.FAILURE,
-                failed_count=len(unique_records),
-                skipped_count=skipped,
+                failed_count=0,
+                skipped_count=0,
                 message=message,
                 details={"error_type": exc.__class__.__name__, "error_message": message},
             )

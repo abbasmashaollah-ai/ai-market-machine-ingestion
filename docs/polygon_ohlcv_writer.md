@@ -9,9 +9,10 @@ The writer:
 - accepts normalized OHLCV records
 - deduplicates duplicate natural keys within a batch
 - writes to the approved `canonical_ohlcv` contract when the approved table exists
-- upserts on `symbol_id + timestamp + timeframe + adjusted`
+- upserts on `symbol + timestamp + timeframe + adjusted`
 - commits once per batch
 - rolls back on failure
+- does not require `symbol_id`
 
 ## Safety
 

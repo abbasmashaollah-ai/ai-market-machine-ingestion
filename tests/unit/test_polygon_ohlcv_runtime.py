@@ -243,17 +243,18 @@ class PolygonOhlcvRuntimeTests(unittest.TestCase):
                 self.executed.append((sql, params))
                 if "information_schema.columns" in sql:
                     return type("Rows", (), {"fetchall": lambda self: [
-                        {"column_name": "symbol_id"},
+                        {"column_name": "symbol"},
                         {"column_name": "timestamp"},
-                        {"column_name": "timeframe"},
-                        {"column_name": "adjusted"},
                         {"column_name": "open"},
                         {"column_name": "high"},
                         {"column_name": "low"},
                         {"column_name": "close"},
                         {"column_name": "volume"},
-                        {"column_name": "vendor"},
                         {"column_name": "source"},
+                        {"column_name": "timeframe"},
+                        {"column_name": "adjusted"},
+                        {"column_name": "adjustment_status"},
+                        {"column_name": "data_quality_status"},
                         {"column_name": "created_at"},
                         {"column_name": "updated_at"},
                     ]})()
@@ -268,7 +269,7 @@ class PolygonOhlcvRuntimeTests(unittest.TestCase):
         writer = OhlcvWriter(Connection())
         record = NormalizedOHLCVRecord(
             symbol="SPY",
-            symbol_id="SPY",
+            symbol_id=None,
             timestamp=datetime(2025, 1, 2, tzinfo=timezone.utc),
             open=100,
             high=101,
@@ -280,3 +281,85 @@ class PolygonOhlcvRuntimeTests(unittest.TestCase):
         )
         result = writer.write([record])
         self.assertEqual(result.status, WriteStatus.SUCCESS)
+        sql, params = writer._connection_or_factory.executed[-1]
+        self.assertIn("INSERT INTO canonical_ohlcv (symbol, timestamp, open, high, low, close, volume, source, timeframe, adjusted", sql)
+        self.assertIn("ON CONFLICT (symbol, timestamp, timeframe, adjusted)", sql)
+        self.assertEqual(params[0], "SPY")
+        self.assertNotIn("symbol_id", sql)
+
+    def test_writer_rejects_missing_approved_columns_safely(self) -> None:
+        class Connection:
+            def execute(self, sql: str, params: tuple[object, ...] = ()):
+                if "information_schema.columns" in sql:
+                    return type("Rows", (), {"fetchall": lambda self: [
+                        {"column_name": "symbol"},
+                        {"column_name": "timestamp"},
+                    ]})()
+                return type("Result", (), {"fetchall": lambda self: []})()
+
+            def commit(self):
+                return None
+
+            def rollback(self):
+                return None
+
+        writer = OhlcvWriter(Connection())
+        record = NormalizedOHLCVRecord(
+            symbol="SPY",
+            symbol_id=None,
+            timestamp=datetime(2025, 1, 2, tzinfo=timezone.utc),
+            open=100,
+            high=101,
+            low=99,
+            close=100.5,
+            volume=1234,
+            source="polygon_aggregates",
+        )
+        result = writer.write([record])
+        self.assertEqual(result.status, WriteStatus.FAILURE)
+        self.assertIn("schema contract", result.message or "")
+
+    def test_no_symbol_id_required(self) -> None:
+        class Connection:
+            def __init__(self) -> None:
+                self.executed = []
+
+            def execute(self, sql: str, params: tuple[object, ...] = ()):
+                self.executed.append((sql, params))
+                if "information_schema.columns" in sql:
+                    return type("Rows", (), {"fetchall": lambda self: [
+                        {"column_name": "symbol"},
+                        {"column_name": "timestamp"},
+                        {"column_name": "open"},
+                        {"column_name": "high"},
+                        {"column_name": "low"},
+                        {"column_name": "close"},
+                        {"column_name": "volume"},
+                        {"column_name": "source"},
+                        {"column_name": "timeframe"},
+                        {"column_name": "adjusted"},
+                    ]})()
+                return type("Result", (), {"fetchall": lambda self: []})()
+
+            def commit(self):
+                return None
+
+            def rollback(self):
+                return None
+
+        connection = Connection()
+        writer = OhlcvWriter(connection)
+        record = NormalizedOHLCVRecord(
+            symbol="SPY",
+            symbol_id=None,
+            timestamp=datetime(2025, 1, 2, tzinfo=timezone.utc),
+            open=100,
+            high=101,
+            low=99,
+            close=100.5,
+            volume=1234,
+            source="polygon_aggregates",
+        )
+        result = writer.write([record])
+        self.assertEqual(result.status, WriteStatus.SUCCESS)
+        self.assertEqual(connection.executed[-1][1][0], "SPY")
