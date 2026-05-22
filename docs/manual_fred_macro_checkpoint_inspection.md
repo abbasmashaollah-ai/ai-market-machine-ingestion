@@ -57,3 +57,9 @@ The command is read-only. It is intended for manual verification before running 
 - Final inspection confirmed the checkpoint remained unchanged after the resumed persistence verification
 - Final `updated_at` remained unchanged
 - Final `last_successful_observation_date` remained `2025-10-01`
+- Live multi-series checkpoint verification completed with:
+  - command: `python -m scripts.inspect_fred_macro_checkpoint --series-id GDP --series-id UNRATE --start-date 2025-01-01 --end-date 2025-12-31`
+  - `checkpoint_total=2`
+  - `checkpoint_found_total=2`
+  - GDP: `checkpoint_found=true`, `last_successful_observation_date=2025-10-01`
+  - UNRATE: `checkpoint_found=true`, `last_successful_observation_date=2025-12-01`

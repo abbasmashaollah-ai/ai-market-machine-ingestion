@@ -105,6 +105,11 @@ Checkpoint persistence is a read/write operation against the approved checkpoint
   - `updated_at` unchanged
   - `last_successful_observation_date=2025-10-01`
 - Batch runtime hardening now supports repeated `--series-id` inputs and prints an aggregate summary line for manual multi-series runs
+- Live multi-series batch persistence verification completed with:
+  - command: `python -m scripts.persist_fred_macro_incremental --series-id GDP --series-id UNRATE --start-date 2025-01-01 --end-date 2025-12-31 --confirm-write --use-checkpoint --update-checkpoint`
+  - GDP: `requested_start_date=2025-01-01`, `effective_start_date=2025-10-02`, `rows_fetched=0`, `rows_valid=0`, `rows_invalid=0`, `rows_written=0`, `validation_failures=0`, `write_confirmed=true`, `status=skipped_already_current`
+  - UNRATE: `requested_start_date=2025-01-01`, `effective_start_date=2025-01-01`, `rows_fetched=12`, `rows_valid=11`, `rows_invalid=1`, `rows_written=11`, `validation_failures=1`, `write_confirmed=true`, `status=completed`
+  - aggregate: `series_total=2`, `series_completed=1`, `series_failed=0`, `series_skipped=1`, `total_rows_fetched=12`, `total_rows_valid=11`, `total_rows_invalid=1`, `total_rows_written=11`, `total_validation_failures=1`
 
 ## Readiness Diagnostic
 
