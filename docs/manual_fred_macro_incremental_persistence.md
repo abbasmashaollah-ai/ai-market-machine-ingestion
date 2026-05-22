@@ -76,6 +76,21 @@ Checkpoint persistence is a read/write operation against the approved checkpoint
 - Checkpoint resume behavior now advances the effective start date by one day after `last_successful_observation_date`
 - Manual resumed runs now report both `requested_start_date=2025-01-01` and `effective_start_date=2025-10-02` for `GDP`, showing checkpoint-based trimming of the fetch window
 - Checkpoint verification is available through `python -m scripts.inspect_fred_macro_checkpoint --series-id GDP --start-date 2025-01-01 --end-date 2025-12-31`
+- Live resume verification confirmed the checkpoint was already current:
+  - `requested_start_date=2025-01-01`
+  - `effective_start_date=2025-10-02`
+  - `rows_fetched=0`
+  - `rows_valid=0`
+  - `rows_invalid=0`
+  - `rows_written=0`
+  - `validation_failures=0`
+  - `write_confirmed=true`
+  - `status=skipped_already_current`
+- Final inspection confirmed the checkpoint remained unchanged:
+  - `checkpoint_found=true`
+  - `checkpoint_key=fred:macro_observations:GDP:1d:2025-01-01:2025-12-31`
+  - `updated_at` unchanged
+  - `last_successful_observation_date=2025-10-01`
 
 ## Readiness Diagnostic
 

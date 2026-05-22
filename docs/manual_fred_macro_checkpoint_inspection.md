@@ -42,3 +42,13 @@ The command prints:
 The command is read-only. It is intended for manual verification before running confirmed persistence commands.
 
 `ai-market-machine-data` remains the schema owner.
+
+## Verification Log
+
+- Initial inspection confirmed `checkpoint_found=true`
+- Initial checkpoint key: `fred:macro_observations:GDP:1d:2025-01-01:2025-12-31`
+- Initial status: `completed`
+- Initial `last_successful_observation_date=2025-10-01`
+- Final inspection confirmed the checkpoint remained unchanged after the resumed persistence verification
+- Final `updated_at` remained unchanged
+- Final `last_successful_observation_date` remained `2025-10-01`
