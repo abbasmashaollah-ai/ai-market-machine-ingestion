@@ -72,6 +72,111 @@ class PersistFredMacroIncrementalTests(unittest.TestCase):
         checkpoint_store.update_successful_observation_date.assert_not_called()
         self.assertEqual(summary.series_summaries[0].rows_written, 0)
 
+    def test_checkpoint_last_successful_advances_effective_start_date_by_one_day(self) -> None:
+        mod = self._module()
+        fake_client = Mock()
+        fake_client.fetch_series_observations_raw.return_value = {
+            "observations": [{"series_id": "GDP", "date": "2025-01-11", "value": "1.0"}]
+        }
+        checkpoint_store = Mock()
+        checkpoint_store.load.return_value = type(
+            "Checkpoint",
+            (),
+            {"last_successful_observation_date": date(2025, 1, 10)},
+        )()
+
+        with patch("app.ingestion.manual.fred_macro_incremental_persist._build_fred_client", return_value=fake_client):
+            summary = mod.build_manual_fred_macro_incremental_persist(
+                series_ids=("GDP",),
+                start_date=date(2025, 1, 1),
+                end_date=date(2025, 12, 31),
+                api_key="fred-secret",
+                writer=None,
+                confirmed_write=False,
+                checkpoint_store=checkpoint_store,
+                use_checkpoint=True,
+                update_checkpoint=False,
+            )
+
+        self.assertEqual(summary.series_summaries[0].requested_start_date, date(2025, 1, 1))
+        self.assertEqual(summary.series_summaries[0].effective_start_date, date(2025, 1, 11))
+        checkpoint_store.load.assert_called_once()
+
+    def test_no_checkpoint_keeps_requested_start_date(self) -> None:
+        mod = self._module()
+        fake_client = Mock()
+        fake_client.fetch_series_observations_raw.return_value = {
+            "observations": [{"series_id": "GDP", "date": "2025-01-01", "value": "1.0"}]
+        }
+        checkpoint_store = Mock()
+        checkpoint_store.load.return_value = None
+
+        with patch("app.ingestion.manual.fred_macro_incremental_persist._build_fred_client", return_value=fake_client):
+            summary = mod.build_manual_fred_macro_incremental_persist(
+                series_ids=("GDP",),
+                start_date=date(2025, 1, 1),
+                end_date=date(2025, 12, 31),
+                api_key="fred-secret",
+                writer=None,
+                confirmed_write=False,
+                checkpoint_store=checkpoint_store,
+                use_checkpoint=True,
+                update_checkpoint=False,
+            )
+
+        self.assertEqual(summary.series_summaries[0].effective_start_date, date(2025, 1, 1))
+
+    def test_checkpoint_without_last_successful_keeps_requested_start_date(self) -> None:
+        mod = self._module()
+        fake_client = Mock()
+        fake_client.fetch_series_observations_raw.return_value = {
+            "observations": [{"series_id": "GDP", "date": "2025-01-01", "value": "1.0"}]
+        }
+        checkpoint_store = Mock()
+        checkpoint_store.load.return_value = type("Checkpoint", (), {"last_successful_observation_date": None})()
+
+        with patch("app.ingestion.manual.fred_macro_incremental_persist._build_fred_client", return_value=fake_client):
+            summary = mod.build_manual_fred_macro_incremental_persist(
+                series_ids=("GDP",),
+                start_date=date(2025, 1, 1),
+                end_date=date(2025, 12, 31),
+                api_key="fred-secret",
+                writer=None,
+                confirmed_write=False,
+                checkpoint_store=checkpoint_store,
+                use_checkpoint=True,
+                update_checkpoint=False,
+            )
+
+        self.assertEqual(summary.series_summaries[0].effective_start_date, date(2025, 1, 1))
+
+    def test_effective_start_date_after_end_date_skips_safely(self) -> None:
+        mod = self._module()
+        checkpoint_store = Mock()
+        checkpoint_store.load.return_value = type(
+            "Checkpoint",
+            (),
+            {"last_successful_observation_date": date(2025, 12, 31)},
+        )()
+        fake_client = Mock()
+
+        with patch("app.ingestion.manual.fred_macro_incremental_persist._build_fred_client", return_value=fake_client):
+            summary = mod.build_manual_fred_macro_incremental_persist(
+                series_ids=("GDP",),
+                start_date=date(2025, 1, 1),
+                end_date=date(2025, 12, 31),
+                api_key="fred-secret",
+                writer=None,
+                confirmed_write=False,
+                checkpoint_store=checkpoint_store,
+                use_checkpoint=True,
+                update_checkpoint=True,
+            )
+
+        self.assertEqual(summary.series_summaries[0].status, "skipped_already_current")
+        self.assertEqual(summary.series_summaries[0].rows_fetched, 0)
+        checkpoint_store.update_successful_observation_date.assert_not_called()
+
     def test_confirm_write_routes_valid_records_through_macro_writer(self) -> None:
         mod = self._module()
         fake_client = Mock()
@@ -79,7 +184,7 @@ class PersistFredMacroIncrementalTests(unittest.TestCase):
             "observations": [{"series_id": "GDP", "date": "2025-01-01", "value": "1.0"}]
         }
         writer = Mock()
-        writer.write.return_value = type("Result", (), {"written_count": 1})()
+        writer.write.return_value = type("Result", (), {"written_count": 1, "status": WriteStatus.SUCCESS})()
 
         with patch("app.ingestion.manual.fred_macro_incremental_persist._build_fred_client", return_value=fake_client):
             summary = mod.build_manual_fred_macro_incremental_persist(
@@ -121,6 +226,38 @@ class PersistFredMacroIncrementalTests(unittest.TestCase):
 
         checkpoint_store.update_successful_observation_date.assert_called_once()
         self.assertEqual(summary.series_summaries[0].rows_written, 1)
+
+    def test_successful_resumed_run_still_writes_and_updates_checkpoint(self) -> None:
+        mod = self._module()
+        fake_client = Mock()
+        fake_client.fetch_series_observations_raw.return_value = {
+            "observations": [{"series_id": "GDP", "date": "2025-01-11", "value": "1.0"}]
+        }
+        writer = Mock()
+        writer.write.return_value = type("Result", (), {"written_count": 1, "status": WriteStatus.SUCCESS})()
+        checkpoint_store = Mock()
+        checkpoint_store.load.return_value = type(
+            "Checkpoint",
+            (),
+            {"last_successful_observation_date": date(2025, 1, 10), "checkpoint_key": "fred:macro_observations:GDP:1d:2025-01-01:2025-12-31"},
+        )()
+
+        with patch("app.ingestion.manual.fred_macro_incremental_persist._build_fred_client", return_value=fake_client):
+            summary = mod.build_manual_fred_macro_incremental_persist(
+                series_ids=("GDP",),
+                start_date=date(2025, 1, 1),
+                end_date=date(2025, 12, 31),
+                api_key="fred-secret",
+                writer=writer,
+                confirmed_write=True,
+                checkpoint_store=checkpoint_store,
+                use_checkpoint=True,
+                update_checkpoint=True,
+            )
+
+        writer.write.assert_called_once()
+        checkpoint_store.update_successful_observation_date.assert_called_once()
+        self.assertEqual(summary.series_summaries[0].effective_start_date, date(2025, 1, 11))
 
     def test_invalid_records_are_not_written(self) -> None:
         mod = self._module()

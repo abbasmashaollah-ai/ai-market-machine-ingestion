@@ -18,6 +18,8 @@ from app.writers.canonical_writer import WriteStatus
 @dataclass(frozen=True)
 class ManualFREDMacroIncrementalPersistRow:
     series_id: str
+    requested_start_date: date
+    effective_start_date: date
     rows_fetched: int
     rows_valid: int
     rows_invalid: int
@@ -28,6 +30,7 @@ class ManualFREDMacroIncrementalPersistRow:
     write_confirmed: bool
     checkpoint_key: str
     checkpoint_loaded: bool = False
+    status: str = "completed"
 
 
 @dataclass(frozen=True)
@@ -88,6 +91,16 @@ def _build_checkpoint(
     )
 
 
+def _resolve_effective_start_date(
+    *,
+    requested_start_date: date,
+    checkpoint: ManualFREDMacroCheckpoint | None,
+) -> date:
+    if checkpoint and isinstance(checkpoint.last_successful_observation_date, date):
+        return max(requested_start_date, checkpoint.last_successful_observation_date + timedelta(days=1))
+    return requested_start_date
+
+
 def build_manual_fred_macro_incremental_persist(
     *,
     series_ids: tuple[str, ...],
@@ -103,18 +116,40 @@ def build_manual_fred_macro_incremental_persist(
     client = _build_fred_client(api_key)
     summaries: list[ManualFREDMacroIncrementalPersistRow] = []
     for series_id in series_ids:
-        planned_start = start_date
+        requested_start = start_date
         checkpoint_key = _build_checkpoint_key(series_id=series_id, start_date=start_date, end_date=end_date)
         checkpoint_loaded = False
         checkpoint = None
         if use_checkpoint and checkpoint_store is not None:
             checkpoint = checkpoint_store.load(checkpoint_key)
             checkpoint_loaded = checkpoint is not None
-            if checkpoint and isinstance(checkpoint.last_successful_observation_date, date):
-                planned_start = max(start_date, checkpoint.last_successful_observation_date + timedelta(days=1))
+        effective_start = _resolve_effective_start_date(
+            requested_start_date=requested_start,
+            checkpoint=checkpoint if checkpoint_loaded else None,
+        )
+        if effective_start > end_date:
+            summaries.append(
+                ManualFREDMacroIncrementalPersistRow(
+                    series_id=series_id,
+                    requested_start_date=requested_start,
+                    effective_start_date=effective_start,
+                    rows_fetched=0,
+                    rows_valid=0,
+                    rows_invalid=0,
+                    rows_written=0,
+                    validation_failures=0,
+                    planned_start_date=requested_start,
+                    planned_end_date=end_date,
+                    write_confirmed=confirmed_write,
+                    checkpoint_key=checkpoint_key,
+                    checkpoint_loaded=checkpoint_loaded,
+                    status="skipped_already_current",
+                )
+            )
+            continue
         payload = client.fetch_series_observations_raw(
             series_id,
-            observation_start=planned_start.isoformat(),
+            observation_start=effective_start.isoformat(),
             observation_end=end_date.isoformat(),
         )
         observations = _extract_observations(payload)
@@ -123,35 +158,41 @@ def build_manual_fred_macro_incremental_persist(
             observations=observations,
         )
         rows_written = 0
+        status = "completed"
         if confirmed_write and writer is not None and valid_rows:
             write_result = writer.write(valid_rows)
             rows_written = write_result.written_count
-            if (
-                update_checkpoint
-                and checkpoint_store is not None
-                and rows_written > 0
-                and write_result.status == WriteStatus.SUCCESS
-            ):
-                latest_observation_date = max(record.timestamp.date() for record in valid_rows)
-                checkpoint_to_save = checkpoint or _build_checkpoint(
-                    series_id=series_id,
-                    start_date=start_date,
-                    end_date=end_date,
-                )
-                checkpoint_store.update_successful_observation_date(checkpoint_to_save, latest_observation_date)
+            if write_result.status == WriteStatus.SUCCESS:
+                if (
+                    update_checkpoint
+                    and checkpoint_store is not None
+                    and rows_written > 0
+                ):
+                    latest_observation_date = max(record.timestamp.date() for record in valid_rows)
+                    checkpoint_to_save = checkpoint or _build_checkpoint(
+                        series_id=series_id,
+                        start_date=requested_start,
+                        end_date=end_date,
+                    )
+                    checkpoint_store.update_successful_observation_date(checkpoint_to_save, latest_observation_date)
+            else:
+                status = "failed"
         summaries.append(
             ManualFREDMacroIncrementalPersistRow(
                 series_id=series_id,
+                requested_start_date=requested_start,
+                effective_start_date=effective_start,
                 rows_fetched=len(observations),
                 rows_valid=len(valid_rows),
                 rows_invalid=rows_invalid,
                 rows_written=rows_written,
                 validation_failures=validation_failures,
-                planned_start_date=start_date,
+                planned_start_date=requested_start,
                 planned_end_date=end_date,
                 write_confirmed=confirmed_write,
                 checkpoint_key=checkpoint_key,
                 checkpoint_loaded=checkpoint_loaded,
+                status=status,
             )
         )
     return ManualFREDMacroIncrementalPersist(series_summaries=tuple(summaries))

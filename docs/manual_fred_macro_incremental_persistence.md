@@ -24,6 +24,8 @@ The CLI:
 Each series summary prints:
 
 - `series_id`
+- `requested_start_date`
+- `effective_start_date`
 - `rows_fetched`
 - `rows_valid`
 - `rows_invalid`
@@ -32,6 +34,7 @@ Each series summary prints:
 - `planned_start_date`
 - `planned_end_date`
 - `write_confirmed`
+- `status`
 
 ## Safety
 
@@ -40,6 +43,8 @@ Without `--confirm-write`, the command performs fetch, normalize, and validate o
 With `--confirm-write`, it writes only valid observations through the approved macro writer.
 
 Checkpoint updates only happen when both `--confirm-write` and `--update-checkpoint` are present and the write succeeds.
+
+When `--use-checkpoint` is enabled and the stored checkpoint has a `last_successful_observation_date`, the command resumes from the next day. If that effective start date is after the requested end date, the command skips safely, reports zero rows, and does not update the checkpoint.
 
 The command does not:
 
@@ -66,6 +71,8 @@ Checkpoint persistence is a read/write operation against the approved checkpoint
 - Dry checkpoint load with `--use-checkpoint` failed safely because the checkpoint table contract is not available yet in this environment: missing `checkpoint_id` and `metadata` columns on `ingestion_checkpoints`
 - Checkpoint metadata persistence is now JSON-adapted for psycopg/Postgres-compatible execution when the approved checkpoint contract is available
 - Checkpoint-enabled confirmed write now succeeds with `--use-checkpoint --update-checkpoint` and writes `rows_written=4` for `GDP` over `2025-01-01` to `2025-12-31`
+- Checkpoint resume behavior now advances the effective start date by one day after `last_successful_observation_date`
+- Manual resumed runs now report both `requested_start_date=2025-01-01` and `effective_start_date=2025-10-02` for `GDP`, showing checkpoint-based trimming of the fetch window
 
 ## Readiness Diagnostic
 

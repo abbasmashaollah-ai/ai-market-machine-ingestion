@@ -19,6 +19,8 @@ def _print_summary(summary) -> None:
     for row in summary.series_summaries:
         print(
             f"series_id={row.series_id} "
+            f"requested_start_date={row.requested_start_date.isoformat()} "
+            f"effective_start_date={row.effective_start_date.isoformat()} "
             f"rows_fetched={row.rows_fetched} "
             f"rows_valid={row.rows_valid} "
             f"rows_invalid={row.rows_invalid} "
@@ -26,7 +28,8 @@ def _print_summary(summary) -> None:
             f"validation_failures={row.validation_failures} "
             f"planned_start_date={row.planned_start_date.isoformat()} "
             f"planned_end_date={row.planned_end_date.isoformat()} "
-            f"write_confirmed={str(row.write_confirmed).lower()}"
+            f"write_confirmed={str(row.write_confirmed).lower()} "
+            f"status={row.status}"
         )
 
 
