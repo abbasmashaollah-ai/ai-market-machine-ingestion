@@ -1,0 +1,80 @@
+from __future__ import annotations
+
+import argparse
+import os
+from datetime import date
+
+from app.ingestion.manual.fred_macro_incremental import select_incremental_series_ids
+from app.ingestion.manual.fred_macro_incremental_persist import build_manual_fred_macro_incremental_persist
+from app.writers.macro_writer import MacroWriter
+from scripts.persist_fred_macro import _open_connection, load_local_env_if_available
+
+
+def _parse_date(value: str) -> date:
+    return date.fromisoformat(value)
+
+
+def _print_summary(summary) -> None:
+    for row in summary.series_summaries:
+        print(
+            f"series_id={row.series_id} "
+            f"rows_fetched={row.rows_fetched} "
+            f"rows_valid={row.rows_valid} "
+            f"rows_invalid={row.rows_invalid} "
+            f"rows_written={row.rows_written} "
+            f"validation_failures={row.validation_failures} "
+            f"planned_start_date={row.planned_start_date.isoformat()} "
+            f"planned_end_date={row.planned_end_date.isoformat()} "
+            f"write_confirmed={str(row.write_confirmed).lower()}"
+        )
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Persist incremental FRED macro observations.")
+    parser.add_argument("--series-id", nargs="*", help="Specific FRED series IDs to persist.")
+    parser.add_argument("--category", help="Persist a single category.")
+    parser.add_argument("--all", action="store_true", help="Persist all active catalog series.")
+    parser.add_argument("--start-date", required=True, help="Start date in YYYY-MM-DD format.")
+    parser.add_argument("--end-date", required=True, help="End date in YYYY-MM-DD format.")
+    parser.add_argument("--confirm-write", action="store_true", help="Actually write valid rows.")
+    args = parser.parse_args()
+
+    load_local_env_if_available()
+    api_key = os.getenv("FRED_API_KEY")
+    if not api_key:
+        raise RuntimeError("FRED_API_KEY is required")
+
+    series_ids = select_incremental_series_ids(
+        series_ids=tuple(args.series_id) if args.series_id else None,
+        category=args.category,
+        include_all=args.all,
+    )
+
+    writer = None
+    connection = None
+    try:
+        if args.confirm_write:
+            database_url = os.getenv("DATABASE_URL")
+            if not database_url:
+                raise RuntimeError("DATABASE_URL is required when --confirm-write is used")
+            connection = _open_connection(database_url)
+            writer = MacroWriter(connection)
+
+        summary = build_manual_fred_macro_incremental_persist(
+            series_ids=series_ids,
+            start_date=_parse_date(args.start_date),
+            end_date=_parse_date(args.end_date),
+            api_key=api_key,
+            writer=writer,
+            confirmed_write=args.confirm_write,
+        )
+        _print_summary(summary)
+    finally:
+        if connection is not None and hasattr(connection, "close"):
+            connection.close()
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+

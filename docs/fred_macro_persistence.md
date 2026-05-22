@@ -27,3 +27,5 @@ This command:
 This command is manual-only and does not run automatically on Railway startup.
 
 `ai-market-machine-data` remains the schema owner.
+
+For the incremental manual flow, see [docs/manual_fred_macro_incremental_persistence.md](manual_fred_macro_incremental_persistence.md).
