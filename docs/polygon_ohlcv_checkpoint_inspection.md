@@ -24,3 +24,12 @@ It does not:
 `DATABASE_URL` is required because the command reads checkpoint state from the approved checkpoint contract.
 
 `ai-market-machine-data` remains the schema owner.
+
+## Verification Log
+
+- Live checkpoint verification completed with:
+  - command: `python -m scripts.inspect_polygon_ohlcv_checkpoint --symbol SPY --start-date 2025-01-02 --end-date 2025-01-10 --timeframe 1d`
+  - `checkpoint_found=true`
+  - `checkpoint_key=polygon:ohlcv:SPY:1d:2025-01-02:2025-01-10`
+  - `status=completed`
+  - `last_successful_observation_date=2025-01-10`

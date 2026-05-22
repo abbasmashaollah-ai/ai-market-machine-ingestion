@@ -33,3 +33,8 @@ The runtime does not:
 The approved target table is `canonical_ohlcv`, as documented in `docs/data_contracts.md`.
 
 The approved writer boundary lives in `app/writers/ohlcv_writer.py`.
+
+## Verification Log
+
+- Successful live persistence and checkpoint verification were completed for `SPY` over `2025-01-02` to `2025-01-10`
+- `canonical_ohlcv` sequence drift was repaired in `ai-market-machine-data` before the successful run

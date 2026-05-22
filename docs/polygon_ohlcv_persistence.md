@@ -34,3 +34,11 @@ The command does not:
 - print secrets
 
 `ai-market-machine-data` remains the schema owner.
+
+## Verification Log
+
+- Live Polygon OHLCV persistence verification completed with:
+  - command: `python -m scripts.persist_polygon_ohlcv_incremental --symbol SPY --start-date 2025-01-02 --end-date 2025-01-10 --timeframe 1d --confirm-write --use-checkpoint --update-checkpoint`
+  - symbol summary: `symbol=SPY`, `requested_start_date=2025-01-02`, `effective_start_date=2025-01-02`, `rows_fetched=6`, `rows_valid=6`, `rows_invalid=0`, `rows_written=6`, `validation_failures=0`, `write_confirmed=true`, `status=completed`
+  - aggregate: `series_total=1`, `series_completed=1`, `series_failed=0`, `series_skipped=0`, `total_rows_written=6`
+- `canonical_ohlcv` sequence drift was repaired in `ai-market-machine-data` before successful persistence
