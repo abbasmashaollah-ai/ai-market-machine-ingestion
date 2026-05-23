@@ -40,7 +40,14 @@ Use this template to capture Polygon's official flat-file layout once it is obta
 
 ## Required credentials/env vars
 
--
+- `POLYGON_FLATFILE_ACCESS_KEY_ID`
+- `POLYGON_FLATFILE_SECRET_ACCESS_KEY`
+- `POLYGON_FLATFILE_BUCKET`
+- `POLYGON_FLATFILE_ENDPOINT`
+- `POLYGON_FLATFILE_REGION`
+- `POLYGON_FLATFILE_STORAGE_ROOT`
+
+See [Polygon Flat-File Config Readiness](polygon_flatfile_config_readiness.md) for the environment-presence diagnostic.
 
 ## Local storage policy
 

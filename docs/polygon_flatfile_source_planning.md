@@ -25,6 +25,8 @@ The current layout is provisional. No live flat-file discovery or download shoul
 
 Discovery dry-runs should use [Polygon Flat-File Discovery Planning](polygon_flatfile_discovery_planning.md) and must treat the candidate path layout as provisional until reconciled with the official Polygon flat-file layout. Use [Polygon Flat-File Layout Reconciliation](polygon_flatfile_layout_reconciliation.md) for the verification boundary. Use [Polygon Flat-File Official Layout Template](polygon_flatfile_official_layout_template.md) to capture the official path structure once obtained.
 
+Before any live path is enabled, use [Polygon Flat-File Config Readiness](polygon_flatfile_config_readiness.md) to confirm the expected environment variables are present without exposing their values.
+
 ## Safety
 
 The diagnostic does not:

@@ -34,6 +34,7 @@ class VerifyManualIngestionCommandsTests(unittest.TestCase):
         self.assertIn("scripts.persist_fred_macro_incremental", printed)
         self.assertIn("scripts.diagnose_polygon_flatfile_layout_readiness", printed)
         self.assertIn("scripts.diagnose_polygon_flatfile_official_layout_capture", printed)
+        self.assertIn("scripts.diagnose_polygon_flatfile_config_readiness", printed)
         self.assertNotIn("DATABASE_URL", printed)
         self.assertNotIn("FRED_API_KEY", printed)
 
@@ -52,6 +53,7 @@ class VerifyManualIngestionCommandsTests(unittest.TestCase):
         self.assertIn("scripts.persist_fred_macro_incremental", import_names)
         self.assertIn("scripts.diagnose_polygon_flatfile_layout_readiness", import_names)
         self.assertIn("scripts.diagnose_polygon_flatfile_official_layout_capture", import_names)
+        self.assertIn("scripts.diagnose_polygon_flatfile_config_readiness", import_names)
 
     def test_no_db_writes_or_scheduler_behavior(self) -> None:
         mod = self._module()

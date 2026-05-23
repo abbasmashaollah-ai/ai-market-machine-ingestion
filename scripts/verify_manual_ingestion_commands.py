@@ -25,6 +25,7 @@ MODULES = (
     "scripts.diagnose_polygon_flatfile_readiness",
     "scripts.diagnose_polygon_flatfile_layout_readiness",
     "scripts.diagnose_polygon_flatfile_official_layout_capture",
+    "scripts.diagnose_polygon_flatfile_config_readiness",
     "scripts.plan_polygon_flatfile_discovery",
     "scripts.run_polygon_ohlcv_daily_update",
     "scripts.run_polygon_ohlcv_chunked_backfill",
