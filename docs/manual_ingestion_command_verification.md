@@ -14,6 +14,7 @@ The script imports these manual command modules:
 - `scripts.persist_polygon_ohlcv_incremental`
 - `scripts.inspect_polygon_ohlcv_checkpoint`
 - `scripts.verify_polygon_ohlcv_rows`
+- `scripts.diagnose_ohlcv_overlap`
 
 It verifies each module exposes a callable `main()` entrypoint and prints a safe inventory line for each.
 
