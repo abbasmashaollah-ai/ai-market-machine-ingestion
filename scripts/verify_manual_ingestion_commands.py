@@ -13,6 +13,7 @@ MODULES = (
     "scripts.run_polygon_ohlcv_tiny_universe_check",
     "scripts.plan_polygon_ohlcv_backfill",
     "scripts.plan_polygon_ohlcv_daily_update",
+    "scripts.run_polygon_ohlcv_daily_update",
     "scripts.run_polygon_ohlcv_chunked_backfill",
     "scripts.inspect_ingestion_run_history",
     "scripts.inspect_data_quality_results",
