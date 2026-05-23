@@ -33,3 +33,4 @@ It does not:
   - `checkpoint_key=polygon:ohlcv:SPY:1d:2025-01-02:2025-01-10`
   - `status=completed`
   - `last_successful_observation_date=2025-01-10`
+- The matching persistence run completed successfully after the `canonical_ohlcv` sequence drift was repaired in `ai-market-machine-data`

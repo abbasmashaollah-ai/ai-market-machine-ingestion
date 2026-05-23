@@ -11,6 +11,7 @@ MODULES = (
     "scripts.dry_run_polygon_ohlcv_incremental",
     "scripts.persist_polygon_ohlcv_incremental",
     "scripts.inspect_polygon_ohlcv_checkpoint",
+    "scripts.verify_polygon_ohlcv_rows",
 )
 
 
