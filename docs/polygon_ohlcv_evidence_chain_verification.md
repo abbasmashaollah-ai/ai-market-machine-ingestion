@@ -27,7 +27,7 @@ Evidence lookups are explicit:
 
 ## Verification Log
 
-Live command:
+Live evidence-chain verification:
 
 `python -m scripts.verify_polygon_ohlcv_evidence_chain --symbol SPY --start-date 2025-01-02 --end-date 2025-01-10 --timeframe 1d`
 
@@ -36,6 +36,40 @@ Output:
 - `symbol=SPY`
 - `timeframe=1d`
 - `row_count=12`
+- `coverage_ratio=1.000`
+- `missing_dates=[]`
+- `latest_run_status=success`
+- `run_match_mode=fallback`
+- `quality_results_count=1`
+- `latest_quality_status=pass`
+- `quality_match_mode=fallback`
+- `lineage_rows_count=1`
+- `latest_lineage_quality_status=pass`
+- `lineage_match_mode=fallback`
+- `evidence_status=complete`
+
+`python -m scripts.verify_polygon_ohlcv_evidence_chain --symbol SPY --start-date 2025-01-10 --end-date 2025-01-14 --timeframe 1d`
+
+SPY output:
+
+- `row_count=4`
+- `coverage_ratio=1.000`
+- `missing_dates=[]`
+- `latest_run_status=success`
+- `run_match_mode=fallback`
+- `quality_results_count=2`
+- `latest_quality_status=pass`
+- `quality_match_mode=fallback`
+- `lineage_rows_count=2`
+- `latest_lineage_quality_status=pass`
+- `lineage_match_mode=fallback`
+- `evidence_status=complete`
+
+`python -m scripts.verify_polygon_ohlcv_evidence_chain --symbol QQQ --start-date 2025-01-10 --end-date 2025-01-14 --timeframe 1d`
+
+QQQ output:
+
+- `row_count=4`
 - `coverage_ratio=1.000`
 - `missing_dates=[]`
 - `latest_run_status=success`

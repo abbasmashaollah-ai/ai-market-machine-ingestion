@@ -40,4 +40,42 @@ The command does not:
 It fails safely before confirmed writes if `DATABASE_URL` is missing.
 It fails safely before existing-data checks if `DATABASE_URL` is missing and `--check-existing` is supplied.
 
+## Verification Log
+
+Live evidence-chain verification:
+
+`python -m scripts.verify_polygon_ohlcv_evidence_chain --symbol SPY --start-date 2025-01-10 --end-date 2025-01-14 --timeframe 1d`
+
+SPY output:
+
+- `row_count=4`
+- `coverage_ratio=1.000`
+- `missing_dates=[]`
+- `latest_run_status=success`
+- `run_match_mode=fallback`
+- `quality_results_count=2`
+- `latest_quality_status=pass`
+- `quality_match_mode=fallback`
+- `lineage_rows_count=2`
+- `latest_lineage_quality_status=pass`
+- `lineage_match_mode=fallback`
+- `evidence_status=complete`
+
+`python -m scripts.verify_polygon_ohlcv_evidence_chain --symbol QQQ --start-date 2025-01-10 --end-date 2025-01-14 --timeframe 1d`
+
+QQQ output:
+
+- `row_count=4`
+- `coverage_ratio=1.000`
+- `missing_dates=[]`
+- `latest_run_status=success`
+- `run_match_mode=fallback`
+- `quality_results_count=1`
+- `latest_quality_status=pass`
+- `quality_match_mode=fallback`
+- `lineage_rows_count=1`
+- `latest_lineage_quality_status=pass`
+- `lineage_match_mode=fallback`
+- `evidence_status=complete`
+
 `ai-market-machine-data` remains the schema owner.
