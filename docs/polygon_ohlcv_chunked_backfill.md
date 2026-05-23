@@ -54,4 +54,6 @@ If `--record-run` is supplied, the runner stores a single summary row in `ingest
 
 If `--record-quality` is supplied, the runner stores one compact quality summary row per processed chunk in `data_quality_results` when that contract is available. The quality row is informational and does not change whether the canonical writer is used or whether a chunk is accepted. If `--record-run` is also supplied, the quality row may include `run_id` and `job_id` when those columns exist.
 
+If `--record-lineage` is supplied, the runner stores one compact lineage row per processed chunk in `data_lineage` when that contract is available. The lineage row is informational and does not change whether the canonical writer is used or whether a chunk is accepted. If `--record-run` is also supplied, the lineage row may include `run_id` and `job_id` when those columns exist.
+
 `ai-market-machine-data` remains the schema owner.

@@ -519,6 +519,42 @@ class RunPolygonOhlcvChunkedBackfillTests(unittest.TestCase):
         self.assertEqual(open_connection_mock.call_count, 1)
         quality_store_cls.assert_called_once_with(fake_connection)
 
+    def test_record_lineage_routes_through_new_lineage_logic(self) -> None:
+        mod = self._module()
+        fake_connection = Mock()
+        fake_connection.execute.return_value.fetchall.return_value = []
+        with patch.dict(
+            os.environ,
+            {"POLYGON_API_KEY": "polygon-secret", "DATABASE_URL": "postgresql://user:pass@host/db"},
+            clear=True,
+        ), patch.object(mod, "load_local_env_if_available", return_value=False), patch.object(
+            mod, "_open_connection", return_value=fake_connection
+        ) as open_connection_mock, patch.object(mod, "ManualPolygonOHLCVCheckpointStore"), patch.object(
+            mod, "OhlcvWriter"
+        ), patch.object(mod, "DataLineageStore") as lineage_store_cls, patch.object(
+            mod, "build_manual_polygon_ohlcv_incremental", return_value=self._summary()
+        ), patch(
+            "builtins.print"
+        ), patch(
+            "sys.argv",
+            [
+                "run_polygon_ohlcv_chunked_backfill.py",
+                "--symbol",
+                "SPY",
+                "--start-date",
+                "2025-01-02",
+                "--end-date",
+                "2025-01-10",
+                "--chunk-days",
+                "3",
+                "--record-lineage",
+            ],
+        ):
+            mod.main()
+
+        self.assertEqual(open_connection_mock.call_count, 1)
+        lineage_store_cls.assert_called_once_with(fake_connection)
+
     def test_record_quality_requires_database_url(self) -> None:
         mod = self._module()
         with patch.dict(os.environ, {"POLYGON_API_KEY": "polygon-secret"}, clear=True), patch.object(
@@ -536,6 +572,28 @@ class RunPolygonOhlcvChunkedBackfillTests(unittest.TestCase):
                 "--chunk-days",
                 "3",
                 "--record-quality",
+            ],
+        ):
+            with self.assertRaises(RuntimeError):
+                mod.main()
+
+    def test_record_lineage_requires_database_url(self) -> None:
+        mod = self._module()
+        with patch.dict(os.environ, {"POLYGON_API_KEY": "polygon-secret"}, clear=True), patch.object(
+            mod, "load_local_env_if_available", return_value=False
+        ), patch(
+            "sys.argv",
+            [
+                "run_polygon_ohlcv_chunked_backfill.py",
+                "--symbol",
+                "SPY",
+                "--start-date",
+                "2025-01-02",
+                "--end-date",
+                "2025-01-10",
+                "--chunk-days",
+                "3",
+                "--record-lineage",
             ],
         ):
             with self.assertRaises(RuntimeError):
@@ -581,6 +639,33 @@ class RunPolygonOhlcvChunkedBackfillTests(unittest.TestCase):
         ):
             with self.assertRaises(RuntimeError):
                 mod.main()
+
+    def test_no_lineage_write_without_flag(self) -> None:
+        mod = self._module()
+        with patch.dict(os.environ, {"POLYGON_API_KEY": "polygon-secret"}, clear=True), patch.object(
+            mod, "load_local_env_if_available", return_value=False
+        ), patch.object(mod, "build_manual_polygon_ohlcv_incremental", return_value=self._summary()) as build_mock, patch.object(
+            mod, "DataLineageStore"
+        ) as lineage_store_cls, patch(
+            "builtins.print"
+        ), patch(
+            "sys.argv",
+            [
+                "run_polygon_ohlcv_chunked_backfill.py",
+                "--symbol",
+                "SPY",
+                "--start-date",
+                "2025-01-02",
+                "--end-date",
+                "2025-01-10",
+                "--chunk-days",
+                "3",
+            ],
+        ):
+            mod.main()
+
+        self.assertTrue(build_mock.called)
+        lineage_store_cls.assert_not_called()
 
     def test_source_has_no_schema_migration_scheduler_api_ai_behavior(self) -> None:
         source = Path(__file__).resolve().parents[2] / "scripts" / "run_polygon_ohlcv_chunked_backfill.py"

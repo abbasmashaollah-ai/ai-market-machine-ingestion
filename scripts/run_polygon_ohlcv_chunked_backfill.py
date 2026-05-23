@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import json
 import time
 from datetime import date, datetime, timezone
 
@@ -9,6 +10,7 @@ from app.ingestion.backfill.planner import split_date_range_into_chunks
 from app.market_calendar.us_market_calendar import expected_trading_days
 from app.ingestion.manual.polygon_ohlcv_incremental import build_manual_polygon_ohlcv_incremental
 from app.quality.validators import ValidationResult, ValidationSeverity, ValidationStatus
+from app.state.data_lineage_store import DataLineageStore
 from app.state.data_quality_result_store import DataQualityResultStore
 from app.state.ingestion_run_store import IngestionRunStore
 from app.state.errors import IngestionErrorRecord
@@ -86,6 +88,20 @@ def _run_id(start_date: date, end_date: date) -> str:
     return f"polygon-ohlcv-chunked-backfill:{start_date.isoformat()}:{end_date.isoformat()}"
 
 
+def _chunk_lineage_request_params(*, symbol: str, start_date: date, end_date: date, timeframe: str, chunk_days: int) -> str:
+    return json.dumps(
+        {
+            "symbol": symbol,
+            "start_date": start_date.isoformat(),
+            "end_date": end_date.isoformat(),
+            "timeframe": timeframe,
+            "chunk_days": chunk_days,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+
+
 def _final_run_status(*, chunks_completed: int, chunks_failed: int) -> RunStatus:
     if chunks_failed == 0:
         return RunStatus.SUCCESS
@@ -146,6 +162,7 @@ def main() -> int:
     parser.add_argument("--allow-over-budget", action="store_true", help="Proceed even if the estimated request budget is exceeded.")
     parser.add_argument("--record-run", action="store_true", help="Persist operational run history when the approved contract is available.")
     parser.add_argument("--record-quality", action="store_true", help="Persist compact quality outcomes when the approved contract is available.")
+    parser.add_argument("--record-lineage", action="store_true", help="Persist compact lineage rows when the approved contract is available.")
     parser.add_argument(
         "--sleep-seconds-between-chunks",
         type=float,
@@ -182,6 +199,8 @@ def main() -> int:
         raise RuntimeError("DATABASE_URL is required when --record-run is used")
     if args.record_quality and not database_url:
         raise RuntimeError("DATABASE_URL is required when --record-quality is used")
+    if args.record_lineage and not database_url:
+        raise RuntimeError("DATABASE_URL is required when --record-lineage is used")
 
     symbols = tuple(args.symbol) if args.symbol else DEFAULT_SYMBOLS
     if len(symbols) > args.max_symbols:
@@ -203,6 +222,7 @@ def main() -> int:
     run_store = None
     run_connection = None
     quality_connection = None
+    lineage_connection = None
     run_errors: list[IngestionErrorRecord] = []
     quality_records: list[tuple[str, str, object]] = []
     run_history_blocked = False
@@ -214,6 +234,10 @@ def main() -> int:
     if args.record_quality:
         quality_connection = _open_connection(database_url)  # type: ignore[arg-type]
         quality_store = DataQualityResultStore(quality_connection)
+    lineage_store = None
+    if args.record_lineage:
+        lineage_connection = _open_connection(database_url)  # type: ignore[arg-type]
+        lineage_store = DataLineageStore(lineage_connection)
     if request_budget_status == "exceeds_budget" and not args.allow_over_budget:
         print(
             f"status=blocked_over_budget "
@@ -277,6 +301,27 @@ def main() -> int:
                                 timeframe=args.timeframe,
                                 results=_build_quality_results(symbol=row.symbol, timeframe=args.timeframe, row=row),
                                 run_id=_run_id(start_date, end_date) if args.record_run else None,
+                            )
+                        if lineage_store is not None:
+                            lineage_store.save_chunk_lineage(
+                                vendor="polygon",
+                                dataset="ohlcv",
+                                symbol=row.symbol,
+                                timeframe=args.timeframe,
+                                source_endpoint="v2/aggs/ticker/{ticker}/range/{multiplier}/{timespan}/{from}/{to}",
+                                request_params=_chunk_lineage_request_params(
+                                    symbol=row.symbol,
+                                    start_date=chunk.start_date,
+                                    end_date=chunk.end_date,
+                                    timeframe=args.timeframe,
+                                    chunk_days=args.chunk_days,
+                                ),
+                                response_status=200 if row.status == "completed" else 500 if row.status == "failed" else 204,
+                                row_count=row.rows_fetched,
+                                normalization_version="polygon_ohlcv_normalization_v1",
+                                quality_status="pass" if row.status == "completed" else "fail" if row.status == "failed" else "warn",
+                                run_id=_run_id(start_date, end_date) if args.record_run else None,
+                                job_id="polygon_ohlcv_chunked_backfill" if args.record_run else None,
                             )
                         if row.status.startswith("skipped"):
                             chunks_skipped += 1
@@ -403,6 +448,8 @@ def main() -> int:
             run_connection.close()
         if quality_connection is not None and hasattr(quality_connection, "close"):
             quality_connection.close()
+        if lineage_connection is not None and hasattr(lineage_connection, "close"):
+            lineage_connection.close()
         if connection is not None and hasattr(connection, "close"):
             connection.close()
 

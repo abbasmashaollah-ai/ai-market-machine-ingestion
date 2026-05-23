@@ -17,6 +17,7 @@ The script imports these manual command modules:
 - `scripts.run_polygon_ohlcv_chunked_backfill`
 - `scripts.inspect_polygon_ohlcv_checkpoint`
 - `scripts.verify_polygon_ohlcv_rows`
+- `scripts.inspect_data_lineage`
 - `scripts.diagnose_ohlcv_overlap`
 - `scripts.diagnose_ohlcv_coverage`
 - `scripts.fill_polygon_ohlcv_gaps`
@@ -31,6 +32,7 @@ The script does not:
 - require `DATABASE_URL`
 - call vendors
 - write to the database
+- write lineage data
 - schedule work
 - run ingestion
 - persist checkpoints
