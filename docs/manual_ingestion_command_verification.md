@@ -14,6 +14,7 @@ The script imports these manual command modules:
 - `scripts.persist_polygon_ohlcv_incremental`
 - `scripts.run_polygon_ohlcv_tiny_universe_check`
 - `scripts.plan_polygon_ohlcv_backfill`
+- `scripts.plan_polygon_ohlcv_daily_update`
 - `scripts.run_polygon_ohlcv_chunked_backfill`
 - `scripts.inspect_polygon_ohlcv_checkpoint`
 - `scripts.verify_polygon_ohlcv_rows`
