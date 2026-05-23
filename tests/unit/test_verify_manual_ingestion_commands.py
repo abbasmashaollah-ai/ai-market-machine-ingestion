@@ -40,6 +40,7 @@ class VerifyManualIngestionCommandsTests(unittest.TestCase):
         self.assertIn("scripts.diagnose_polygon_flatfile_integrity_readiness", printed)
         self.assertIn("scripts.diagnose_polygon_flatfile_quarantine_readiness", printed)
         self.assertIn("scripts.diagnose_polygon_flatfile_parse_readiness", printed)
+        self.assertIn("scripts.diagnose_polygon_flatfile_download_readiness", printed)
         self.assertNotIn("DATABASE_URL", printed)
         self.assertNotIn("FRED_API_KEY", printed)
 
@@ -64,6 +65,7 @@ class VerifyManualIngestionCommandsTests(unittest.TestCase):
         self.assertIn("scripts.diagnose_polygon_flatfile_integrity_readiness", import_names)
         self.assertIn("scripts.diagnose_polygon_flatfile_quarantine_readiness", import_names)
         self.assertIn("scripts.diagnose_polygon_flatfile_parse_readiness", import_names)
+        self.assertIn("scripts.diagnose_polygon_flatfile_download_readiness", import_names)
 
     def test_no_db_writes_or_scheduler_behavior(self) -> None:
         mod = self._module()

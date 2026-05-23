@@ -10,6 +10,7 @@ This document defines the manifest shape that will bridge flat-file storage and 
 - manifest should feed those stores later
 - manifest must record integrity status
 - manifest must record quarantine status and reason
+- manifest planning is required before download enablement
 
 ## Planned fields
 
@@ -46,5 +47,7 @@ This planning document does not:
 - add AI, trading, risk, signal, regime, portfolio, strategy, or prediction logic
 
 Integrity policy is defined in [Polygon Flat-File Integrity Policy](polygon_flatfile_integrity_policy.md).
+
+Download planning is defined in [Polygon Flat-File Download Planning](polygon_flatfile_download_planning.md).
 
 `ai-market-machine-data` remains the schema owner.

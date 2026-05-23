@@ -37,6 +37,8 @@ Before any retry or replay behavior exists, define [Polygon Flat-File Quarantine
 
 Before any parser implementation exists, define [Polygon Flat-File Parse Planning](polygon_flatfile_parse_planning.md). Parse dry-run comes after download dry-run and integrity pass, and parse failures must route to quarantine.
 
+Before any download implementation exists, define [Polygon Flat-File Download Planning](polygon_flatfile_download_planning.md). Download dry-run comes after official layout verification and discovery planning.
+
 ## Safety
 
 The diagnostic does not:

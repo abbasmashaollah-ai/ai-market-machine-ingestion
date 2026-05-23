@@ -9,6 +9,9 @@ This document defines the parse dry-run boundary for Polygon flat files.
 - parser must not create a separate canonical path
 - parse failures go to quarantine
 - persistence comes only after parse dry-run plus validation and evidence-design
+- parse happens only after integrity passes
+
+Download planning is defined in [Polygon Flat-File Download Planning](polygon_flatfile_download_planning.md).
 
 ## Planned parser contract
 

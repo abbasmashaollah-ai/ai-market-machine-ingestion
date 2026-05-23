@@ -26,6 +26,8 @@ See [Polygon Flat-File Quarantine Policy](polygon_flatfile_quarantine_policy.md)
 
 Parse dry-run only follows after integrity pass.
 
+Download planning is defined in [Polygon Flat-File Download Planning](polygon_flatfile_download_planning.md).
+
 ## Safety
 
 This policy does not:

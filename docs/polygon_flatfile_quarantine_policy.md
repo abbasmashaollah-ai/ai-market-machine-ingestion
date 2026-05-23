@@ -12,6 +12,8 @@ This document defines how invalid flat files are isolated before any parse or pe
 
 Parse failures must route to quarantine before any persistence path is considered.
 
+Download planning is defined in [Polygon Flat-File Download Planning](polygon_flatfile_download_planning.md).
+
 ## Reason codes
 
 - `checksum_failed`

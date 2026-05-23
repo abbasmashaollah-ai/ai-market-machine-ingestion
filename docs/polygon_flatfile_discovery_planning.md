@@ -23,6 +23,8 @@ This must be reconciled against Polygon's official flat-file layout before any l
 
 Use [Polygon Flat-File Layout Reconciliation](polygon_flatfile_layout_reconciliation.md) before any live discovery work.
 
+Download dry-run planning is defined in [Polygon Flat-File Download Planning](polygon_flatfile_download_planning.md) and only follows official layout verification.
+
 ## Safety
 
 The planner does not:
