@@ -4,6 +4,7 @@ import argparse
 import os
 from datetime import date, timedelta
 
+from app.market_calendar.us_market_calendar import expected_trading_days
 from scripts.persist_fred_macro import _open_connection, load_local_env_if_available
 
 
@@ -54,13 +55,7 @@ def _exclusive_end_date(end_date: date) -> date:
 
 
 def _expected_weekdays(start_date: date, end_date: date) -> list[date]:
-    days: list[date] = []
-    current = start_date
-    while current <= end_date:
-        if current.weekday() < 5:
-            days.append(current)
-        current += timedelta(days=1)
-    return days
+    return expected_trading_days(start_date, end_date)
 
 
 def calculate_coverage(
@@ -76,12 +71,13 @@ def calculate_coverage(
         if row.get("timestamp") is not None
     ])
     observed_dates = [value for value in observed_dates if isinstance(value, date)]
+    observed_expected_dates = [day for day in expected_weekdays if day in observed_dates]
     missing_weekdays = [day for day in expected_weekdays if day not in observed_dates]
     return {
         "expected_weekdays": expected_weekdays,
         "observed_dates": observed_dates,
         "missing_weekdays": missing_weekdays,
-        "coverage_ratio": (len(observed_dates) / len(expected_weekdays)) if expected_weekdays else 0.0,
+        "coverage_ratio": (len(observed_expected_dates) / len(expected_weekdays)) if expected_weekdays else 0.0,
     }
 
 

@@ -27,7 +27,7 @@ It does not:
 
 ### Limitation
 
-The coverage calculation excludes weekends only. Exchange holidays are not handled yet and may appear as missing weekdays.
+The coverage calculation excludes weekends and a small explicit list of known closures for now. It is not yet a complete exchange calendar and should not be treated as authoritative for future holidays.
 
 `ai-market-machine-data` remains the schema owner.
 

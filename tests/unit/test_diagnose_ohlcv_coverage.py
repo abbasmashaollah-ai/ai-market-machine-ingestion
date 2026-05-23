@@ -22,7 +22,7 @@ class DiagnoseOhlcvCoverageTests(unittest.TestCase):
     def test_expected_weekday_calculation(self) -> None:
         mod = self._module()
         days = mod._expected_weekdays(date(2025, 1, 2), date(2025, 1, 10))
-        self.assertEqual([day.isoformat() for day in days], ["2025-01-02", "2025-01-03", "2025-01-06", "2025-01-07", "2025-01-08", "2025-01-09", "2025-01-10"])
+        self.assertEqual([day.isoformat() for day in days], ["2025-01-02", "2025-01-03", "2025-01-06", "2025-01-07", "2025-01-08", "2025-01-10"])
 
     def test_full_coverage(self) -> None:
         mod = self._module()
@@ -58,7 +58,7 @@ class DiagnoseOhlcvCoverageTests(unittest.TestCase):
             mod.main()
 
         printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
-        self.assertIn("expected_weekdays=7", printed)
+        self.assertIn("expected_weekdays=6", printed)
         self.assertIn("missing_weekdays=[]", printed)
         self.assertIn("coverage_ratio=1.000", printed)
         self.assertIn("source_filter=None", printed)
@@ -93,8 +93,8 @@ class DiagnoseOhlcvCoverageTests(unittest.TestCase):
             mod.main()
 
         printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
-        self.assertIn("missing_weekdays=[2025-01-06, 2025-01-08, 2025-01-09, 2025-01-10]", printed)
-        self.assertIn("coverage_ratio=0.429", printed)
+        self.assertIn("missing_weekdays=[2025-01-06, 2025-01-08, 2025-01-10]", printed)
+        self.assertIn("coverage_ratio=0.500", printed)
 
     def test_source_filtered_coverage(self) -> None:
         mod = self._module()

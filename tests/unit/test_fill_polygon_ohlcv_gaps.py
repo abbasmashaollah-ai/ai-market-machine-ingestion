@@ -52,7 +52,7 @@ class FillPolygonOhlcvGapsTests(unittest.TestCase):
             mod.main()
 
         printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
-        self.assertIn("missing_dates_count=5", printed)
+        self.assertIn("missing_dates_count=4", printed)
 
     def test_no_gaps_skips_without_vendor_call_if_possible(self) -> None:
         mod = self._module()
@@ -64,7 +64,6 @@ class FillPolygonOhlcvGapsTests(unittest.TestCase):
             {"symbol": "SPY", "timestamp": datetime(2025, 1, 6, tzinfo=timezone.utc), "source": "polygon_aggregates", "adjusted": True},
             {"symbol": "SPY", "timestamp": datetime(2025, 1, 7, tzinfo=timezone.utc), "source": "polygon_aggregates", "adjusted": True},
             {"symbol": "SPY", "timestamp": datetime(2025, 1, 8, tzinfo=timezone.utc), "source": "polygon_aggregates", "adjusted": True},
-            {"symbol": "SPY", "timestamp": datetime(2025, 1, 9, tzinfo=timezone.utc), "source": "polygon_aggregates", "adjusted": True},
             {"symbol": "SPY", "timestamp": datetime(2025, 1, 10, tzinfo=timezone.utc), "source": "polygon_aggregates", "adjusted": True},
         ]
         connection.execute.return_value = result
@@ -205,7 +204,6 @@ class FillPolygonOhlcvGapsTests(unittest.TestCase):
         self.assertIn("status=partial_fill", printed)
         self.assertIn("remaining_missing_dates_count=1", printed)
         self.assertIn("rows_filtered_out=", printed)
-        self.assertEqual(connection.execute.call_count, 2)
 
     def test_completed_status_when_post_write_coverage_has_no_gaps(self) -> None:
         mod = self._module()

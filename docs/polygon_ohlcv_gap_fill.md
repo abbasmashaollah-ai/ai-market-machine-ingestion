@@ -29,7 +29,7 @@ It does not:
 
 ### Limitation
 
-The gap calculation excludes weekends only. Exchange holidays are not handled yet.
+The gap calculation excludes weekends and a small explicit list of known closures for now. It is not yet a complete exchange calendar.
 
 `ai-market-machine-data` remains the schema owner.
 

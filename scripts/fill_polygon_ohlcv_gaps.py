@@ -4,6 +4,7 @@ import argparse
 import os
 from datetime import date, datetime, timedelta, timezone
 
+from app.market_calendar.us_market_calendar import expected_trading_days
 from app.ingestion.manual.polygon_ohlcv_incremental import _build_polygon_client, _normalize_and_validate
 from app.writers.ohlcv_writer import OhlcvWriter
 from scripts.diagnose_ohlcv_coverage import calculate_coverage
@@ -57,13 +58,7 @@ def _exclusive_end_date(end_date: date) -> date:
 
 
 def _expected_weekdays(start_date: date, end_date: date) -> list[date]:
-    days: list[date] = []
-    current = start_date
-    while current <= end_date:
-        if current.weekday() < 5:
-            days.append(current)
-        current += timedelta(days=1)
-    return days
+    return expected_trading_days(start_date, end_date)
 
 
 def _observed_dates(rows: list[dict[str, object]]) -> list[date]:
