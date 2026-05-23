@@ -13,6 +13,7 @@ The command:
 - accepts `--timeframe`
 - uses the market calendar helper to compute expected trading days
 - can optionally read existing `canonical_ohlcv` coverage when `--check-existing` is passed and `DATABASE_URL` is present
+- supports optional `--source` and `--adjusted true|false|all` filters for existing coverage checks
 - prints safe planning summaries only
 - never calls Polygon
 - never writes to the database
@@ -28,9 +29,23 @@ The command prints:
 - `expected_trading_days`
 - `estimated_vendor_requests`
 - `per_symbol_expected_rows`
+- `per_symbol_existing_dates` when `--check-existing` is active and the database is available
 - `per_symbol_missing_rows` when `--check-existing` is active and the database is available
+- `per_symbol_missing_dates` when `--check-existing` is active and the database is available
 - `total_expected_rows`
 - `total_missing_rows` when `--check-existing` is active and the database is available
+
+## Existing Coverage Semantics
+
+When `--check-existing` is active:
+
+- if `--source` is omitted, any source counts for a symbol/date/timeframe
+- if `--source` is provided, only that source counts
+- if `--adjusted all` is used, either adjusted variant counts
+- if `--adjusted true` is used, only `adjusted=true` counts
+- if `--adjusted false` is used, only `adjusted=false` counts
+
+The command uses the same exclusive end-date convention and market calendar helper as the coverage diagnostics.
 
 ## Safety
 

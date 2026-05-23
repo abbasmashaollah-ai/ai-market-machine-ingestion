@@ -90,7 +90,7 @@ class PlanPolygonOhlcvBackfillTests(unittest.TestCase):
     def test_exclusive_end_date_behavior(self) -> None:
         mod = self._module()
         fake_connection = Mock()
-        fake_connection.execute.return_value.fetchall.return_value = [{"timestamp": date(2025, 1, 2)}]
+        fake_connection.execute.return_value.fetchall.return_value = [{"timestamp": date(2025, 1, 2), "source": "polygon_aggregates", "adjusted": True}]
         with patch.dict(os.environ, {"DATABASE_URL": "postgresql://example/db"}, clear=True), patch.object(
             mod, "load_local_env_if_available", return_value=False
         ), patch.object(mod, "_open_connection", return_value=fake_connection), patch.object(mod, "expected_trading_days", return_value=[date(2025, 1, 2)]) as calendar_mock, patch(
@@ -113,11 +113,18 @@ class PlanPolygonOhlcvBackfillTests(unittest.TestCase):
         self.assertEqual(fake_connection.execute.call_args.args[1][2], date(2025, 1, 11))
         calendar_mock.assert_called_once()
 
-    def test_no_polygon_api_key_required(self) -> None:
+    def test_source_omitted_counts_any_source(self) -> None:
         mod = self._module()
-        with patch.dict(os.environ, {}, clear=True), patch.object(mod, "load_local_env_if_available", return_value=False), patch(
+        fake_connection = Mock()
+        fake_connection.execute.return_value.fetchall.return_value = [
+            {"timestamp": date(2025, 1, 2), "source": "polygon_aggregates", "adjusted": True},
+            {"timestamp": date(2025, 1, 3), "source": "other_source", "adjusted": False},
+        ]
+        with patch.dict(os.environ, {"DATABASE_URL": "postgresql://example/db"}, clear=True), patch.object(
+            mod, "load_local_env_if_available", return_value=False
+        ), patch.object(mod, "_open_connection", return_value=fake_connection), patch.object(mod, "expected_trading_days", return_value=[date(2025, 1, 2), date(2025, 1, 3)]), patch(
             "builtins.print"
-        ), patch(
+        ) as print_mock, patch(
             "sys.argv",
             [
                 "plan_polygon_ohlcv_backfill.py",
@@ -127,16 +134,143 @@ class PlanPolygonOhlcvBackfillTests(unittest.TestCase):
                 "2025-01-02",
                 "--end-date",
                 "2025-01-10",
+                "--check-existing",
             ],
         ):
-            exit_code = mod.main()
+            mod.main()
 
-        self.assertEqual(exit_code, 0)
+        printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
+        self.assertIn("per_symbol_existing_dates=[2025-01-02, 2025-01-03]", printed)
+        self.assertIn("per_symbol_missing_rows=0", printed)
+
+    def test_source_provided_counts_only_that_source(self) -> None:
+        mod = self._module()
+        fake_connection = Mock()
+        fake_connection.execute.return_value.fetchall.return_value = [
+            {"timestamp": date(2025, 1, 2), "source": "polygon_aggregates", "adjusted": True},
+            {"timestamp": date(2025, 1, 3), "source": "other_source", "adjusted": True},
+        ]
+        with patch.dict(os.environ, {"DATABASE_URL": "postgresql://example/db"}, clear=True), patch.object(
+            mod, "load_local_env_if_available", return_value=False
+        ), patch.object(mod, "_open_connection", return_value=fake_connection), patch.object(mod, "expected_trading_days", return_value=[date(2025, 1, 2), date(2025, 1, 3)]), patch(
+            "builtins.print"
+        ) as print_mock, patch(
+            "sys.argv",
+            [
+                "plan_polygon_ohlcv_backfill.py",
+                "--symbol",
+                "SPY",
+                "--start-date",
+                "2025-01-02",
+                "--end-date",
+                "2025-01-10",
+                "--check-existing",
+                "--source",
+                "polygon_aggregates",
+            ],
+        ):
+            mod.main()
+
+        printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
+        self.assertIn("source_filter=polygon_aggregates", printed)
+        self.assertIn("per_symbol_existing_dates=[2025-01-02]", printed)
+        self.assertIn("per_symbol_missing_rows=1", printed)
+
+    def test_adjusted_all_counts_either_variant(self) -> None:
+        mod = self._module()
+        fake_connection = Mock()
+        fake_connection.execute.return_value.fetchall.return_value = [
+            {"timestamp": date(2025, 1, 2), "source": "polygon_aggregates", "adjusted": True},
+            {"timestamp": date(2025, 1, 3), "source": "polygon_aggregates", "adjusted": False},
+        ]
+        with patch.dict(os.environ, {"DATABASE_URL": "postgresql://example/db"}, clear=True), patch.object(
+            mod, "load_local_env_if_available", return_value=False
+        ), patch.object(mod, "_open_connection", return_value=fake_connection), patch.object(mod, "expected_trading_days", return_value=[date(2025, 1, 2), date(2025, 1, 3)]), patch(
+            "builtins.print"
+        ) as print_mock, patch(
+            "sys.argv",
+            [
+                "plan_polygon_ohlcv_backfill.py",
+                "--symbol",
+                "SPY",
+                "--start-date",
+                "2025-01-02",
+                "--end-date",
+                "2025-01-10",
+                "--check-existing",
+                "--adjusted",
+                "all",
+            ],
+        ):
+            mod.main()
+
+        printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
+        self.assertIn("adjusted_filter=all", printed)
+        self.assertIn("per_symbol_missing_rows=0", printed)
+
+    def test_adjusted_true_false_filter_correctly(self) -> None:
+        mod = self._module()
+        fake_connection = Mock()
+        fake_connection.execute.return_value.fetchall.return_value = [
+            {"timestamp": date(2025, 1, 2), "source": "polygon_aggregates", "adjusted": True},
+            {"timestamp": date(2025, 1, 3), "source": "polygon_aggregates", "adjusted": False},
+        ]
+        with patch.dict(os.environ, {"DATABASE_URL": "postgresql://example/db"}, clear=True), patch.object(
+            mod, "load_local_env_if_available", return_value=False
+        ), patch.object(mod, "_open_connection", return_value=fake_connection), patch.object(mod, "expected_trading_days", return_value=[date(2025, 1, 2), date(2025, 1, 3)]), patch(
+            "builtins.print"
+        ) as print_mock, patch(
+            "sys.argv",
+            [
+                "plan_polygon_ohlcv_backfill.py",
+                "--symbol",
+                "SPY",
+                "--start-date",
+                "2025-01-02",
+                "--end-date",
+                "2025-01-10",
+                "--check-existing",
+                "--adjusted",
+                "true",
+            ],
+        ):
+            mod.main()
+
+        printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
+        self.assertIn("adjusted_filter=True", printed)
+        self.assertIn("per_symbol_existing_dates=[2025-01-02]", printed)
+        self.assertIn("per_symbol_missing_rows=1", printed)
+
+        with patch.dict(os.environ, {"DATABASE_URL": "postgresql://example/db"}, clear=True), patch.object(
+            mod, "load_local_env_if_available", return_value=False
+        ), patch.object(mod, "_open_connection", return_value=fake_connection), patch.object(mod, "expected_trading_days", return_value=[date(2025, 1, 2), date(2025, 1, 3)]), patch(
+            "builtins.print"
+        ) as print_mock_false, patch(
+            "sys.argv",
+            [
+                "plan_polygon_ohlcv_backfill.py",
+                "--symbol",
+                "SPY",
+                "--start-date",
+                "2025-01-02",
+                "--end-date",
+                "2025-01-10",
+                "--check-existing",
+                "--adjusted",
+                "false",
+            ],
+        ):
+            mod.main()
+
+        printed_false = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock_false.mock_calls)
+        self.assertIn("adjusted_filter=False", printed_false)
+        self.assertIn("per_symbol_existing_dates=[2025-01-03]", printed_false)
+        self.assertIn("per_symbol_missing_rows=1", printed_false)
 
     def test_check_existing_reads_db_coverage_when_database_present(self) -> None:
         mod = self._module()
         fake_connection = Mock()
-        fake_connection.execute.return_value.fetchall.return_value = [{"timestamp": date(2025, 1, 2)}]
+        fake_connection.execute.return_value.fetchall.return_value = [{"timestamp": date(2025, 1, 2), "source": "polygon_aggregates", "adjusted": True}]
         with patch.dict(os.environ, {"DATABASE_URL": "postgresql://example/db"}, clear=True), patch.object(
             mod, "load_local_env_if_available", return_value=False
         ), patch.object(mod, "_open_connection", return_value=fake_connection) as open_connection_mock, patch.object(
@@ -161,6 +295,7 @@ class PlanPolygonOhlcvBackfillTests(unittest.TestCase):
         open_connection_mock.assert_called_once()
         printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
         self.assertIn("per_symbol_missing_rows=1", printed)
+        self.assertIn("total_missing_rows=1", printed)
         self.assertIn("total_missing_rows=1", printed)
 
     def test_no_db_writes(self) -> None:

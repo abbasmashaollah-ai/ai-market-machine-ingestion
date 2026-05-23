@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 import os
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from app.market_calendar.us_market_calendar import expected_trading_days
 from scripts.persist_fred_macro import _open_connection, load_local_env_if_available
@@ -47,7 +47,7 @@ def _exclusive_end_date(end_date: date) -> date:
 
 def _build_coverage_query() -> str:
     return (
-        "SELECT timestamp "
+        "SELECT timestamp, source, adjusted "
         "FROM canonical_ohlcv "
         "WHERE symbol = %s AND timestamp >= %s AND timestamp < %s AND timeframe = %s "
         "ORDER BY timestamp ASC"
@@ -58,6 +58,11 @@ def _observed_dates(rows: list[dict[str, object]]) -> list[date]:
     observed: list[date] = []
     for row in rows:
         timestamp = row.get("timestamp")
+        if isinstance(timestamp, datetime):
+            value = timestamp.date()
+            if value not in observed:
+                observed.append(value)
+            continue
         if isinstance(timestamp, date):
             value = timestamp
             if value not in observed:
@@ -70,12 +75,43 @@ def _observed_dates(rows: list[dict[str, object]]) -> list[date]:
     return observed
 
 
+def _format_dates(values: list[date]) -> str:
+    return "[" + ", ".join(value.isoformat() for value in values) + "]" if values else "[]"
+
+
+def _parse_adjusted_filter(value: str | None) -> bool | None:
+    if value is None or value == "all":
+        return None
+    normalized = value.lower()
+    if normalized in {"true", "1", "yes"}:
+        return True
+    if normalized in {"false", "0", "no"}:
+        return False
+    raise ValueError("--adjusted must be true, false, or all")
+
+
 def _coverage_for_symbol(
     *,
     rows: list[dict[str, object]],
     expected_dates: list[date],
+    source_filter: str | None,
+    adjusted_filter: bool | None,
 ) -> tuple[list[date], list[date]]:
-    observed = set(_observed_dates(rows))
+    observed: set[date] = set()
+    for row in rows:
+        row_source = row.get("source")
+        row_adjusted = row.get("adjusted")
+        if source_filter is not None and row_source != source_filter:
+            continue
+        if adjusted_filter is not None and row_adjusted is not adjusted_filter:
+            continue
+        timestamp = row.get("timestamp")
+        if isinstance(timestamp, datetime):
+            observed.add(timestamp.date())
+        elif isinstance(timestamp, date):
+            observed.add(timestamp)
+        elif hasattr(timestamp, "date"):
+            observed.add(timestamp.date())
     missing_dates = [day for day in expected_dates if day not in observed]
     present_dates = [day for day in expected_dates if day in observed]
     return present_dates, missing_dates
@@ -88,16 +124,24 @@ def _print_symbol_summary(
     start_date: date,
     end_date: date,
     expected_rows: int,
-    missing_rows: int | None,
+    existing_dates: list[date] | None,
+    missing_dates: list[date] | None,
+    source_filter: str | None,
+    adjusted_filter: bool | None,
 ) -> None:
     extras = ""
-    if missing_rows is not None:
-        extras = f" per_symbol_missing_rows={missing_rows}"
+    if existing_dates is not None:
+        extras += f" per_symbol_existing_dates={_format_dates(existing_dates)}"
+    if missing_dates is not None:
+        extras += f" per_symbol_missing_dates={_format_dates(missing_dates)}"
+        extras += f" per_symbol_missing_rows={len(missing_dates)}"
     print(
         f"symbol={symbol} "
         f"timeframe={timeframe} "
         f"start_date={start_date.isoformat()} "
         f"end_date={end_date.isoformat()} "
+        f"source_filter={source_filter if source_filter is not None else 'None'} "
+        f"adjusted_filter={adjusted_filter if adjusted_filter is not None else 'all'} "
         f"per_symbol_expected_rows={expected_rows}{extras}"
     )
 
@@ -109,6 +153,8 @@ def main() -> int:
     parser.add_argument("--end-date", required=True, help="End date in YYYY-MM-DD format.")
     parser.add_argument("--timeframe", default="1d", help="Timeframe, default 1d.")
     parser.add_argument("--check-existing", action="store_true", help="Read existing coverage if DATABASE_URL is available.")
+    parser.add_argument("--source", help="Optional source filter for existing coverage.")
+    parser.add_argument("--adjusted", default="all", help="Adjusted filter: true, false, or all. Default all.")
     args = parser.parse_args()
 
     load_local_env_if_available()
@@ -118,9 +164,11 @@ def main() -> int:
     expected_dates = expected_trading_days(start_date, end_date)
     expected_rows = len(expected_dates)
     estimated_vendor_requests = expected_rows * len(symbols)
+    adjusted_filter = _parse_adjusted_filter(args.adjusted)
     database_url = os.getenv("DATABASE_URL")
 
-    per_symbol_missing: dict[str, int] = {}
+    per_symbol_existing: dict[str, list[date]] = {}
+    per_symbol_missing: dict[str, list[date]] = {}
     if args.check_existing and database_url:
         connection = None
         try:
@@ -128,28 +176,41 @@ def main() -> int:
             query = _build_coverage_query()
             for symbol in symbols:
                 rows = _fetch_all(connection, query, (symbol, start_date, _exclusive_end_date(end_date), args.timeframe))
-                _, missing_dates = _coverage_for_symbol(rows=rows, expected_dates=expected_dates)
-                per_symbol_missing[symbol] = len(missing_dates)
+                existing_dates, missing_dates = _coverage_for_symbol(
+                    rows=rows,
+                    expected_dates=expected_dates,
+                    source_filter=args.source,
+                    adjusted_filter=adjusted_filter,
+                )
+                per_symbol_existing[symbol] = existing_dates
+                per_symbol_missing[symbol] = missing_dates
         finally:
             if connection is not None and hasattr(connection, "close"):
                 connection.close()
 
     for symbol in symbols:
+        existing_dates = per_symbol_existing.get(symbol) if per_symbol_existing else None
+        missing_dates = per_symbol_missing.get(symbol) if per_symbol_missing else None
         _print_symbol_summary(
             symbol=symbol,
             timeframe=args.timeframe,
             start_date=start_date,
             end_date=end_date,
             expected_rows=expected_rows,
-            missing_rows=per_symbol_missing.get(symbol) if per_symbol_missing else None,
+            existing_dates=existing_dates,
+            missing_dates=missing_dates,
+            source_filter=args.source,
+            adjusted_filter=adjusted_filter,
         )
 
-    total_missing_rows = sum(per_symbol_missing.get(symbol, 0) for symbol in symbols) if per_symbol_missing else None
+    total_missing_rows = sum(len(per_symbol_missing.get(symbol, [])) for symbol in symbols) if per_symbol_missing else None
     print(
         f"symbols_total={len(symbols)} "
         f"timeframe={args.timeframe} "
         f"start_date={start_date.isoformat()} "
         f"end_date={end_date.isoformat()} "
+        f"source_filter={args.source if args.source is not None else 'None'} "
+        f"adjusted_filter={adjusted_filter if adjusted_filter is not None else 'all'} "
         f"expected_trading_days={expected_rows} "
         f"estimated_vendor_requests={estimated_vendor_requests} "
         f"per_symbol_expected_rows={expected_rows} "
