@@ -18,6 +18,7 @@ MODULES = (
     "scripts.preflight_polygon_ohlcv_operations",
     "scripts.verify_polygon_preflight_recommendations",
     "scripts.generate_polygon_ohlcv_operator_runbook",
+    "scripts.run_polygon_ohlcv_scheduler_cycle",
     "scripts.run_polygon_ohlcv_daily_update",
     "scripts.run_polygon_ohlcv_chunked_backfill",
     "scripts.inspect_ingestion_run_history",
