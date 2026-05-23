@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import time
 from datetime import date
 
 from app.ingestion.backfill.planner import split_date_range_into_chunks
@@ -15,6 +16,8 @@ from scripts.persist_fred_macro import load_local_env_if_available
 DEFAULT_SYMBOLS = ("SPY", "QQQ", "IWM")
 DEFAULT_MAX_SYMBOLS = 3
 DEFAULT_MAX_CHUNKS = 6
+DEFAULT_SLEEP_SECONDS_BETWEEN_CHUNKS = 2.0
+DEFAULT_MAX_RATE_LIMIT_FAILURES = 1
 
 
 def _parse_date(value: str) -> date:
@@ -48,6 +51,18 @@ def _print_summary(*, symbols_total: int, chunks_total: int, chunks_completed: i
     )
 
 
+def _is_rate_limit_failure(error_message: str | None) -> bool:
+    if not error_message:
+        return False
+    lowered = error_message.lower()
+    return "429" in lowered or "rate limit" in lowered or "ratelimit" in lowered
+
+
+def _sleep_between_chunks(seconds: float, *, dry_run_no_sleep: bool) -> None:
+    if seconds > 0 and not dry_run_no_sleep:
+        time.sleep(seconds)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run a manual chunked Polygon OHLCV backfill for a tiny universe.")
     parser.add_argument("--symbol", action="append", help="Ticker symbol. Defaults to SPY, QQQ, IWM.")
@@ -58,6 +73,29 @@ def main() -> int:
     parser.add_argument("--confirm-write", action="store_true", help="Actually write valid rows through the approved writer.")
     parser.add_argument("--max-symbols", type=int, default=DEFAULT_MAX_SYMBOLS, help="Safety cap for symbol count.")
     parser.add_argument("--max-chunks", type=int, default=DEFAULT_MAX_CHUNKS, help="Safety cap for chunk count.")
+    parser.add_argument(
+        "--sleep-seconds-between-chunks",
+        type=float,
+        default=DEFAULT_SLEEP_SECONDS_BETWEEN_CHUNKS,
+        help="Sleep between chunks, default 2.",
+    )
+    parser.add_argument(
+        "--stop-on-rate-limit",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Stop after first rate limit failure; use --no-stop-on-rate-limit to continue.",
+    )
+    parser.add_argument(
+        "--max-rate-limit-failures",
+        type=int,
+        default=DEFAULT_MAX_RATE_LIMIT_FAILURES,
+        help="Maximum rate-limit failures before stopping, default 1.",
+    )
+    parser.add_argument(
+        "--dry-run-no-sleep",
+        action="store_true",
+        help="Disable sleeping between chunks for tests and local dry runs.",
+    )
     args = parser.parse_args()
 
     load_local_env_if_available()
@@ -83,6 +121,9 @@ def main() -> int:
     chunks_skipped = 0
     total_rows_fetched = 0
     total_rows_written = 0
+    rate_limit_failures = 0
+    stopped_due_to_rate_limit = False
+    chunks_not_run = 0
     connection = None
     checkpoint_store = None
     writer = None
@@ -93,7 +134,11 @@ def main() -> int:
             writer = OhlcvWriter(connection)
 
         for symbol in symbols:
+            stop_symbol = False
             for chunk in chunks:
+                if stop_symbol or stopped_due_to_rate_limit:
+                    chunks_not_run += 1
+                    continue
                 try:
                     summary = build_manual_polygon_ohlcv_incremental(
                         symbols=(symbol,),
@@ -120,15 +165,29 @@ def main() -> int:
                         chunks_completed += 1
                     total_rows_fetched += row.rows_fetched
                     total_rows_written += row.rows_written
+                    if row.status == "failed" and _is_rate_limit_failure(row.error_message):
+                        rate_limit_failures += 1
+                        if rate_limit_failures >= args.max_rate_limit_failures:
+                            stopped_due_to_rate_limit = True
+                        if args.stop_on_rate_limit:
+                            stop_symbol = True
                 except Exception as exc:
                     chunks_failed += 1
+                    error_message = f"{exc.__class__.__name__}: {exc}"
+                    if _is_rate_limit_failure(error_message):
+                        rate_limit_failures += 1
+                        if rate_limit_failures >= args.max_rate_limit_failures:
+                            stopped_due_to_rate_limit = True
+                        if args.stop_on_rate_limit:
+                            stop_symbol = True
                     print(
                         f"symbol={symbol} "
                         f"chunk_start_date={chunk.start_date.isoformat()} "
                         f"chunk_end_date={chunk.end_date.isoformat()} "
                         f"status=failed "
-                        f"error_message={exc.__class__.__name__}: {exc}"
+                        f"error_message={error_message}"
                     )
+                _sleep_between_chunks(args.sleep_seconds_between_chunks, dry_run_no_sleep=args.dry_run_no_sleep)
     finally:
         if connection is not None and hasattr(connection, "close"):
             connection.close()
@@ -141,6 +200,11 @@ def main() -> int:
         chunks_skipped=chunks_skipped,
         total_rows_fetched=total_rows_fetched,
         total_rows_written=total_rows_written,
+    )
+    print(
+        f"rate_limit_failures={rate_limit_failures} "
+        f"stopped_due_to_rate_limit={str(stopped_due_to_rate_limit).lower()} "
+        f"chunks_not_run={chunks_not_run}"
     )
     return 0
 

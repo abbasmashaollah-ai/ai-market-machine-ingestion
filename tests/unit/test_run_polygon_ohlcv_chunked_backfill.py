@@ -166,6 +166,8 @@ class RunPolygonOhlcvChunkedBackfillTests(unittest.TestCase):
         with patch.dict(os.environ, {"POLYGON_API_KEY": "polygon-secret"}, clear=True), patch.object(
             mod, "load_local_env_if_available", return_value=False
         ), patch.object(mod, "build_manual_polygon_ohlcv_incremental", return_value=self._summary()) as build_mock, patch(
+            "scripts.run_polygon_ohlcv_chunked_backfill.time.sleep"
+        ) as sleep_mock, patch(
             "builtins.print"
         ) as print_mock, patch(
             "sys.argv",
@@ -186,9 +188,141 @@ class RunPolygonOhlcvChunkedBackfillTests(unittest.TestCase):
         printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
         self.assertIn("chunks_total=3", printed)
         self.assertIn("total_rows_written=0", printed)
+        self.assertIn("rate_limit_failures=0", printed)
+        self.assertIn("stopped_due_to_rate_limit=false", printed)
         self.assertNotIn("POLYGON_API_KEY", printed)
         self.assertNotIn("DATABASE_URL", printed)
         self.assertEqual(build_mock.call_count, 3)
+        self.assertEqual(sleep_mock.call_count, 3)
+
+    def test_sleep_option_used_without_slowing_tests(self) -> None:
+        mod = self._module()
+        with patch.dict(os.environ, {"POLYGON_API_KEY": "polygon-secret"}, clear=True), patch.object(
+            mod, "load_local_env_if_available", return_value=False
+        ), patch.object(mod, "build_manual_polygon_ohlcv_incremental", return_value=self._summary()) as build_mock, patch(
+            "scripts.run_polygon_ohlcv_chunked_backfill.time.sleep"
+        ) as sleep_mock, patch(
+            "sys.argv",
+            [
+                "run_polygon_ohlcv_chunked_backfill.py",
+                "--symbol",
+                "SPY",
+                "--start-date",
+                "2025-01-02",
+                "--end-date",
+                "2025-01-10",
+                "--chunk-days",
+                "3",
+                "--sleep-seconds-between-chunks",
+                "5",
+                "--dry-run-no-sleep",
+            ],
+        ):
+            mod.main()
+
+        sleep_mock.assert_not_called()
+        self.assertEqual(build_mock.call_count, 3)
+
+    def test_detects_sanitized_rate_limit_failure_and_stops(self) -> None:
+        mod = self._module()
+        failure = self._summary(status="failed")
+        failure.symbol_summaries = (
+            SimpleNamespace(
+                symbol="SPY",
+                requested_start_date=date(2025, 1, 2),
+                effective_start_date=date(2025, 1, 2),
+                rows_fetched=0,
+                rows_valid=0,
+                rows_invalid=0,
+                rows_written=0,
+                validation_failures=0,
+                planned_start_date=date(2025, 1, 2),
+                planned_end_date=date(2025, 1, 10),
+                write_confirmed=False,
+                checkpoint_loaded=False,
+                status="failed",
+                error_message="VendorHttpStatusError: unexpected http status: 429",
+            ),
+        )
+        with patch.dict(os.environ, {"POLYGON_API_KEY": "polygon-secret"}, clear=True), patch.object(
+            mod, "load_local_env_if_available", return_value=False
+        ), patch.object(mod, "build_manual_polygon_ohlcv_incremental", side_effect=[failure, self._summary(), self._summary()]) as build_mock, patch(
+            "scripts.run_polygon_ohlcv_chunked_backfill.time.sleep"
+        ), patch(
+            "builtins.print"
+        ) as print_mock, patch(
+            "sys.argv",
+            [
+                "run_polygon_ohlcv_chunked_backfill.py",
+                "--symbol",
+                "SPY",
+                "--start-date",
+                "2025-01-02",
+                "--end-date",
+                "2025-01-10",
+                "--chunk-days",
+                "3",
+            ],
+        ):
+            mod.main()
+
+        printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
+        self.assertIn("rate_limit_failures=1", printed)
+        self.assertIn("stopped_due_to_rate_limit=true", printed)
+        self.assertIn("chunks_not_run=2", printed)
+        self.assertEqual(build_mock.call_count, 1)
+
+    def test_continue_until_max_rate_limit_failures_exceeded(self) -> None:
+        mod = self._module()
+        failure = self._summary(status="failed")
+        failure.symbol_summaries = (
+            SimpleNamespace(
+                symbol="SPY",
+                requested_start_date=date(2025, 1, 2),
+                effective_start_date=date(2025, 1, 2),
+                rows_fetched=0,
+                rows_valid=0,
+                rows_invalid=0,
+                rows_written=0,
+                validation_failures=0,
+                planned_start_date=date(2025, 1, 2),
+                planned_end_date=date(2025, 1, 10),
+                write_confirmed=False,
+                checkpoint_loaded=False,
+                status="failed",
+                error_message="VendorHttpStatusError: unexpected http status: 429",
+            ),
+        )
+        with patch.dict(os.environ, {"POLYGON_API_KEY": "polygon-secret"}, clear=True), patch.object(
+            mod, "load_local_env_if_available", return_value=False
+        ), patch.object(mod, "build_manual_polygon_ohlcv_incremental", side_effect=[failure, failure, self._summary()]) as build_mock, patch(
+            "scripts.run_polygon_ohlcv_chunked_backfill.time.sleep"
+        ), patch(
+            "builtins.print"
+        ) as print_mock, patch(
+            "sys.argv",
+            [
+                "run_polygon_ohlcv_chunked_backfill.py",
+                "--symbol",
+                "SPY",
+                "--start-date",
+                "2025-01-02",
+                "--end-date",
+                "2025-01-10",
+                "--chunk-days",
+                "3",
+                "--no-stop-on-rate-limit",
+                "--max-rate-limit-failures",
+                "2",
+            ],
+        ):
+            mod.main()
+
+        printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
+        self.assertIn("rate_limit_failures=2", printed)
+        self.assertIn("stopped_due_to_rate_limit=true", printed)
+        self.assertIn("chunks_not_run=1", printed)
+        self.assertEqual(build_mock.call_count, 2)
 
     def test_confirmed_write_routes_through_existing_persistence_logic(self) -> None:
         mod = self._module()
@@ -227,6 +361,7 @@ class RunPolygonOhlcvChunkedBackfillTests(unittest.TestCase):
         self.assertTrue(build_mock.call_args.kwargs["confirmed_write"])
         self.assertIs(build_mock.call_args.kwargs["writer"], writer_cls.return_value)
         self.assertIs(build_mock.call_args.kwargs["checkpoint_store"], checkpoint_store_cls.return_value)
+        self.assertTrue(build_mock.call_args.kwargs["confirmed_write"])
 
     def test_missing_polygon_key_fails_safely(self) -> None:
         mod = self._module()
