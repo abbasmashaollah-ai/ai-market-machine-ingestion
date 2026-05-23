@@ -25,6 +25,7 @@ The script imports these manual command modules:
 - `scripts.diagnose_us_market_calendar_readiness`
 - `scripts.diagnose_polygon_quota_readiness`
 - `scripts.diagnose_polygon_flatfile_readiness`
+- `scripts.plan_polygon_flatfile_discovery`
 - `scripts.run_polygon_ohlcv_daily_update`
 - `scripts.run_polygon_ohlcv_chunked_backfill`
 - `scripts.inspect_polygon_ohlcv_checkpoint`

@@ -21,6 +21,8 @@ Before any persistence work, flat-file support should begin with:
 
 Only after those steps should persistence be considered.
 
+Discovery dry-runs should use [Polygon Flat-File Discovery Planning](polygon_flatfile_discovery_planning.md) and must treat the candidate path layout as provisional until reconciled with the official Polygon flat-file layout.
+
 ## Safety
 
 The diagnostic does not:
