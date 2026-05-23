@@ -127,6 +127,8 @@ def _coverage(rows: list[dict[str, object]], start_date: date, end_date: date) -
         ts = row.get("timestamp")
         if hasattr(ts, "date"):
             observed.append(ts.date())
+        elif isinstance(ts, date):
+            observed.append(ts)
     observed = [day for day in _ordered_unique(observed) if isinstance(day, date)]
     missing = [day for day in expected if day not in observed]
     return {
