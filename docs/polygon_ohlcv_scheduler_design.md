@@ -61,6 +61,8 @@ The scheduler must not be enabled until these are in place:
 
 Without those controls, automation would be operationally fragile.
 
+The current helper is minimal by design; use `scripts.diagnose_us_market_calendar_readiness` to document its gaps before any production enablement work.
+
 ## Polygon Flat-File Note
 
 The Polygon API remains the live/recent path for incremental updates and gap fills.

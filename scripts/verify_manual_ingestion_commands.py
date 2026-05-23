@@ -20,6 +20,7 @@ MODULES = (
     "scripts.generate_polygon_ohlcv_operator_runbook",
     "scripts.run_polygon_ohlcv_scheduler_cycle",
     "scripts.verify_polygon_scheduler_disabled",
+    "scripts.diagnose_us_market_calendar_readiness",
     "scripts.run_polygon_ohlcv_daily_update",
     "scripts.run_polygon_ohlcv_chunked_backfill",
     "scripts.inspect_ingestion_run_history",

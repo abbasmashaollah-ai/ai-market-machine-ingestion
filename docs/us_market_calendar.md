@@ -18,3 +18,5 @@ Current known closures:
 ## Limitation
 
 This is not a complete exchange calendar. It is a minimal helper for manual diagnostic and repair workflows, and additional closures must be added explicitly.
+
+For readiness diagnostics and the future expansion path, see [US Market Calendar Readiness](us_market_calendar_readiness.md).
