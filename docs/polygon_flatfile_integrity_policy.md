@@ -24,6 +24,8 @@ Files that fail integrity checks must be routed to quarantine and excluded from 
 
 See [Polygon Flat-File Quarantine Policy](polygon_flatfile_quarantine_policy.md) for the quarantine boundary.
 
+Parse dry-run only follows after integrity pass.
+
 ## Safety
 
 This policy does not:

@@ -10,6 +10,8 @@ This document defines how invalid flat files are isolated before any parse or pe
 - manifest must record quarantine status and reason
 - this policy remains planning-only until file operations exist
 
+Parse failures must route to quarantine before any persistence path is considered.
+
 ## Reason codes
 
 - `checksum_failed`

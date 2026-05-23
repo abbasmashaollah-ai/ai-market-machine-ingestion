@@ -35,6 +35,8 @@ Before parse enablement, define [Polygon Flat-File Integrity Policy](polygon_fla
 
 Before any retry or replay behavior exists, define [Polygon Flat-File Quarantine Policy](polygon_flatfile_quarantine_policy.md).
 
+Before any parser implementation exists, define [Polygon Flat-File Parse Planning](polygon_flatfile_parse_planning.md). Parse dry-run comes after download dry-run and integrity pass, and parse failures must route to quarantine.
+
 ## Safety
 
 The diagnostic does not:
