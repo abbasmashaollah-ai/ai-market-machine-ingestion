@@ -18,6 +18,13 @@ The command:
 - reads `data_lineage`
 - prints a safe summary of row count, coverage, run status, quality status, lineage status, and evidence state
 
+Evidence lookups are explicit:
+
+- exact match uses the selected symbol, timeframe, and date window when the table can support it
+- fallback match uses vendor/dataset plus symbol/timeframe when date-window metadata is not enough to recover the recorded evidence
+- the command prints `run_match_mode`, `quality_match_mode`, and `lineage_match_mode` as `exact`, `fallback`, or `none`
+- `evidence_status` is `complete` when canonical coverage is complete and all three evidence types are present, `partial` when canonical coverage is complete but only some evidence types are present, `missing` when canonical rows exist but no evidence exists, and `no_data` when canonical rows are missing
+
 ## Safety
 
 The command does not:

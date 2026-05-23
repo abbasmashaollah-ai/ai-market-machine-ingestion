@@ -48,32 +48,62 @@ def _canonical_query() -> str:
     )
 
 
-def _run_query() -> str:
+def _run_exact_query() -> str:
     return (
         "SELECT run_id, job_id, status, started_at, finished_at "
         "FROM ingestion_runs "
-        "WHERE vendor = %s AND dataset = %s AND started_at >= %s AND finished_at <= %s "
+        "WHERE vendor = %s AND dataset = %s AND started_at >= %s AND finished_at < %s "
         "ORDER BY finished_at DESC NULLS LAST, started_at DESC NULLS LAST "
         "LIMIT %s"
     )
 
 
-def _quality_query() -> str:
+def _quality_exact_query() -> str:
     return (
         "SELECT status, severity, created_at "
         "FROM data_quality_results "
-        "WHERE vendor = %s AND dataset = %s AND symbol = %s AND timeframe = %s AND created_at >= %s AND created_at <= %s "
+        "WHERE vendor = %s AND dataset = %s AND symbol = %s AND timeframe = %s AND created_at >= %s AND created_at < %s "
         "ORDER BY created_at DESC "
         "LIMIT %s"
     )
 
 
-def _lineage_query() -> str:
+def _quality_fallback_query() -> str:
+    return (
+        "SELECT status, severity, created_at "
+        "FROM data_quality_results "
+        "WHERE vendor = %s AND dataset = %s AND symbol = %s AND timeframe = %s "
+        "ORDER BY created_at DESC "
+        "LIMIT %s"
+    )
+
+
+def _lineage_exact_query() -> str:
     return (
         "SELECT quality_status, created_at "
         "FROM data_lineage "
-        "WHERE vendor = %s AND dataset = %s AND symbol = %s AND timeframe = %s AND created_at >= %s AND created_at <= %s "
+        "WHERE vendor = %s AND dataset = %s AND symbol = %s AND timeframe = %s AND created_at >= %s AND created_at < %s "
         "ORDER BY created_at DESC "
+        "LIMIT %s"
+    )
+
+
+def _lineage_fallback_query() -> str:
+    return (
+        "SELECT quality_status, created_at "
+        "FROM data_lineage "
+        "WHERE vendor = %s AND dataset = %s AND symbol = %s AND timeframe = %s "
+        "ORDER BY created_at DESC "
+        "LIMIT %s"
+    )
+
+
+def _run_fallback_query() -> str:
+    return (
+        "SELECT run_id, job_id, status, started_at, finished_at "
+        "FROM ingestion_runs "
+        "WHERE vendor = %s AND dataset = %s "
+        "ORDER BY finished_at DESC NULLS LAST, started_at DESC NULLS LAST "
         "LIMIT %s"
     )
 
@@ -108,11 +138,31 @@ def _coverage(rows: list[dict[str, object]], start_date: date, end_date: date) -
 
 
 def _evidence_status(*, canonical_count: int, run_count: int, quality_count: int, lineage_count: int, missing_dates: list[date]) -> str:
-    if canonical_count == 0 or run_count == 0 or quality_count == 0 or lineage_count == 0:
+    if canonical_count == 0:
+        return "no_data"
+    evidence_types = sum(1 for count in (run_count, quality_count, lineage_count) if count > 0)
+    if evidence_types == 0:
         return "missing"
-    if missing_dates:
-        return "partial"
-    return "complete"
+    if evidence_types == 3 and not missing_dates:
+        return "complete"
+    return "partial"
+
+
+def _load_with_fallback(
+    *,
+    connection: object,
+    exact_sql: str,
+    exact_params: tuple[object, ...],
+    fallback_sql: str,
+    fallback_params: tuple[object, ...],
+) -> tuple[list[dict[str, object]], str]:
+    exact_rows = _fetch_all(connection, exact_sql, exact_params)
+    if exact_rows:
+        return exact_rows, "exact"
+    fallback_rows = _fetch_all(connection, fallback_sql, fallback_params)
+    if fallback_rows:
+        return fallback_rows, "fallback"
+    return [], "none"
 
 
 def main() -> int:
@@ -140,20 +190,26 @@ def main() -> int:
             (args.symbol, start_date, exclusive_end, args.timeframe),
         )
         coverage = _coverage(canonical_rows, start_date, end_date)
-        run_rows = _fetch_all(
-            connection,
-            _run_query(),
-            ("polygon", "ohlcv", start_date, exclusive_end, args.limit),
+        run_rows, run_match_mode = _load_with_fallback(
+            connection=connection,
+            exact_sql=_run_exact_query(),
+            exact_params=("polygon", "ohlcv", start_date, exclusive_end, args.limit),
+            fallback_sql=_run_fallback_query(),
+            fallback_params=("polygon", "ohlcv", args.limit),
         )
-        quality_rows = _fetch_all(
-            connection,
-            _quality_query(),
-            ("polygon", "ohlcv", args.symbol, args.timeframe, start_date, exclusive_end, args.limit),
+        quality_rows, quality_match_mode = _load_with_fallback(
+            connection=connection,
+            exact_sql=_quality_exact_query(),
+            exact_params=("polygon", "ohlcv", args.symbol, args.timeframe, start_date, exclusive_end, args.limit),
+            fallback_sql=_quality_fallback_query(),
+            fallback_params=("polygon", "ohlcv", args.symbol, args.timeframe, args.limit),
         )
-        lineage_rows = _fetch_all(
-            connection,
-            _lineage_query(),
-            ("polygon", "ohlcv", args.symbol, args.timeframe, start_date, exclusive_end, args.limit),
+        lineage_rows, lineage_match_mode = _load_with_fallback(
+            connection=connection,
+            exact_sql=_lineage_exact_query(),
+            exact_params=("polygon", "ohlcv", args.symbol, args.timeframe, start_date, exclusive_end, args.limit),
+            fallback_sql=_lineage_fallback_query(),
+            fallback_params=("polygon", "ohlcv", args.symbol, args.timeframe, args.limit),
         )
 
         latest_run_status = run_rows[0].get("status") if run_rows else None
@@ -175,10 +231,13 @@ def main() -> int:
             f"coverage_ratio={coverage['coverage_ratio']:.3f} "
             f"missing_dates={[day.isoformat() for day in coverage['missing']]} "
             f"latest_run_status={latest_run_status} "
+            f"run_match_mode={run_match_mode} "
             f"quality_results_count={len(quality_rows)} "
             f"latest_quality_status={latest_quality_status} "
+            f"quality_match_mode={quality_match_mode} "
             f"lineage_rows_count={len(lineage_rows)} "
             f"latest_lineage_quality_status={latest_lineage_quality_status} "
+            f"lineage_match_mode={lineage_match_mode} "
             f"evidence_status={status}"
         )
     finally:

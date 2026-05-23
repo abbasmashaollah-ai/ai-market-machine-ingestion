@@ -87,16 +87,42 @@ class VerifyPolygonOhlcvEvidenceChainTests(unittest.TestCase):
         self.assertIn("latest_run_status=success", printed)
         self.assertIn("latest_quality_status=pass", printed)
         self.assertIn("latest_lineage_quality_status=pass", printed)
+        self.assertIn("run_match_mode=exact", printed)
+        self.assertIn("quality_match_mode=exact", printed)
+        self.assertIn("lineage_match_mode=exact", printed)
         self.assertTrue(connection.closed)
 
-    def test_missing_canonical_rows(self) -> None:
+    def test_exact_evidence_match(self) -> None:
+        mod = self._module()
+        connection = self._complete_connection()
+        with patch.dict(os.environ, {"DATABASE_URL": "postgresql://user:pass@host/db"}, clear=True), patch.object(
+            mod, "load_local_env_if_available", return_value=False
+        ), patch.object(mod, "_open_connection", return_value=connection), patch("builtins.print") as print_mock, patch(
+            "sys.argv",
+            ["verify_polygon_ohlcv_evidence_chain.py", "--symbol", "SPY", "--start-date", "2025-01-02", "--end-date", "2025-01-03"],
+        ):
+            mod.main()
+
+        printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
+        self.assertIn("quality_match_mode=exact", printed)
+        self.assertIn("lineage_match_mode=exact", printed)
+
+    def test_fallback_evidence_match(self) -> None:
         mod = self._module()
         connection = _Connection(
             [
-                ("FROM canonical_ohlcv", []),
-                ("FROM ingestion_runs", [{"status": "success"}]),
+                (
+                    "FROM canonical_ohlcv",
+                    [
+                        {"symbol": "SPY", "timestamp": datetime(2025, 1, 2, tzinfo=timezone.utc), "source": "polygon", "adjusted": True},
+                        {"symbol": "SPY", "timestamp": datetime(2025, 1, 3, tzinfo=timezone.utc), "source": "polygon", "adjusted": True},
+                    ],
+                ),
+                ("finished_at <", []),
+                ("created_at <", []),
                 ("FROM data_quality_results", [{"status": "pass"}]),
                 ("FROM data_lineage", [{"quality_status": "pass"}]),
+                ("FROM ingestion_runs", [{"status": "success"}]),
             ]
         )
         with patch.dict(os.environ, {"DATABASE_URL": "postgresql://user:pass@host/db"}, clear=True), patch.object(
@@ -107,7 +133,31 @@ class VerifyPolygonOhlcvEvidenceChainTests(unittest.TestCase):
         ):
             mod.main()
 
-        self.assertIn("evidence_status=missing", "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls))
+        printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
+        self.assertIn("run_match_mode=fallback", printed)
+        self.assertIn("quality_match_mode=fallback", printed)
+        self.assertIn("lineage_match_mode=fallback", printed)
+        self.assertIn("evidence_status=complete", printed)
+
+    def test_missing_canonical_rows(self) -> None:
+        mod = self._module()
+        connection = _Connection(
+            [
+                ("FROM canonical_ohlcv", []),
+                ("FROM ingestion_runs", []),
+                ("FROM data_quality_results", []),
+                ("FROM data_lineage", []),
+            ]
+        )
+        with patch.dict(os.environ, {"DATABASE_URL": "postgresql://user:pass@host/db"}, clear=True), patch.object(
+            mod, "load_local_env_if_available", return_value=False
+        ), patch.object(mod, "_open_connection", return_value=connection), patch("builtins.print") as print_mock, patch(
+            "sys.argv",
+            ["verify_polygon_ohlcv_evidence_chain.py", "--symbol", "SPY", "--start-date", "2025-01-02", "--end-date", "2025-01-03"],
+        ):
+            mod.main()
+
+        self.assertIn("evidence_status=no_data", "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls))
 
     def test_missing_quality_or_lineage(self) -> None:
         mod = self._module()
@@ -131,9 +181,11 @@ class VerifyPolygonOhlcvEvidenceChainTests(unittest.TestCase):
             mod.main()
 
         printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
-        self.assertIn("evidence_status=missing", printed)
+        self.assertIn("evidence_status=partial", printed)
         self.assertIn("quality_results_count=0", printed)
         self.assertIn("lineage_rows_count=0", printed)
+        self.assertIn("quality_match_mode=none", printed)
+        self.assertIn("lineage_match_mode=none", printed)
 
     def test_no_polygon_key_required_and_database_required(self) -> None:
         mod = self._module()
@@ -157,4 +209,4 @@ class VerifyPolygonOhlcvEvidenceChainTests(unittest.TestCase):
 
         self.assertFalse(any("INSERT INTO" in sql.upper() for sql, _ in connection.executed))
         self.assertFalse(any("POLYGON" in sql.upper() for sql, _ in connection.executed if "SELECT" in sql.upper()))
-
+        self.assertTrue(any("SELECT" in sql.upper() for sql, _ in connection.executed))
