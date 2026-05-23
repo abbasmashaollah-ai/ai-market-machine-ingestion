@@ -46,6 +46,7 @@ class VerifyManualIngestionCommandsTests(unittest.TestCase):
         self.assertIn("scripts.diagnose_ingestion_monitoring_readiness", printed)
         self.assertIn("scripts.diagnose_ingestion_retry_recovery_readiness", printed)
         self.assertIn("scripts.diagnose_ingestion_failure_recovery_runbook", printed)
+        self.assertIn("scripts.diagnose_polygon_production_enablement_readiness", printed)
         self.assertNotIn("DATABASE_URL", printed)
         self.assertNotIn("FRED_API_KEY", printed)
 
@@ -76,6 +77,7 @@ class VerifyManualIngestionCommandsTests(unittest.TestCase):
         self.assertIn("scripts.diagnose_ingestion_monitoring_readiness", import_names)
         self.assertIn("scripts.diagnose_ingestion_retry_recovery_readiness", import_names)
         self.assertIn("scripts.diagnose_ingestion_failure_recovery_runbook", import_names)
+        self.assertIn("scripts.diagnose_polygon_production_enablement_readiness", import_names)
 
     def test_no_db_writes_or_scheduler_behavior(self) -> None:
         mod = self._module()

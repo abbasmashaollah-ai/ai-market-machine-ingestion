@@ -67,6 +67,8 @@ Monitoring and alerting readiness is documented in [Ingestion Monitoring and Ale
 
 Retry and recovery readiness is documented in [Ingestion Retry and Recovery Readiness](ingestion_retry_recovery_readiness.md). Automatic retry is disabled for now, and recovery must use checkpoints, run history, quality, lineage, and evidence verification.
 
+Production enablement is summarized in [Polygon Production Enablement Readiness](polygon_production_enablement_readiness.md). That summary should be used as the blocker checklist before scheduler or backfill enablement.
+
 ## Polygon Flat-File Note
 
 The Polygon API remains the live/recent path for incremental updates and gap fills.
