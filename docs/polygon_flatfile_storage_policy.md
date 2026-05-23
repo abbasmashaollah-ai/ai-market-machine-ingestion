@@ -10,6 +10,7 @@ This document defines where future flat-file downloads would live and the safety
 - checksum and integrity policy is required before download enablement
 - cleanup and retention policy is required before scale
 - manifest planning is required before download enablement
+- integrity policy must be reviewed before parse enablement
 
 ## Allowed future subdirs
 

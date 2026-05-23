@@ -8,6 +8,7 @@ This document defines the manifest shape that will bridge flat-file storage and 
 - manifest is the bridge between flat-file storage and downstream evidence
 - manifest must not replace run_history, quality, or lineage stores
 - manifest should feed those stores later
+- manifest must record integrity status
 
 ## Planned fields
 
@@ -26,6 +27,7 @@ This document defines the manifest shape that will bridge flat-file storage and 
 - `validation_status`
 - `quarantine_status`
 - `lineage_status`
+- `integrity_status`
 
 ## Safety
 
@@ -39,5 +41,7 @@ This planning document does not:
 - add scheduler behavior
 - add API routes
 - add AI, trading, risk, signal, regime, portfolio, strategy, or prediction logic
+
+Integrity policy is defined in [Polygon Flat-File Integrity Policy](polygon_flatfile_integrity_policy.md).
 
 `ai-market-machine-data` remains the schema owner.

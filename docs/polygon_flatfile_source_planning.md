@@ -31,6 +31,8 @@ Before any flat-file download work, use [Polygon Flat-File Storage Policy](polyg
 
 Before download enablement, define [Polygon Flat-File Manifest Planning](polygon_flatfile_manifest_planning.md) so the storage layer can feed downstream evidence later.
 
+Before parse enablement, define [Polygon Flat-File Integrity Policy](polygon_flatfile_integrity_policy.md) so invalid files are quarantined and blocked from persistence.
+
 ## Safety
 
 The diagnostic does not:
