@@ -72,3 +72,13 @@ Polygon flat files should be added later as a historical backfill source adapter
 Both sources must feed the same normalization, validation, writer, and evidence pipeline.
 
 That keeps the canonical output contract stable while allowing source diversity later.
+
+## Polygon Quota Policy
+
+Polygon quota planning is source-sensitive:
+
+- `api` for recent/daily/gap data and small controlled backfills
+- `flatfiles` for large historical downloads/backfills
+- `websocket` for future live streaming data
+
+All source paths must continue to feed the same normalization, validation, writer, checkpoint, run-history, quality, and lineage pipeline. See [Polygon Quota Policy](polygon_quota_policy.md) for the diagnostic and operational split.

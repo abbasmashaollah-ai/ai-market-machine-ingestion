@@ -23,6 +23,7 @@ The script imports these manual command modules:
 - `scripts.run_polygon_ohlcv_scheduler_cycle`
 - `scripts.verify_polygon_scheduler_disabled`
 - `scripts.diagnose_us_market_calendar_readiness`
+- `scripts.diagnose_polygon_quota_readiness`
 - `scripts.run_polygon_ohlcv_daily_update`
 - `scripts.run_polygon_ohlcv_chunked_backfill`
 - `scripts.inspect_polygon_ohlcv_checkpoint`

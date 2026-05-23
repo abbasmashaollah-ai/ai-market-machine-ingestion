@@ -29,6 +29,10 @@ The command:
 - prints one safe summary line per chunk
 - prints one aggregate summary line
 
+## Quota Planning
+
+For quota diagnostics, the `api` source path should be used for recent/daily/gap data and small controlled backfills. Larger historical downloads should move to Polygon flatfiles later, and future live streaming should use the websocket path. All source paths must continue to feed the same normalization, validation, writer, checkpoint, run-history, quality, and lineage pipeline.
+
 ## Safety
 
 The command does not:
