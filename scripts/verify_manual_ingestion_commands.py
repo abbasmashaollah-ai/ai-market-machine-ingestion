@@ -11,6 +11,7 @@ MODULES = (
     "scripts.dry_run_polygon_ohlcv_incremental",
     "scripts.persist_polygon_ohlcv_incremental",
     "scripts.run_polygon_ohlcv_tiny_universe_check",
+    "scripts.plan_polygon_ohlcv_backfill",
     "scripts.inspect_polygon_ohlcv_checkpoint",
     "scripts.verify_polygon_ohlcv_rows",
     "scripts.diagnose_ohlcv_overlap",
