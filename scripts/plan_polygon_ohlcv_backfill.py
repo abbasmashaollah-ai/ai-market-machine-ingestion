@@ -4,11 +4,14 @@ import argparse
 import os
 from datetime import date, datetime, timedelta
 
+from app.ingestion.backfill.planner import split_date_range_into_chunks
 from app.market_calendar.us_market_calendar import expected_trading_days
 from scripts.persist_fred_macro import _open_connection, load_local_env_if_available
 
 
 DEFAULT_SYMBOLS = ("SPY", "QQQ", "IWM")
+DEFAULT_MAX_REQUESTS = 25
+DEFAULT_SLEEP_SECONDS_BETWEEN_CHUNKS = 2.0
 
 
 def _parse_date(value: str) -> date:
@@ -79,6 +82,12 @@ def _format_dates(values: list[date]) -> str:
     return "[" + ", ".join(value.isoformat() for value in values) + "]" if values else "[]"
 
 
+def _format_number(value: float) -> str:
+    if float(value).is_integer():
+        return str(int(value))
+    return f"{value:.1f}".rstrip("0").rstrip(".")
+
+
 def _parse_adjusted_filter(value: str | None) -> bool | None:
     if value is None or value == "all":
         return None
@@ -88,6 +97,24 @@ def _parse_adjusted_filter(value: str | None) -> bool | None:
     if normalized in {"false", "0", "no"}:
         return False
     raise ValueError("--adjusted must be true, false, or all")
+
+
+def _estimated_vendor_requests(*, symbol_count: int, chunk_count: int) -> int:
+    return symbol_count * chunk_count
+
+
+def _request_budget_status(*, estimated_vendor_requests: int, max_requests: int | None) -> str:
+    if max_requests is None:
+        return "within_budget"
+    return "within_budget" if estimated_vendor_requests <= max_requests else "exceeds_budget"
+
+
+def _estimated_sleep_seconds(*, chunk_count: int, sleep_seconds_between_chunks: float) -> float:
+    return max(chunk_count - 1, 0) * sleep_seconds_between_chunks
+
+
+def _estimated_runtime_floor_seconds(*, estimated_vendor_requests: int, sleep_seconds_between_chunks: float) -> float:
+    return estimated_vendor_requests * sleep_seconds_between_chunks
 
 
 def _coverage_for_symbol(
@@ -124,6 +151,7 @@ def _print_symbol_summary(
     start_date: date,
     end_date: date,
     expected_rows: int,
+    chunk_count: int,
     existing_dates: list[date] | None,
     missing_dates: list[date] | None,
     source_filter: str | None,
@@ -142,6 +170,7 @@ def _print_symbol_summary(
         f"end_date={end_date.isoformat()} "
         f"source_filter={source_filter if source_filter is not None else 'None'} "
         f"adjusted_filter={adjusted_filter if adjusted_filter is not None else 'all'} "
+        f"per_symbol_chunk_count={chunk_count} "
         f"per_symbol_expected_rows={expected_rows}{extras}"
     )
 
@@ -152,19 +181,41 @@ def main() -> int:
     parser.add_argument("--start-date", required=True, help="Start date in YYYY-MM-DD format.")
     parser.add_argument("--end-date", required=True, help="End date in YYYY-MM-DD format.")
     parser.add_argument("--timeframe", default="1d", help="Timeframe, default 1d.")
+    parser.add_argument("--chunk-days", type=int, default=30, help="Chunk size in days, default 30.")
     parser.add_argument("--check-existing", action="store_true", help="Read existing coverage if DATABASE_URL is available.")
     parser.add_argument("--source", help="Optional source filter for existing coverage.")
     parser.add_argument("--adjusted", default="all", help="Adjusted filter: true, false, or all. Default all.")
+    parser.add_argument("--max-requests", type=int, default=DEFAULT_MAX_REQUESTS, help="Maximum safe manual request budget, default 25.")
+    parser.add_argument(
+        "--sleep-seconds-between-chunks",
+        type=float,
+        default=DEFAULT_SLEEP_SECONDS_BETWEEN_CHUNKS,
+        help="Estimated sleep between chunks in seconds, default 2.",
+    )
     args = parser.parse_args()
 
     load_local_env_if_available()
     symbols = tuple(args.symbol) if args.symbol else DEFAULT_SYMBOLS
     start_date = _parse_date(args.start_date)
     end_date = _parse_date(args.end_date)
+    chunks = split_date_range_into_chunks(start_date, end_date, max_days_per_chunk=args.chunk_days)
     expected_dates = expected_trading_days(start_date, end_date)
     expected_rows = len(expected_dates)
-    estimated_vendor_requests = expected_rows * len(symbols)
+    chunk_count = len(chunks)
+    estimated_vendor_requests = _estimated_vendor_requests(symbol_count=len(symbols), chunk_count=chunk_count)
     adjusted_filter = _parse_adjusted_filter(args.adjusted)
+    request_budget_status = _request_budget_status(
+        estimated_vendor_requests=estimated_vendor_requests,
+        max_requests=args.max_requests,
+    )
+    estimated_sleep_seconds = _estimated_sleep_seconds(
+        chunk_count=chunk_count,
+        sleep_seconds_between_chunks=args.sleep_seconds_between_chunks,
+    )
+    estimated_runtime_floor_seconds = _estimated_runtime_floor_seconds(
+        estimated_vendor_requests=estimated_vendor_requests,
+        sleep_seconds_between_chunks=args.sleep_seconds_between_chunks,
+    )
     database_url = os.getenv("DATABASE_URL")
 
     per_symbol_existing: dict[str, list[date]] = {}
@@ -201,6 +252,7 @@ def main() -> int:
             missing_dates=missing_dates,
             source_filter=args.source,
             adjusted_filter=adjusted_filter,
+            chunk_count=chunk_count,
         )
 
     total_missing_rows = sum(len(per_symbol_missing.get(symbol, [])) for symbol in symbols) if per_symbol_missing else None
@@ -209,11 +261,18 @@ def main() -> int:
         f"timeframe={args.timeframe} "
         f"start_date={start_date.isoformat()} "
         f"end_date={end_date.isoformat()} "
+        f"chunk_days={args.chunk_days} "
         f"source_filter={args.source if args.source is not None else 'None'} "
         f"adjusted_filter={adjusted_filter if adjusted_filter is not None else 'all'} "
         f"expected_trading_days={expected_rows} "
+        f"date_chunks_total={chunk_count} "
         f"estimated_vendor_requests={estimated_vendor_requests} "
+        f"max_requests={args.max_requests if args.max_requests is not None else 'None'} "
+        f"request_budget_status={request_budget_status} "
+        f"estimated_sleep_seconds={_format_number(estimated_sleep_seconds)} "
+        f"estimated_runtime_floor_seconds={_format_number(estimated_runtime_floor_seconds)} "
         f"per_symbol_expected_rows={expected_rows} "
+        f"per_symbol_chunk_count={chunk_count} "
         f"total_expected_rows={expected_rows * len(symbols)}"
         + (
             f" total_missing_rows={total_missing_rows}" if total_missing_rows is not None else ""

@@ -11,6 +11,9 @@ The command:
 - accepts `--start-date`
 - accepts `--end-date`
 - accepts `--timeframe`
+- accepts `--chunk-days`
+- accepts `--max-requests`
+- accepts `--sleep-seconds-between-chunks`
 - uses the market calendar helper to compute expected trading days
 - can optionally read existing `canonical_ohlcv` coverage when `--check-existing` is passed and `DATABASE_URL` is present
 - supports optional `--source` and `--adjusted true|false|all` filters for existing coverage checks
@@ -26,9 +29,16 @@ The command prints:
 - `timeframe`
 - `start_date`
 - `end_date`
+- `chunk_days`
 - `expected_trading_days`
+- `date_chunks_total`
 - `estimated_vendor_requests`
+- `max_requests`
+- `request_budget_status`
+- `estimated_sleep_seconds`
+- `estimated_runtime_floor_seconds`
 - `per_symbol_expected_rows`
+- `per_symbol_chunk_count`
 - `per_symbol_existing_dates` when `--check-existing` is active and the database is available
 - `per_symbol_missing_rows` when `--check-existing` is active and the database is available
 - `per_symbol_missing_dates` when `--check-existing` is active and the database is available
@@ -46,6 +56,8 @@ When `--check-existing` is active:
 - if `--adjusted false` is used, only `adjusted=false` counts
 
 The command uses the same exclusive end-date convention and market calendar helper as the coverage diagnostics.
+
+The request budget estimate is based on `symbols_total * date_chunks_total`, not on row count.
 
 ## Safety
 

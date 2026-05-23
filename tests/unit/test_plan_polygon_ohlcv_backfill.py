@@ -39,8 +39,47 @@ class PlanPolygonOhlcvBackfillTests(unittest.TestCase):
         self.assertEqual(exit_code, 0)
         printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
         self.assertIn("symbols_total=3", printed)
+        self.assertIn("date_chunks_total=1", printed)
+        self.assertIn("estimated_vendor_requests=3", printed)
+        self.assertIn("request_budget_status=within_budget", printed)
+        self.assertIn("estimated_sleep_seconds=0", printed)
+        self.assertIn("estimated_runtime_floor_seconds=6", printed)
         self.assertIn("per_symbol_expected_rows=6", printed)
         self.assertIn("total_expected_rows=18", printed)
+
+    def test_chunk_count_estimation_and_budget_status(self) -> None:
+        mod = self._module()
+        with patch.dict(os.environ, {}, clear=True), patch.object(mod, "load_local_env_if_available", return_value=False), patch(
+            "builtins.print"
+        ) as print_mock, patch(
+            "sys.argv",
+            [
+                "plan_polygon_ohlcv_backfill.py",
+                "--symbol",
+                "SPY",
+                "--symbol",
+                "QQQ",
+                "--start-date",
+                "2025-01-02",
+                "--end-date",
+                "2025-02-01",
+                "--chunk-days",
+                "10",
+                "--max-requests",
+                "6",
+                "--sleep-seconds-between-chunks",
+                "3",
+            ],
+        ):
+            mod.main()
+
+        printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
+        self.assertIn("date_chunks_total=4", printed)
+        self.assertIn("estimated_vendor_requests=8", printed)
+        self.assertIn("max_requests=6", printed)
+        self.assertIn("request_budget_status=exceeds_budget", printed)
+        self.assertIn("estimated_sleep_seconds=9", printed)
+        self.assertIn("estimated_runtime_floor_seconds=24", printed)
 
     def test_repeated_symbol_planning(self) -> None:
         mod = self._module()
@@ -142,6 +181,7 @@ class PlanPolygonOhlcvBackfillTests(unittest.TestCase):
         printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
         self.assertIn("per_symbol_existing_dates=[2025-01-02, 2025-01-03]", printed)
         self.assertIn("per_symbol_missing_rows=0", printed)
+        self.assertIn("per_symbol_chunk_count=1", printed)
 
     def test_source_provided_counts_only_that_source(self) -> None:
         mod = self._module()
@@ -175,6 +215,7 @@ class PlanPolygonOhlcvBackfillTests(unittest.TestCase):
         self.assertIn("source_filter=polygon_aggregates", printed)
         self.assertIn("per_symbol_existing_dates=[2025-01-02]", printed)
         self.assertIn("per_symbol_missing_rows=1", printed)
+        self.assertIn("per_symbol_chunk_count=1", printed)
 
     def test_adjusted_all_counts_either_variant(self) -> None:
         mod = self._module()
