@@ -9,6 +9,8 @@ The stub prints `status=scheduler_disabled` unless both conditions are met:
 - `--enable-scheduler-cycle`
 - `ENABLE_POLYGON_OHLCV_SCHEDULER=true`
 
+Use `scripts.verify_polygon_scheduler_disabled` to confirm the disabled state before any operational enablement is considered.
+
 When enabled, it runs the existing preflight first and blocks on a blocked preflight. It only hands off to the existing daily runner for symbols that are already safe to run manually.
 
 ## Safety

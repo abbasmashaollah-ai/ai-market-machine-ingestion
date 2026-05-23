@@ -10,6 +10,7 @@ This repository can deploy to Railway as a safe worker placeholder.
 Both commands only verify imports and config shape. They do not trigger ingestion, backfills, schedulers, vendor calls, or database writes.
 
 Manual operator verification commands such as `python -m scripts.verify_manual_ingestion_commands` are separate and are not wired into Railway startup.
+The Polygon OHLCV scheduler stub is also not wired into Railway startup; `python -m scripts.verify_polygon_scheduler_disabled` is the read-only check for that guard.
 
 ## Health behavior
 

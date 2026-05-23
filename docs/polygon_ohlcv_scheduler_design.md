@@ -5,6 +5,7 @@ This document defines the intended architecture guardrails for future Polygon OH
 It is design-only. There is no scheduler implementation in this repository yet.
 
 The repository now also contains a disabled-by-default scheduler stub at `scripts/run_polygon_ohlcv_scheduler_cycle.py`. It remains inert unless the explicit enable flag and environment variable are both set.
+The disabled-state verifier `scripts.verify_polygon_scheduler_disabled.py` confirms that the scheduler stays off by default and does not become active on Railway startup without an explicit opt-in.
 
 ## Current Manual Readiness State
 
