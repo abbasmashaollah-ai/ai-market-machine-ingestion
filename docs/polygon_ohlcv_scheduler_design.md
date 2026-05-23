@@ -65,6 +65,8 @@ The current helper is minimal by design; use `scripts.diagnose_us_market_calenda
 
 Monitoring and alerting readiness is documented in [Ingestion Monitoring and Alerting Readiness](ingestion_monitoring_alerting_readiness.md). It must be in place before production scheduler enablement.
 
+Retry and recovery readiness is documented in [Ingestion Retry and Recovery Readiness](ingestion_retry_recovery_readiness.md). Automatic retry is disabled for now, and recovery must use checkpoints, run history, quality, lineage, and evidence verification.
+
 ## Polygon Flat-File Note
 
 The Polygon API remains the live/recent path for incremental updates and gap fills.

@@ -9,6 +9,7 @@ This document defines the monitoring and alerting requirements before production
 - no alert transport is implemented yet
 - future alert transports may include logs, email, Slack/Discord, or dashboard hooks
 - monitoring must not introduce trading or AI decision logic
+- retry and recovery readiness must be defined alongside monitoring before production scheduler enablement
 
 ## Required alerts
 
