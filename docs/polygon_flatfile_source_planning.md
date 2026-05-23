@@ -39,6 +39,8 @@ Before any parser implementation exists, define [Polygon Flat-File Parse Plannin
 
 Before any download implementation exists, define [Polygon Flat-File Download Planning](polygon_flatfile_download_planning.md). Download dry-run comes after official layout verification and discovery planning.
 
+Before any persistence implementation exists, define [Polygon Flat-File Persistence Planning](polygon_flatfile_persistence_planning.md). Flat-file persistence must use the shared OHLCV writer and the same checkpoint, run_history, quality, and lineage flow as the API source.
+
 ## Safety
 
 The diagnostic does not:

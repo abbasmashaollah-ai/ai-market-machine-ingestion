@@ -50,4 +50,6 @@ Integrity policy is defined in [Polygon Flat-File Integrity Policy](polygon_flat
 
 Download planning is defined in [Polygon Flat-File Download Planning](polygon_flatfile_download_planning.md).
 
+Persistence planning is defined in [Polygon Flat-File Persistence Planning](polygon_flatfile_persistence_planning.md).
+
 `ai-market-machine-data` remains the schema owner.

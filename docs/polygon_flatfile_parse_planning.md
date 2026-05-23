@@ -13,6 +13,8 @@ This document defines the parse dry-run boundary for Polygon flat files.
 
 Download planning is defined in [Polygon Flat-File Download Planning](polygon_flatfile_download_planning.md).
 
+Persistence planning is defined in [Polygon Flat-File Persistence Planning](polygon_flatfile_persistence_planning.md).
+
 ## Planned parser contract
 
 - required input state: downloaded and integrity passed
