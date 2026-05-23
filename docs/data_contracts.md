@@ -99,6 +99,7 @@ Timestamp/timezone rule:
 - Schema owner: `ai-market-machine-data`.
 - Ingestion read/write: ingestion may read and may write through approved writers.
 - Notes about usage: quality results must exist before approved canonical writes.
+- Manual quality-result persistence is optional and must remain contract-checked before use.
 
 Quality result rule:
 

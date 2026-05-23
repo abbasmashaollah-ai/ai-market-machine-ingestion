@@ -8,6 +8,8 @@ from datetime import date, datetime, timezone
 from app.ingestion.backfill.planner import split_date_range_into_chunks
 from app.market_calendar.us_market_calendar import expected_trading_days
 from app.ingestion.manual.polygon_ohlcv_incremental import build_manual_polygon_ohlcv_incremental
+from app.quality.validators import ValidationResult, ValidationSeverity, ValidationStatus
+from app.state.data_quality_result_store import DataQualityResultStore
 from app.state.ingestion_run_store import IngestionRunStore
 from app.state.errors import IngestionErrorRecord
 from app.state.runs import IngestionRun, RunStatus
@@ -92,6 +94,44 @@ def _final_run_status(*, chunks_completed: int, chunks_failed: int) -> RunStatus
     return RunStatus.FAILED
 
 
+def _build_quality_results(*, symbol: str, timeframe: str, row) -> list[ValidationResult]:
+    status = ValidationStatus.PASS if row.status == "completed" else ValidationStatus.FAIL if row.status == "failed" else ValidationStatus.WARN
+    severity = ValidationSeverity.INFO if status == ValidationStatus.PASS else ValidationSeverity.ERROR if status == ValidationStatus.FAIL else ValidationSeverity.WARN
+    results = [
+        ValidationResult(
+            check_name="chunk_validation_summary",
+            status=status,
+            severity=severity,
+            message="chunk completed" if status == ValidationStatus.PASS else row.error_message or "chunk not completed",
+            details={
+                "observed_value": row.rows_fetched,
+                "expected_value": row.rows_valid + row.rows_invalid,
+            },
+        )
+    ]
+    if row.rows_invalid:
+        results.append(
+            ValidationResult(
+                check_name="chunk_invalid_rows",
+                status=ValidationStatus.WARN if row.rows_invalid > 0 else ValidationStatus.PASS,
+                severity=ValidationSeverity.WARN,
+                message="invalid rows were observed",
+                details={"observed_value": row.rows_invalid, "expected_value": 0},
+            )
+        )
+    if row.validation_failures:
+        results.append(
+            ValidationResult(
+                check_name="chunk_validation_failures",
+                status=ValidationStatus.FAIL,
+                severity=ValidationSeverity.ERROR,
+                message="validation failures were observed",
+                details={"observed_value": row.validation_failures, "expected_value": 0},
+            )
+        )
+    return results
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run a manual chunked Polygon OHLCV backfill for a tiny universe.")
     parser.add_argument("--symbol", action="append", help="Ticker symbol. Defaults to SPY, QQQ, IWM.")
@@ -105,6 +145,7 @@ def main() -> int:
     parser.add_argument("--max-requests", type=int, default=DEFAULT_MAX_REQUESTS, help="Maximum safe manual request budget, default 25.")
     parser.add_argument("--allow-over-budget", action="store_true", help="Proceed even if the estimated request budget is exceeded.")
     parser.add_argument("--record-run", action="store_true", help="Persist operational run history when the approved contract is available.")
+    parser.add_argument("--record-quality", action="store_true", help="Persist compact quality outcomes when the approved contract is available.")
     parser.add_argument(
         "--sleep-seconds-between-chunks",
         type=float,
@@ -139,6 +180,8 @@ def main() -> int:
         raise RuntimeError("DATABASE_URL is required when --confirm-write is used")
     if args.record_run and not database_url:
         raise RuntimeError("DATABASE_URL is required when --record-run is used")
+    if args.record_quality and not database_url:
+        raise RuntimeError("DATABASE_URL is required when --record-quality is used")
 
     symbols = tuple(args.symbol) if args.symbol else DEFAULT_SYMBOLS
     if len(symbols) > args.max_symbols:
@@ -159,12 +202,18 @@ def main() -> int:
     )
     run_store = None
     run_connection = None
+    quality_connection = None
     run_errors: list[IngestionErrorRecord] = []
+    quality_records: list[tuple[str, str, object]] = []
     run_history_blocked = False
     blocked_over_budget = False
     if args.record_run:
         run_connection = _open_connection(database_url)  # type: ignore[arg-type]
         run_store = IngestionRunStore(run_connection)
+    quality_store = None
+    if args.record_quality:
+        quality_connection = _open_connection(database_url)  # type: ignore[arg-type]
+        quality_store = DataQualityResultStore(quality_connection)
     if request_budget_status == "exceeds_budget" and not args.allow_over_budget:
         print(
             f"status=blocked_over_budget "
@@ -220,6 +269,15 @@ def main() -> int:
                             chunks_skipped += 1
                             continue
                         _print_symbol_summary(row, chunk_start_date=chunk.start_date, chunk_end_date=chunk.end_date)
+                        if quality_store is not None:
+                            quality_store.save_validation_results(
+                                vendor="polygon",
+                                dataset="ohlcv",
+                                symbol=row.symbol,
+                                timeframe=args.timeframe,
+                                results=_build_quality_results(symbol=row.symbol, timeframe=args.timeframe, row=row),
+                                run_id=_run_id(start_date, end_date) if args.record_run else None,
+                            )
                         if row.status.startswith("skipped"):
                             chunks_skipped += 1
                         elif row.status == "failed":
@@ -343,6 +401,8 @@ def main() -> int:
                     run_store.save_errors(_run_id(start_date, end_date), run_errors)
         if run_connection is not None and hasattr(run_connection, "close"):
             run_connection.close()
+        if quality_connection is not None and hasattr(quality_connection, "close"):
+            quality_connection.close()
         if connection is not None and hasattr(connection, "close"):
             connection.close()
 
