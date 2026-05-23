@@ -33,6 +33,8 @@ Before download enablement, define [Polygon Flat-File Manifest Planning](polygon
 
 Before parse enablement, define [Polygon Flat-File Integrity Policy](polygon_flatfile_integrity_policy.md) so invalid files are quarantined and blocked from persistence.
 
+Before any retry or replay behavior exists, define [Polygon Flat-File Quarantine Policy](polygon_flatfile_quarantine_policy.md).
+
 ## Safety
 
 The diagnostic does not:

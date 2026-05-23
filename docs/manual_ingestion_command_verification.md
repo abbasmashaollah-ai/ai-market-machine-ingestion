@@ -31,6 +31,7 @@ The script imports these manual command modules:
 - `scripts.diagnose_polygon_flatfile_storage_policy`
 - `scripts.diagnose_polygon_flatfile_manifest_readiness`
 - `scripts.diagnose_polygon_flatfile_integrity_readiness`
+- `scripts.diagnose_polygon_flatfile_quarantine_readiness`
 - `scripts.plan_polygon_flatfile_discovery`
 - `scripts.run_polygon_ohlcv_daily_update`
 - `scripts.run_polygon_ohlcv_chunked_backfill`

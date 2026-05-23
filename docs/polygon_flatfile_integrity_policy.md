@@ -9,6 +9,7 @@ This document defines how flat-file downloads will be verified before parse or p
 - manifest must record integrity status
 - parse and persistence are blocked until integrity passes
 - this policy remains planning-only until download implementation exists
+- failed integrity or parse cases must be routed to quarantine
 
 ## Required checks
 
@@ -20,6 +21,8 @@ This document defines how flat-file downloads will be verified before parse or p
 ## Quarantine
 
 Files that fail integrity checks must be routed to quarantine and excluded from parse and downstream persistence until they are reviewed.
+
+See [Polygon Flat-File Quarantine Policy](polygon_flatfile_quarantine_policy.md) for the quarantine boundary.
 
 ## Safety
 

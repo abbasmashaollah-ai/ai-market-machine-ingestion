@@ -9,6 +9,7 @@ This document defines the manifest shape that will bridge flat-file storage and 
 - manifest must not replace run_history, quality, or lineage stores
 - manifest should feed those stores later
 - manifest must record integrity status
+- manifest must record quarantine status and reason
 
 ## Planned fields
 
@@ -28,6 +29,8 @@ This document defines the manifest shape that will bridge flat-file storage and 
 - `quarantine_status`
 - `lineage_status`
 - `integrity_status`
+
+Quarantine handling is defined in [Polygon Flat-File Quarantine Policy](polygon_flatfile_quarantine_policy.md).
 
 ## Safety
 

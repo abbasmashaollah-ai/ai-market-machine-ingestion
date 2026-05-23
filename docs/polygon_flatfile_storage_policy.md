@@ -11,6 +11,7 @@ This document defines where future flat-file downloads would live and the safety
 - cleanup and retention policy is required before scale
 - manifest planning is required before download enablement
 - integrity policy must be reviewed before parse enablement
+- quarantine policy must be reviewed before replay or retry behavior exists
 
 ## Allowed future subdirs
 
