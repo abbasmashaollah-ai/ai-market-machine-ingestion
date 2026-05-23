@@ -29,6 +29,8 @@ Before any live path is enabled, use [Polygon Flat-File Config Readiness](polygo
 
 Before any flat-file download work, use [Polygon Flat-File Storage Policy](polygon_flatfile_storage_policy.md) to define the allowed storage root and the forbidden locations.
 
+Before download enablement, define [Polygon Flat-File Manifest Planning](polygon_flatfile_manifest_planning.md) so the storage layer can feed downstream evidence later.
+
 ## Safety
 
 The diagnostic does not:

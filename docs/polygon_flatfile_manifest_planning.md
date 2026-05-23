@@ -1,0 +1,43 @@
+# Polygon Flat-File Manifest Planning
+
+This document defines the manifest shape that will bridge flat-file storage and downstream evidence.
+
+## Manifest role
+
+- manifest is required before download enablement
+- manifest is the bridge between flat-file storage and downstream evidence
+- manifest must not replace run_history, quality, or lineage stores
+- manifest should feed those stores later
+
+## Planned fields
+
+- `source_mode`
+- `dataset`
+- `asset_class`
+- `timeframe`
+- `object_key`
+- `local_raw_path`
+- `local_staging_path`
+- `checksum`
+- `size_bytes`
+- `discovered_at`
+- `downloaded_at`
+- `parsed_at`
+- `validation_status`
+- `quarantine_status`
+- `lineage_status`
+
+## Safety
+
+This planning document does not:
+
+- call Polygon
+- call S3
+- download files
+- write files
+- write to the database
+- add scheduler behavior
+- add API routes
+- add AI, trading, risk, signal, regime, portfolio, strategy, or prediction logic
+
+`ai-market-machine-data` remains the schema owner.
