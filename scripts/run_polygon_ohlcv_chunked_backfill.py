@@ -6,6 +6,7 @@ import time
 from datetime import date
 
 from app.ingestion.backfill.planner import split_date_range_into_chunks
+from app.market_calendar.us_market_calendar import expected_trading_days
 from app.ingestion.manual.polygon_ohlcv_incremental import build_manual_polygon_ohlcv_incremental
 from app.state.manual_polygon_ohlcv_checkpoint_store import ManualPolygonOHLCVCheckpointStore
 from app.writers.ohlcv_writer import OhlcvWriter
@@ -18,6 +19,7 @@ DEFAULT_MAX_SYMBOLS = 3
 DEFAULT_MAX_CHUNKS = 6
 DEFAULT_SLEEP_SECONDS_BETWEEN_CHUNKS = 2.0
 DEFAULT_MAX_RATE_LIMIT_FAILURES = 1
+DEFAULT_MAX_REQUESTS = 25
 
 
 def _parse_date(value: str) -> date:
@@ -63,6 +65,18 @@ def _sleep_between_chunks(seconds: float, *, dry_run_no_sleep: bool) -> None:
         time.sleep(seconds)
 
 
+def _estimated_vendor_requests(*, symbol_count: int, chunk_count: int) -> int:
+    return symbol_count * chunk_count
+
+
+def _request_budget_status(*, estimated_vendor_requests: int, max_requests: int | None, allow_over_budget: bool) -> str:
+    if allow_over_budget:
+        return "override"
+    if max_requests is None:
+        return "within_budget"
+    return "within_budget" if estimated_vendor_requests <= max_requests else "exceeds_budget"
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run a manual chunked Polygon OHLCV backfill for a tiny universe.")
     parser.add_argument("--symbol", action="append", help="Ticker symbol. Defaults to SPY, QQQ, IWM.")
@@ -73,6 +87,8 @@ def main() -> int:
     parser.add_argument("--confirm-write", action="store_true", help="Actually write valid rows through the approved writer.")
     parser.add_argument("--max-symbols", type=int, default=DEFAULT_MAX_SYMBOLS, help="Safety cap for symbol count.")
     parser.add_argument("--max-chunks", type=int, default=DEFAULT_MAX_CHUNKS, help="Safety cap for chunk count.")
+    parser.add_argument("--max-requests", type=int, default=DEFAULT_MAX_REQUESTS, help="Maximum safe manual request budget, default 25.")
+    parser.add_argument("--allow-over-budget", action="store_true", help="Proceed even if the estimated request budget is exceeded.")
     parser.add_argument(
         "--sleep-seconds-between-chunks",
         type=float,
@@ -113,8 +129,26 @@ def main() -> int:
     start_date = _parse_date(args.start_date)
     end_date = _parse_date(args.end_date)
     chunks = split_date_range_into_chunks(start_date, end_date, max_days_per_chunk=args.chunk_days)
+    expected_days = expected_trading_days(start_date, end_date)
     if len(chunks) > args.max_chunks:
         raise RuntimeError(f"chunk count exceeds safety cap: {len(chunks)} > {args.max_chunks}")
+    estimated_vendor_requests = _estimated_vendor_requests(symbol_count=len(symbols), chunk_count=len(chunks))
+    request_budget_status = _request_budget_status(
+        estimated_vendor_requests=estimated_vendor_requests,
+        max_requests=args.max_requests,
+        allow_over_budget=args.allow_over_budget,
+    )
+    if request_budget_status == "exceeds_budget" and not args.allow_over_budget:
+        print(
+            f"status=blocked_over_budget "
+            f"symbols_total={len(symbols)} "
+            f"date_chunks_total={len(chunks)} "
+            f"estimated_vendor_requests={estimated_vendor_requests} "
+            f"max_requests={args.max_requests} "
+            f"request_budget_status={request_budget_status} "
+            f"expected_trading_days={len(expected_days)}"
+        )
+        return 0
 
     chunks_completed = 0
     chunks_failed = 0
@@ -171,6 +205,8 @@ def main() -> int:
                             stopped_due_to_rate_limit = True
                         if args.stop_on_rate_limit:
                             stop_symbol = True
+                        else:
+                            stop_symbol = False
                 except Exception as exc:
                     chunks_failed += 1
                     error_message = f"{exc.__class__.__name__}: {exc}"
@@ -205,6 +241,12 @@ def main() -> int:
         f"rate_limit_failures={rate_limit_failures} "
         f"stopped_due_to_rate_limit={str(stopped_due_to_rate_limit).lower()} "
         f"chunks_not_run={chunks_not_run}"
+    )
+    print(
+        f"request_budget_status={request_budget_status} "
+        f"estimated_vendor_requests={estimated_vendor_requests} "
+        f"max_requests={args.max_requests} "
+        f"allow_over_budget={str(args.allow_over_budget).lower()}"
     )
     return 0
 
