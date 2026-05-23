@@ -54,9 +54,33 @@ def _request_budget_status(*, estimated_vendor_requests: int, max_requests: int 
     return "within_budget" if estimated_vendor_requests <= max_requests else "exceeds_budget"
 
 
+def _build_daily_update_command(*, symbol: str, as_of_date: date, timeframe: str, source: str, max_requests: int) -> str:
+    return (
+        f"python -m scripts.run_polygon_ohlcv_daily_update --symbol {symbol} --as-of-date {as_of_date.isoformat()} "
+        f"--timeframe {timeframe} --source {source} --max-requests {max_requests}"
+    )
+
+
+def _build_chunked_backfill_command(
+    *, symbol: str, as_of_date: date, timeframe: str, source: str, chunk_days: int, max_requests: int
+) -> str:
+    return (
+        f"python -m scripts.run_polygon_ohlcv_chunked_backfill --symbol {symbol} --start-date {as_of_date.isoformat()} "
+        f"--end-date {as_of_date.isoformat()} --timeframe {timeframe} --chunk-days {chunk_days} "
+        f"--max-requests {max_requests} --source {source}"
+    )
+
+
+def _build_evidence_command(*, symbol: str, start_date: date, end_date: date, timeframe: str) -> str:
+    return (
+        f"python -m scripts.verify_polygon_ohlcv_evidence_chain --symbol {symbol} --start-date {start_date.isoformat()} "
+        f"--end-date {end_date.isoformat()} --timeframe {timeframe}"
+    )
+
+
 def _recommended_action(
     *,
-    universe_status: str,
+    budget_status: str,
     update_mode: str,
     evidence_status: str | None,
     symbol: str,
@@ -64,25 +88,55 @@ def _recommended_action(
     timeframe: str,
     source: str,
     chunk_days: int,
-) -> str:
-    if universe_status == "exceeds_cap":
-        return "Review symbol universe selection"
+    max_requests: int,
+) -> tuple[str, str | None]:
+    if budget_status == "exceeds_budget":
+        return "reduce_scope_or_raise_budget", None
+    if update_mode == "no_expected_trading_day":
+        return "no_trading_day", None
+    if update_mode == "up_to_date" and evidence_status == "complete":
+        return "no_action_needed", None
+    if update_mode == "incremental_update_needed":
+        action = "run_daily_update"
+        command = _build_daily_update_command(
+            symbol=symbol,
+            as_of_date=as_of_date,
+            timeframe=timeframe,
+            source=source,
+            max_requests=max_requests,
+        )
+        if evidence_status in {"missing", "partial"}:
+            command += " --record-run --record-quality --record-lineage"
+        return action, command
+    if update_mode == "no_existing_data":
+        return (
+            "run_small_backfill_or_daily_update",
+            _build_daily_update_command(
+                symbol=symbol,
+                as_of_date=as_of_date,
+                timeframe=timeframe,
+                source=source,
+                max_requests=max_requests,
+            ),
+        )
+    if evidence_status in {"missing", "partial"}:
+        return (
+            "verify_or_record_evidence",
+            _build_evidence_command(symbol=symbol, start_date=as_of_date, end_date=as_of_date, timeframe=timeframe),
+        )
     if update_mode == "historical_gap_detected":
         return (
-            f"python -m scripts.run_polygon_ohlcv_chunked_backfill --symbol {symbol} --start-date {as_of_date.isoformat()} "
-            f"--end-date {as_of_date.isoformat()} --timeframe {timeframe} --chunk-days {chunk_days} --source {source}"
+            "run_small_backfill_or_daily_update",
+            _build_chunked_backfill_command(
+                symbol=symbol,
+                as_of_date=as_of_date,
+                timeframe=timeframe,
+                source=source,
+                chunk_days=chunk_days,
+                max_requests=max_requests,
+            ),
         )
-    if update_mode in {"incremental_update_needed", "no_existing_data"}:
-        return (
-            f"python -m scripts.run_polygon_ohlcv_daily_update --symbol {symbol} --as-of-date {as_of_date.isoformat()} "
-            f"--timeframe {timeframe} --source {source}"
-        )
-    if evidence_status == "missing":
-        return (
-            f"python -m scripts.verify_polygon_ohlcv_evidence_chain --symbol {symbol} --start-date {as_of_date.isoformat()} "
-            f"--end-date {as_of_date.isoformat()} --timeframe {timeframe}"
-        )
-    return "None"
+    return "manual_review", None
 
 
 def main() -> int:
@@ -111,6 +165,13 @@ def main() -> int:
     symbols_needing_update = 0
     symbols_with_complete_evidence = 0
     symbols_requiring_manual_review = 0
+    next_step_counts: dict[str, int] = {
+        "run_daily_update": 0,
+        "reduce_scope_or_raise_budget": 0,
+        "verify_evidence": 0,
+        "no_action_needed": 0,
+        "manual_review": 0,
+    }
 
     connection = None
     try:
@@ -122,6 +183,7 @@ def main() -> int:
             update_mode = "no_existing_data"
             evidence_status = None
             estimated_requests = 0
+            universe_status = "selected"
 
             if args.check_existing and connection is not None:
                 universe_rows = _fetch_all(connection, _build_latest_existing_query(args.source)[0], (symbol, args.timeframe, _exclusive_end_date(as_of_date), args.source))
@@ -173,6 +235,9 @@ def main() -> int:
                 estimated_requests = 2
             estimated_total_requests += estimated_requests
 
+            if index >= args.max_symbols:
+                universe_status = "exceeds_cap"
+
             if universe_status == "selected" and update_mode == "up_to_date" and evidence_status == "complete":
                 symbols_ready += 1
             else:
@@ -182,8 +247,9 @@ def main() -> int:
             if evidence_status == "complete":
                 symbols_with_complete_evidence += 1
 
-            recommended_action = _recommended_action(
-                universe_status=universe_status,
+            budget_status = _request_budget_status(estimated_vendor_requests=estimated_total_requests, max_requests=args.max_requests)
+            recommended_action, recommended_command = _recommended_action(
+                budget_status=budget_status,
                 update_mode=update_mode,
                 evidence_status=evidence_status,
                 symbol=symbol,
@@ -191,7 +257,20 @@ def main() -> int:
                 timeframe=args.timeframe,
                 source=args.source,
                 chunk_days=10,
+                max_requests=args.max_requests,
             )
+            next_step_key = (
+                "reduce_scope_or_raise_budget"
+                if budget_status == "exceeds_budget"
+                else "no_action_needed"
+                if recommended_action == "no_action_needed"
+                else "verify_evidence"
+                if recommended_action == "verify_or_record_evidence"
+                else "run_daily_update"
+                if recommended_action in {"run_daily_update", "run_small_backfill_or_daily_update"}
+                else "manual_review"
+            )
+            next_step_counts[next_step_key] += 1
             print(
                 f"symbol={symbol} "
                 f"universe_status={universe_status} "
@@ -199,7 +278,8 @@ def main() -> int:
                 f"latest_existing_date={_format_date(latest_existing_date)} "
                 f"evidence_status={evidence_status if evidence_status is not None else 'None'} "
                 f"estimated_requests={estimated_requests} "
-                f"recommended_action={recommended_action}"
+                f"recommended_action={recommended_action} "
+                f"recommended_command={recommended_command if recommended_command is not None else 'None'}"
             )
             per_symbol.append({"symbol": symbol})
     finally:
@@ -210,9 +290,21 @@ def main() -> int:
         estimated_vendor_requests=estimated_total_requests,
         max_requests=args.max_requests,
     )
-    preflight_status = "ready" if request_budget_status == "within_budget" and symbols_requiring_manual_review == 0 else "manual_review_needed"
     if request_budget_status == "exceeds_budget":
         preflight_status = "blocked"
+    elif symbols_requiring_manual_review == 0:
+        preflight_status = "ready"
+    else:
+        preflight_status = "manual_review_needed"
+    recommended_next_step = "manual_review"
+    if request_budget_status == "exceeds_budget":
+        recommended_next_step = "reduce_scope_or_raise_budget"
+    elif next_step_counts["run_daily_update"]:
+        recommended_next_step = "run_daily_update"
+    elif next_step_counts["verify_evidence"]:
+        recommended_next_step = "verify_evidence"
+    elif next_step_counts["no_action_needed"]:
+        recommended_next_step = "no_action_needed"
 
     print(
         f"symbols_total={len(symbols)} "
@@ -222,7 +314,8 @@ def main() -> int:
         f"symbols_requiring_manual_review={symbols_requiring_manual_review} "
         f"estimated_total_requests={estimated_total_requests} "
         f"request_budget_status={request_budget_status} "
-        f"preflight_status={preflight_status}"
+        f"preflight_status={preflight_status} "
+        f"recommended_next_step={recommended_next_step}"
     )
     return 0
 

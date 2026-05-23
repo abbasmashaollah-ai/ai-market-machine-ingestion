@@ -13,6 +13,8 @@ The command combines:
 
 It accepts repeated `--symbol`, defaults to `SPY`, `QQQ`, `IWM`, and can optionally inspect existing canonical data when `--check-existing` is supplied.
 
+Per symbol, the command prints both a `recommended_action` label and a safe executable `recommended_command` when one is appropriate. The command strings are operator-facing only and never include secrets or `--confirm-write`.
+
 ## Safety
 
 The command does not:
