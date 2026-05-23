@@ -165,7 +165,9 @@ class RunPolygonOhlcvChunkedBackfillTests(unittest.TestCase):
         mod = self._module()
         with patch.dict(os.environ, {"POLYGON_API_KEY": "polygon-secret"}, clear=True), patch.object(
             mod, "load_local_env_if_available", return_value=False
-        ), patch.object(mod, "build_manual_polygon_ohlcv_incremental", return_value=self._summary()) as build_mock, patch(
+        ), patch.object(mod, "build_manual_polygon_ohlcv_incremental", return_value=self._summary()) as build_mock, patch.object(
+            mod, "IngestionRunStore"
+        ) as run_store_cls, patch(
             "scripts.run_polygon_ohlcv_chunked_backfill.time.sleep"
         ) as sleep_mock, patch(
             "builtins.print"
@@ -194,12 +196,15 @@ class RunPolygonOhlcvChunkedBackfillTests(unittest.TestCase):
         self.assertNotIn("DATABASE_URL", printed)
         self.assertEqual(build_mock.call_count, 3)
         self.assertEqual(sleep_mock.call_count, 3)
+        run_store_cls.assert_not_called()
 
     def test_over_budget_blocks_before_execution(self) -> None:
         mod = self._module()
         with patch.dict(os.environ, {"POLYGON_API_KEY": "polygon-secret"}, clear=True), patch.object(
             mod, "load_local_env_if_available", return_value=False
         ), patch.object(mod, "build_manual_polygon_ohlcv_incremental") as build_mock, patch.object(
+            mod, "IngestionRunStore"
+        ) as run_store_cls, patch.object(
             mod, "_open_connection"
         ) as open_connection_mock, patch(
             "builtins.print"
@@ -227,6 +232,7 @@ class RunPolygonOhlcvChunkedBackfillTests(unittest.TestCase):
 
         build_mock.assert_not_called()
         open_connection_mock.assert_not_called()
+        run_store_cls.assert_not_called()
         printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
         self.assertIn("status=blocked_over_budget", printed)
         self.assertIn("estimated_vendor_requests=8", printed)
@@ -236,7 +242,9 @@ class RunPolygonOhlcvChunkedBackfillTests(unittest.TestCase):
         mod = self._module()
         with patch.dict(os.environ, {"POLYGON_API_KEY": "polygon-secret"}, clear=True), patch.object(
             mod, "load_local_env_if_available", return_value=False
-        ), patch.object(mod, "build_manual_polygon_ohlcv_incremental", return_value=self._summary()) as build_mock, patch(
+        ), patch.object(mod, "build_manual_polygon_ohlcv_incremental", return_value=self._summary()) as build_mock, patch.object(
+            mod, "IngestionRunStore"
+        ) as run_store_cls, patch(
             "builtins.print"
         ) as print_mock, patch(
             "sys.argv",
@@ -262,6 +270,7 @@ class RunPolygonOhlcvChunkedBackfillTests(unittest.TestCase):
             mod.main()
 
         self.assertEqual(build_mock.call_count, 8)
+        run_store_cls.assert_not_called()
         printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
         self.assertIn("request_budget_status=override", printed)
         self.assertIn("estimated_vendor_requests=8", printed)
@@ -432,6 +441,44 @@ class RunPolygonOhlcvChunkedBackfillTests(unittest.TestCase):
         self.assertTrue(build_mock.call_args.kwargs["confirmed_write"])
         self.assertIs(build_mock.call_args.kwargs["writer"], writer_cls.return_value)
         self.assertIs(build_mock.call_args.kwargs["checkpoint_store"], checkpoint_store_cls.return_value)
+        self.assertNotIn("record_run", build_mock.call_args.kwargs)
+
+    def test_record_run_routes_through_existing_run_history_logic(self) -> None:
+        mod = self._module()
+        fake_connection = Mock()
+        fake_connection.execute.return_value.fetchall.return_value = []
+        with patch.dict(
+            os.environ,
+            {"POLYGON_API_KEY": "polygon-secret", "DATABASE_URL": "postgresql://user:pass@host/db"},
+            clear=True,
+        ), patch.object(mod, "load_local_env_if_available", return_value=False), patch.object(
+            mod, "_open_connection", return_value=fake_connection
+        ) as open_connection_mock, patch.object(mod, "ManualPolygonOHLCVCheckpointStore"), patch.object(
+            mod, "OhlcvWriter"
+        ), patch.object(mod, "IngestionRunStore") as run_store_cls, patch.object(
+            mod, "build_manual_polygon_ohlcv_incremental", return_value=self._summary()
+        ) as build_mock, patch(
+            "builtins.print"
+        ), patch(
+            "sys.argv",
+            [
+                "run_polygon_ohlcv_chunked_backfill.py",
+                "--symbol",
+                "SPY",
+                "--start-date",
+                "2025-01-02",
+                "--end-date",
+                "2025-01-10",
+                "--chunk-days",
+                "3",
+                "--record-run",
+            ],
+        ):
+            mod.main()
+
+        open_connection_mock.assert_called_once()
+        run_store_cls.assert_called_once_with(fake_connection)
+        self.assertTrue(build_mock.called)
 
     def test_missing_polygon_key_fails_safely(self) -> None:
         mod = self._module()

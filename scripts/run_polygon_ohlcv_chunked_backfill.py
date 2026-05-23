@@ -3,11 +3,14 @@ from __future__ import annotations
 import argparse
 import os
 import time
-from datetime import date
+from datetime import date, datetime, timezone
 
 from app.ingestion.backfill.planner import split_date_range_into_chunks
 from app.market_calendar.us_market_calendar import expected_trading_days
 from app.ingestion.manual.polygon_ohlcv_incremental import build_manual_polygon_ohlcv_incremental
+from app.state.ingestion_run_store import IngestionRunStore
+from app.state.errors import IngestionErrorRecord
+from app.state.runs import IngestionRun, RunStatus
 from app.state.manual_polygon_ohlcv_checkpoint_store import ManualPolygonOHLCVCheckpointStore
 from app.writers.ohlcv_writer import OhlcvWriter
 from scripts.persist_fred_macro import _open_connection
@@ -77,6 +80,18 @@ def _request_budget_status(*, estimated_vendor_requests: int, max_requests: int 
     return "within_budget" if estimated_vendor_requests <= max_requests else "exceeds_budget"
 
 
+def _run_id(start_date: date, end_date: date) -> str:
+    return f"polygon-ohlcv-chunked-backfill:{start_date.isoformat()}:{end_date.isoformat()}"
+
+
+def _final_run_status(*, chunks_completed: int, chunks_failed: int) -> RunStatus:
+    if chunks_failed == 0:
+        return RunStatus.SUCCESS
+    if chunks_completed > 0:
+        return RunStatus.PARTIAL
+    return RunStatus.FAILED
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run a manual chunked Polygon OHLCV backfill for a tiny universe.")
     parser.add_argument("--symbol", action="append", help="Ticker symbol. Defaults to SPY, QQQ, IWM.")
@@ -89,6 +104,7 @@ def main() -> int:
     parser.add_argument("--max-chunks", type=int, default=DEFAULT_MAX_CHUNKS, help="Safety cap for chunk count.")
     parser.add_argument("--max-requests", type=int, default=DEFAULT_MAX_REQUESTS, help="Maximum safe manual request budget, default 25.")
     parser.add_argument("--allow-over-budget", action="store_true", help="Proceed even if the estimated request budget is exceeded.")
+    parser.add_argument("--record-run", action="store_true", help="Persist operational run history when the approved contract is available.")
     parser.add_argument(
         "--sleep-seconds-between-chunks",
         type=float,
@@ -121,6 +137,8 @@ def main() -> int:
     database_url = os.getenv("DATABASE_URL")
     if args.confirm_write and not database_url:
         raise RuntimeError("DATABASE_URL is required when --confirm-write is used")
+    if args.record_run and not database_url:
+        raise RuntimeError("DATABASE_URL is required when --record-run is used")
 
     symbols = tuple(args.symbol) if args.symbol else DEFAULT_SYMBOLS
     if len(symbols) > args.max_symbols:
@@ -128,6 +146,7 @@ def main() -> int:
 
     start_date = _parse_date(args.start_date)
     end_date = _parse_date(args.end_date)
+    run_started_at = datetime.now(timezone.utc)
     chunks = split_date_range_into_chunks(start_date, end_date, max_days_per_chunk=args.chunk_days)
     expected_days = expected_trading_days(start_date, end_date)
     if len(chunks) > args.max_chunks:
@@ -138,6 +157,14 @@ def main() -> int:
         max_requests=args.max_requests,
         allow_over_budget=args.allow_over_budget,
     )
+    run_store = None
+    run_connection = None
+    run_errors: list[IngestionErrorRecord] = []
+    run_history_blocked = False
+    blocked_over_budget = False
+    if args.record_run:
+        run_connection = _open_connection(database_url)  # type: ignore[arg-type]
+        run_store = IngestionRunStore(run_connection)
     if request_budget_status == "exceeds_budget" and not args.allow_over_budget:
         print(
             f"status=blocked_over_budget "
@@ -148,7 +175,8 @@ def main() -> int:
             f"request_budget_status={request_budget_status} "
             f"expected_trading_days={len(expected_days)}"
         )
-        return 0
+        run_history_blocked = True
+        blocked_over_budget = True
 
     chunks_completed = 0
     chunks_failed = 0
@@ -162,69 +190,159 @@ def main() -> int:
     checkpoint_store = None
     writer = None
     try:
-        if args.confirm_write:
-            connection = _open_connection(database_url)  # type: ignore[arg-type]
-            checkpoint_store = ManualPolygonOHLCVCheckpointStore(connection)
-            writer = OhlcvWriter(connection)
+        if not blocked_over_budget:
+            if args.confirm_write:
+                connection = _open_connection(database_url)  # type: ignore[arg-type]
+                checkpoint_store = ManualPolygonOHLCVCheckpointStore(connection)
+                writer = OhlcvWriter(connection)
 
-        for symbol in symbols:
-            stop_symbol = False
-            for chunk in chunks:
-                if stop_symbol or stopped_due_to_rate_limit:
-                    chunks_not_run += 1
-                    continue
-                try:
-                    summary = build_manual_polygon_ohlcv_incremental(
-                        symbols=(symbol,),
-                        start_date=chunk.start_date,
-                        end_date=chunk.end_date,
-                        timeframe=args.timeframe,
-                        api_key=polygon_api_key,
-                        writer=writer,
-                        confirmed_write=args.confirm_write,
-                        checkpoint_store=checkpoint_store,
-                        use_checkpoint=args.confirm_write,
-                        update_checkpoint=args.confirm_write,
-                    )
-                    row = summary.symbol_summaries[0] if summary.symbol_summaries else None
-                    if row is None:
-                        chunks_skipped += 1
+            for symbol in symbols:
+                stop_symbol = False
+                for chunk in chunks:
+                    if stop_symbol or stopped_due_to_rate_limit:
+                        chunks_not_run += 1
                         continue
-                    _print_symbol_summary(row, chunk_start_date=chunk.start_date, chunk_end_date=chunk.end_date)
-                    if row.status.startswith("skipped"):
-                        chunks_skipped += 1
-                    elif row.status == "failed":
-                        chunks_failed += 1
-                    else:
-                        chunks_completed += 1
-                    total_rows_fetched += row.rows_fetched
-                    total_rows_written += row.rows_written
-                    if row.status == "failed" and _is_rate_limit_failure(row.error_message):
-                        rate_limit_failures += 1
-                        if rate_limit_failures >= args.max_rate_limit_failures:
-                            stopped_due_to_rate_limit = True
-                        if args.stop_on_rate_limit:
-                            stop_symbol = True
+                    try:
+                        summary = build_manual_polygon_ohlcv_incremental(
+                            symbols=(symbol,),
+                            start_date=chunk.start_date,
+                            end_date=chunk.end_date,
+                            timeframe=args.timeframe,
+                            api_key=polygon_api_key,
+                            writer=writer,
+                            confirmed_write=args.confirm_write,
+                            checkpoint_store=checkpoint_store,
+                            use_checkpoint=args.confirm_write,
+                            update_checkpoint=args.confirm_write,
+                        )
+                        row = summary.symbol_summaries[0] if summary.symbol_summaries else None
+                        if row is None:
+                            chunks_skipped += 1
+                            continue
+                        _print_symbol_summary(row, chunk_start_date=chunk.start_date, chunk_end_date=chunk.end_date)
+                        if row.status.startswith("skipped"):
+                            chunks_skipped += 1
+                        elif row.status == "failed":
+                            chunks_failed += 1
+                            run_errors.append(
+                                IngestionErrorRecord(
+                                    error_id=f"{symbol}:{chunk.start_date.isoformat()}:{chunk.end_date.isoformat()}",
+                                    run_id=_run_id(start_date, end_date),
+                                    error_type="chunk_failed",
+                                    message=row.error_message or "chunk failed",
+                                    retryable=_is_rate_limit_failure(row.error_message),
+                                    metadata={
+                                        "vendor": "polygon",
+                                        "dataset": "ohlcv",
+                                        "symbol": symbol,
+                                        "timeframe": args.timeframe,
+                                        "chunk_start_date": chunk.start_date.isoformat(),
+                                        "chunk_end_date": chunk.end_date.isoformat(),
+                                        "status": row.status,
+                                    },
+                                )
+                            )
                         else:
-                            stop_symbol = False
-                except Exception as exc:
-                    chunks_failed += 1
-                    error_message = f"{exc.__class__.__name__}: {exc}"
-                    if _is_rate_limit_failure(error_message):
-                        rate_limit_failures += 1
-                        if rate_limit_failures >= args.max_rate_limit_failures:
-                            stopped_due_to_rate_limit = True
-                        if args.stop_on_rate_limit:
-                            stop_symbol = True
-                    print(
-                        f"symbol={symbol} "
-                        f"chunk_start_date={chunk.start_date.isoformat()} "
-                        f"chunk_end_date={chunk.end_date.isoformat()} "
-                        f"status=failed "
-                        f"error_message={error_message}"
-                    )
-                _sleep_between_chunks(args.sleep_seconds_between_chunks, dry_run_no_sleep=args.dry_run_no_sleep)
+                            chunks_completed += 1
+                        total_rows_fetched += row.rows_fetched
+                        total_rows_written += row.rows_written
+                        if row.status == "failed" and _is_rate_limit_failure(row.error_message):
+                            rate_limit_failures += 1
+                            if rate_limit_failures >= args.max_rate_limit_failures:
+                                stopped_due_to_rate_limit = True
+                            if args.stop_on_rate_limit:
+                                stop_symbol = True
+                            else:
+                                stop_symbol = False
+                    except Exception as exc:
+                        chunks_failed += 1
+                        error_message = f"{exc.__class__.__name__}: {exc}"
+                        run_errors.append(
+                            IngestionErrorRecord(
+                                error_id=f"{symbol}:{chunk.start_date.isoformat()}:{chunk.end_date.isoformat()}",
+                                run_id=_run_id(start_date, end_date),
+                                error_type=exc.__class__.__name__,
+                                message=error_message,
+                                retryable=_is_rate_limit_failure(error_message),
+                                metadata={
+                                    "vendor": "polygon",
+                                    "dataset": "ohlcv",
+                                    "symbol": symbol,
+                                    "timeframe": args.timeframe,
+                                    "chunk_start_date": chunk.start_date.isoformat(),
+                                    "chunk_end_date": chunk.end_date.isoformat(),
+                                },
+                            )
+                        )
+                        if _is_rate_limit_failure(error_message):
+                            rate_limit_failures += 1
+                            if rate_limit_failures >= args.max_rate_limit_failures:
+                                stopped_due_to_rate_limit = True
+                            if args.stop_on_rate_limit:
+                                stop_symbol = True
+                        print(
+                            f"symbol={symbol} "
+                            f"chunk_start_date={chunk.start_date.isoformat()} "
+                            f"chunk_end_date={chunk.end_date.isoformat()} "
+                            f"status=failed "
+                            f"error_message={error_message}"
+                        )
+                    _sleep_between_chunks(args.sleep_seconds_between_chunks, dry_run_no_sleep=args.dry_run_no_sleep)
     finally:
+        if run_store is not None:
+            if blocked_over_budget:
+                run_store.save_run(
+                    IngestionRun(
+                        run_id=_run_id(start_date, end_date),
+                        job_id="polygon_ohlcv_chunked_backfill",
+                        status=RunStatus.SKIPPED,
+                        rows_fetched=0,
+                        rows_written=0,
+                        rows_rejected=0,
+                        error_count=0,
+                        metadata={
+                            "vendor": "polygon",
+                            "dataset": "ohlcv",
+                            "status": "blocked_over_budget",
+                            "started_at": run_started_at,
+                            "finished_at": datetime.now(timezone.utc),
+                            "estimated_vendor_requests": estimated_vendor_requests,
+                            "max_requests": args.max_requests,
+                            "request_budget_status": request_budget_status,
+                        },
+                    )
+                )
+            elif not run_history_blocked:
+                final_status = _final_run_status(chunks_completed=chunks_completed, chunks_failed=chunks_failed)
+                run_store.save_run(
+                    IngestionRun(
+                        run_id=_run_id(start_date, end_date),
+                        job_id="polygon_ohlcv_chunked_backfill",
+                        status=final_status,
+                        rows_fetched=total_rows_fetched,
+                        rows_written=total_rows_written,
+                        rows_rejected=0,
+                        error_count=chunks_failed + rate_limit_failures,
+                        metadata={
+                            "vendor": "polygon",
+                            "dataset": "ohlcv",
+                            "status": final_status.value,
+                            "started_at": run_started_at,
+                            "finished_at": datetime.now(timezone.utc),
+                            "estimated_vendor_requests": estimated_vendor_requests,
+                            "max_requests": args.max_requests,
+                            "request_budget_status": request_budget_status,
+                            "allow_over_budget": args.allow_over_budget,
+                            "rate_limit_failures": rate_limit_failures,
+                            "stopped_due_to_rate_limit": stopped_due_to_rate_limit,
+                            "chunks_not_run": chunks_not_run,
+                        },
+                    )
+                )
+                if run_errors:
+                    run_store.save_errors(_run_id(start_date, end_date), run_errors)
+        if run_connection is not None and hasattr(run_connection, "close"):
+            run_connection.close()
         if connection is not None and hasattr(connection, "close"):
             connection.close()
 

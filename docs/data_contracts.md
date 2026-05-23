@@ -83,6 +83,7 @@ Timestamp/timezone rule:
 - Schema owner: `ai-market-machine-data`.
 - Ingestion read/write: ingestion may read and may write through approved writers.
 - Notes about usage: records status, timing, and operational outcome for each run.
+- Approved operational run-history writes are optional and must remain contract-checked before use.
 
 ### `ingestion_errors`
 
@@ -90,6 +91,7 @@ Timestamp/timezone rule:
 - Schema owner: `ai-market-machine-data`.
 - Ingestion read/write: ingestion may read and may write through approved writers.
 - Notes about usage: used for debugging, retry decisions, and operator visibility.
+- Approved operational error writes are optional and must remain contract-checked before use.
 
 ### `data_quality_results`
 
