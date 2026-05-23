@@ -10,6 +10,7 @@ MODULES = (
     "scripts.persist_fred_macro_incremental",
     "scripts.dry_run_polygon_ohlcv_incremental",
     "scripts.persist_polygon_ohlcv_incremental",
+    "scripts.run_polygon_ohlcv_tiny_universe_check",
     "scripts.inspect_polygon_ohlcv_checkpoint",
     "scripts.verify_polygon_ohlcv_rows",
     "scripts.diagnose_ohlcv_overlap",
