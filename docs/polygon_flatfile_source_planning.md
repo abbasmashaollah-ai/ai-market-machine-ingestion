@@ -41,6 +41,8 @@ Before any download implementation exists, define [Polygon Flat-File Download Pl
 
 Before any persistence implementation exists, define [Polygon Flat-File Persistence Planning](polygon_flatfile_persistence_planning.md). Flat-file persistence must use the shared OHLCV writer and the same checkpoint, run_history, quality, and lineage flow as the API source.
 
+For a single roll-up of all readiness gates, use [Polygon Flat-File End-to-End Readiness](polygon_flatfile_e2e_readiness.md).
+
 ## Safety
 
 The diagnostic does not:
