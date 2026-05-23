@@ -28,4 +28,6 @@ This document and the related diagnostic do not:
 - require `DATABASE_URL`
 - add AI, trading, risk, signal, regime, portfolio, strategy, or prediction logic
 
+Storage root planning is further constrained by [Polygon Flat-File Storage Policy](polygon_flatfile_storage_policy.md).
+
 `ai-market-machine-data` remains the schema owner.

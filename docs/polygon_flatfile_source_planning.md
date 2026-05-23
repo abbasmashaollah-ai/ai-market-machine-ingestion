@@ -27,6 +27,8 @@ Discovery dry-runs should use [Polygon Flat-File Discovery Planning](polygon_fla
 
 Before any live path is enabled, use [Polygon Flat-File Config Readiness](polygon_flatfile_config_readiness.md) to confirm the expected environment variables are present without exposing their values.
 
+Before any flat-file download work, use [Polygon Flat-File Storage Policy](polygon_flatfile_storage_policy.md) to define the allowed storage root and the forbidden locations.
+
 ## Safety
 
 The diagnostic does not:
