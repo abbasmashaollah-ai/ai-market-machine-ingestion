@@ -16,6 +16,7 @@ The script imports these manual command modules:
 - `scripts.verify_polygon_ohlcv_rows`
 - `scripts.diagnose_ohlcv_overlap`
 - `scripts.diagnose_ohlcv_coverage`
+- `scripts.fill_polygon_ohlcv_gaps`
 
 It verifies each module exposes a callable `main()` entrypoint and prints a safe inventory line for each.
 

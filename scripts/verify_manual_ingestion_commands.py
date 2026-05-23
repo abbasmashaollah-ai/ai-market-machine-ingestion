@@ -14,6 +14,7 @@ MODULES = (
     "scripts.verify_polygon_ohlcv_rows",
     "scripts.diagnose_ohlcv_overlap",
     "scripts.diagnose_ohlcv_coverage",
+    "scripts.fill_polygon_ohlcv_gaps",
 )
 
 
