@@ -14,6 +14,7 @@ MODULES = (
     "scripts.plan_polygon_ohlcv_backfill",
     "scripts.plan_polygon_ohlcv_daily_update",
     "scripts.plan_polygon_ohlcv_scheduler_cycle",
+    "scripts.plan_polygon_ohlcv_symbol_universe",
     "scripts.run_polygon_ohlcv_daily_update",
     "scripts.run_polygon_ohlcv_chunked_backfill",
     "scripts.inspect_ingestion_run_history",
