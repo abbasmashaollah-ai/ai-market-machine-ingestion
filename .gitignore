@@ -17,3 +17,8 @@ docs/
 
 # Keep README tracked
 !README.md
+
+# Local debug/helper scripts
+check_ohlcv_schema.py
+check_schema.py
+main.py
