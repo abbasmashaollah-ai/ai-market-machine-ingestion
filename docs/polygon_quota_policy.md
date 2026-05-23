@@ -8,6 +8,8 @@ Polygon quota planning in this repository is split by source path:
 
 All source paths must feed the same normalization, validation, writer, checkpoint, run-history, quality, and lineage pipeline.
 
+See [Polygon Flat-File Source Planning](polygon_flatfile_source_planning.md) for the future adapter path and dry-run-only readiness diagnostic.
+
 ## Readiness
 
 `scripts/diagnose_polygon_quota_readiness.py` is the read-only diagnostic for request budget planning.

@@ -82,3 +82,5 @@ Polygon quota planning is source-sensitive:
 - `websocket` for future live streaming data
 
 All source paths must continue to feed the same normalization, validation, writer, checkpoint, run-history, quality, and lineage pipeline. See [Polygon Quota Policy](polygon_quota_policy.md) for the diagnostic and operational split.
+
+Flat-file readiness and the future historical/backfill adapter path are documented in [Polygon Flat-File Source Planning](polygon_flatfile_source_planning.md). The implementation path should start with discovery and download dry-runs before any persistence work.
