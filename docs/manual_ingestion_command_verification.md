@@ -18,6 +18,7 @@ The script imports these manual command modules:
 - `scripts.plan_polygon_ohlcv_scheduler_cycle`
 - `scripts.plan_polygon_ohlcv_symbol_universe`
 - `scripts.preflight_polygon_ohlcv_operations`
+- `scripts.verify_polygon_preflight_recommendations`
 - `scripts.run_polygon_ohlcv_daily_update`
 - `scripts.run_polygon_ohlcv_chunked_backfill`
 - `scripts.inspect_polygon_ohlcv_checkpoint`

@@ -139,17 +139,7 @@ def _recommended_action(
     return "manual_review", None
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description="Preflight Polygon OHLCV operations safely.")
-    parser.add_argument("--symbol", action="append", help="Ticker symbol. Defaults to SPY, QQQ, IWM.")
-    parser.add_argument("--as-of-date", required=True, help="As-of date in YYYY-MM-DD format.")
-    parser.add_argument("--timeframe", default="1d", help="Timeframe, default 1d.")
-    parser.add_argument("--source", default="polygon_aggregates", help="Source filter, default polygon_aggregates.")
-    parser.add_argument("--max-symbols", type=int, default=25, help="Maximum symbol count, default 25.")
-    parser.add_argument("--max-requests", type=int, default=10, help="Maximum request budget, default 10.")
-    parser.add_argument("--check-existing", action="store_true", help="Read existing canonical coverage if DATABASE_URL is available.")
-    args = parser.parse_args()
-
+def build_preflight_report(args: argparse.Namespace) -> tuple[list[dict[str, object]], dict[str, object]]:
     load_local_env_if_available()
     database_url = os.getenv("DATABASE_URL")
     if args.check_existing and not database_url:
@@ -183,10 +173,13 @@ def main() -> int:
             update_mode = "no_existing_data"
             evidence_status = None
             estimated_requests = 0
-            universe_status = "selected"
 
             if args.check_existing and connection is not None:
-                universe_rows = _fetch_all(connection, _build_latest_existing_query(args.source)[0], (symbol, args.timeframe, _exclusive_end_date(as_of_date), args.source))
+                universe_rows = _fetch_all(
+                    connection,
+                    _build_latest_existing_query(args.source)[0],
+                    (symbol, args.timeframe, _exclusive_end_date(as_of_date), args.source),
+                )
                 latest_existing_date = _latest_existing_date_from_rows(universe_rows)
                 if latest_expected is None:
                     update_mode = "no_expected_trading_day"
@@ -198,7 +191,11 @@ def main() -> int:
                     gap_days = (latest_expected - latest_existing_date).days
                     update_mode = "historical_gap_detected" if gap_days > 5 else "incremental_update_needed"
 
-                canonical_rows = _fetch_all(connection, _canonical_query(), (symbol, as_of_date, _exclusive_end_date(as_of_date), args.timeframe))
+                canonical_rows = _fetch_all(
+                    connection,
+                    _canonical_query(),
+                    (symbol, as_of_date, _exclusive_end_date(as_of_date), args.timeframe),
+                )
                 coverage = _coverage(canonical_rows, as_of_date, as_of_date)
                 run_rows, _ = _load_with_fallback(
                     connection=connection,
@@ -271,25 +268,23 @@ def main() -> int:
                 else "manual_review"
             )
             next_step_counts[next_step_key] += 1
-            print(
-                f"symbol={symbol} "
-                f"universe_status={universe_status} "
-                f"update_mode={update_mode} "
-                f"latest_existing_date={_format_date(latest_existing_date)} "
-                f"evidence_status={evidence_status if evidence_status is not None else 'None'} "
-                f"estimated_requests={estimated_requests} "
-                f"recommended_action={recommended_action} "
-                f"recommended_command={recommended_command if recommended_command is not None else 'None'}"
+            per_symbol.append(
+                {
+                    "symbol": symbol,
+                    "universe_status": universe_status,
+                    "update_mode": update_mode,
+                    "latest_existing_date": latest_existing_date,
+                    "evidence_status": evidence_status,
+                    "estimated_requests": estimated_requests,
+                    "recommended_action": recommended_action,
+                    "recommended_command": recommended_command,
+                }
             )
-            per_symbol.append({"symbol": symbol})
     finally:
         if connection is not None and hasattr(connection, "close"):
             connection.close()
 
-    request_budget_status = _request_budget_status(
-        estimated_vendor_requests=estimated_total_requests,
-        max_requests=args.max_requests,
-    )
+    request_budget_status = _request_budget_status(estimated_vendor_requests=estimated_total_requests, max_requests=args.max_requests)
     if request_budget_status == "exceeds_budget":
         preflight_status = "blocked"
     elif symbols_requiring_manual_review == 0:
@@ -306,16 +301,54 @@ def main() -> int:
     elif next_step_counts["no_action_needed"]:
         recommended_next_step = "no_action_needed"
 
+    summary = {
+        "symbols_total": len(symbols),
+        "symbols_ready": symbols_ready,
+        "symbols_needing_update": symbols_needing_update,
+        "symbols_with_complete_evidence": symbols_with_complete_evidence,
+        "symbols_requiring_manual_review": symbols_requiring_manual_review,
+        "estimated_total_requests": estimated_total_requests,
+        "request_budget_status": request_budget_status,
+        "preflight_status": preflight_status,
+        "recommended_next_step": recommended_next_step,
+    }
+    return per_symbol, summary
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Preflight Polygon OHLCV operations safely.")
+    parser.add_argument("--symbol", action="append", help="Ticker symbol. Defaults to SPY, QQQ, IWM.")
+    parser.add_argument("--as-of-date", required=True, help="As-of date in YYYY-MM-DD format.")
+    parser.add_argument("--timeframe", default="1d", help="Timeframe, default 1d.")
+    parser.add_argument("--source", default="polygon_aggregates", help="Source filter, default polygon_aggregates.")
+    parser.add_argument("--max-symbols", type=int, default=25, help="Maximum symbol count, default 25.")
+    parser.add_argument("--max-requests", type=int, default=10, help="Maximum request budget, default 10.")
+    parser.add_argument("--check-existing", action="store_true", help="Read existing canonical coverage if DATABASE_URL is available.")
+    args = parser.parse_args()
+
+    per_symbol, summary = build_preflight_report(args)
+    for item in per_symbol:
+        print(
+            f"symbol={item['symbol']} "
+            f"universe_status={item['universe_status']} "
+            f"update_mode={item['update_mode']} "
+            f"latest_existing_date={_format_date(item['latest_existing_date'])} "
+            f"evidence_status={item['evidence_status'] if item['evidence_status'] is not None else 'None'} "
+            f"estimated_requests={item['estimated_requests']} "
+            f"recommended_action={item['recommended_action']} "
+            f"recommended_command={item['recommended_command'] if item['recommended_command'] is not None else 'None'}"
+        )
+
     print(
-        f"symbols_total={len(symbols)} "
-        f"symbols_ready={symbols_ready} "
-        f"symbols_needing_update={symbols_needing_update} "
-        f"symbols_with_complete_evidence={symbols_with_complete_evidence} "
-        f"symbols_requiring_manual_review={symbols_requiring_manual_review} "
-        f"estimated_total_requests={estimated_total_requests} "
-        f"request_budget_status={request_budget_status} "
-        f"preflight_status={preflight_status} "
-        f"recommended_next_step={recommended_next_step}"
+        f"symbols_total={summary['symbols_total']} "
+        f"symbols_ready={summary['symbols_ready']} "
+        f"symbols_needing_update={summary['symbols_needing_update']} "
+        f"symbols_with_complete_evidence={summary['symbols_with_complete_evidence']} "
+        f"symbols_requiring_manual_review={summary['symbols_requiring_manual_review']} "
+        f"estimated_total_requests={summary['estimated_total_requests']} "
+        f"request_budget_status={summary['request_budget_status']} "
+        f"preflight_status={summary['preflight_status']} "
+        f"recommended_next_step={summary['recommended_next_step']}"
     )
     return 0
 
