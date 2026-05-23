@@ -10,6 +10,7 @@ This document defines how failed ingestion runs should be retried, resumed, skip
 - rate-limit retry must be conservative and never aggressive
 - flat-file failures may require quarantine and manual review
 - retry and recovery must not introduce trading or AI decision logic
+- failure-class mappings live in [Ingestion Failure Recovery Runbook](ingestion_failure_recovery_runbook.md)
 
 ## Required failure classes
 

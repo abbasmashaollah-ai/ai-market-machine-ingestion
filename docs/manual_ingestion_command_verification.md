@@ -24,6 +24,7 @@ The script imports these manual command modules:
 - `scripts.verify_polygon_scheduler_disabled`
 - `scripts.diagnose_ingestion_monitoring_readiness`
 - `scripts.diagnose_ingestion_retry_recovery_readiness`
+- `scripts.diagnose_ingestion_failure_recovery_runbook`
 - `scripts.diagnose_us_market_calendar_readiness`
 - `scripts.diagnose_polygon_quota_readiness`
 - `scripts.diagnose_polygon_flatfile_readiness`
