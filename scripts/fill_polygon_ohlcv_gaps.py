@@ -6,6 +6,7 @@ from datetime import date, datetime, timedelta, timezone
 
 from app.ingestion.manual.polygon_ohlcv_incremental import _build_polygon_client, _normalize_and_validate
 from app.writers.ohlcv_writer import OhlcvWriter
+from scripts.diagnose_ohlcv_coverage import calculate_coverage
 from scripts.persist_fred_macro import _open_connection, load_local_env_if_available
 
 
@@ -39,17 +40,20 @@ def _fetch_all(connection: object, sql: str, params: tuple[object, ...] = ()) ->
             cursor.close()
 
 
-def _coverage_query(source_filter: str | None) -> tuple[str, tuple[object, ...]]:
+def _coverage_query(source_filter: str | None) -> str:
     query = (
         "SELECT symbol, timestamp, source, adjusted "
         "FROM canonical_ohlcv "
-        "WHERE symbol = %s AND timestamp >= %s AND timestamp <= %s AND timeframe = %s"
+        "WHERE symbol = %s AND timestamp >= %s AND timestamp < %s AND timeframe = %s"
     )
-    params: tuple[object, ...] = ()
     if source_filter is not None:
         query += " AND source = %s"
     query += " ORDER BY timestamp ASC"
-    return query, params
+    return query
+
+
+def _exclusive_end_date(end_date: date) -> date:
+    return end_date + timedelta(days=1)
 
 
 def _expected_weekdays(start_date: date, end_date: date) -> list[date]:
@@ -71,6 +75,10 @@ def _observed_dates(rows: list[dict[str, object]]) -> list[date]:
             if observed not in values:
                 values.append(observed)
     return values
+
+
+def _normalize_observed_dates(rows: list[dict[str, object]]) -> list[date]:
+    return _observed_dates(rows)
 
 
 def _format_dates(values: list[date]) -> str:
@@ -97,7 +105,22 @@ def _print_summary(
     validation_failures: int,
     write_confirmed: bool,
     status: str,
+    fetched_dates: list[date] | None = None,
+    writable_dates: list[date] | None = None,
+    rows_filtered_out: int | None = None,
+    remaining_missing_dates_count: int | None = None,
 ) -> None:
+    extras = ""
+    if missing_dates is not None:
+        extras += f" missing_dates={_format_dates(missing_dates)}"
+    if fetched_dates is not None:
+        extras += f" fetched_dates={_format_dates(fetched_dates)}"
+    if writable_dates is not None:
+        extras += f" writable_dates={_format_dates(writable_dates)}"
+    if rows_filtered_out is not None:
+        extras += f" rows_filtered_out={rows_filtered_out}"
+    if remaining_missing_dates_count is not None:
+        extras += f" remaining_missing_dates_count={remaining_missing_dates_count}"
     print(
         f"symbol={symbol} "
         f"timeframe={timeframe} "
@@ -110,7 +133,7 @@ def _print_summary(
         f"rows_written={rows_written} "
         f"validation_failures={validation_failures} "
         f"write_confirmed={str(write_confirmed).lower()} "
-        f"status={status}"
+        f"status={status}{extras}"
     )
 
 
@@ -137,6 +160,13 @@ def _build_gap_filled_records(
     return normalized, invalid, validation_failures
 
 
+def _canonical_date_from_record(record: object) -> date | None:
+    timestamp = getattr(record, "timestamp", None)
+    if isinstance(timestamp, datetime):
+        return timestamp.date()
+    return None
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Fill missing weekday Polygon OHLCV rows in canonical_ohlcv.")
     parser.add_argument("--symbol", required=True, help="Ticker symbol.")
@@ -158,14 +188,13 @@ def main() -> int:
     writer = None
     try:
         connection = _open_connection(database_url)
-        coverage_query, _ = _coverage_query(args.source_filter)
-        params: tuple[object, ...] = (args.symbol, start_date, end_date, args.timeframe)
+        coverage_query = _coverage_query(args.source_filter)
+        params = (args.symbol, start_date, _exclusive_end_date(end_date), args.timeframe)
         if args.source_filter is not None:
             params = params + (args.source_filter,)
         coverage_rows = _fetch_all(connection, coverage_query, params)
-        expected_weekdays = _expected_weekdays(start_date, end_date)
-        observed = _observed_dates(coverage_rows)
-        missing_dates = [day for day in expected_weekdays if day not in observed]
+        coverage = calculate_coverage(rows=coverage_rows, start_date=start_date, end_date=end_date)
+        missing_dates = list(coverage["missing_weekdays"])
         if not missing_dates:
             _print_summary(
                 symbol=args.symbol,
@@ -195,17 +224,33 @@ def main() -> int:
             raw_records=raw_records,
             missing_dates=missing_dates,
         )
+        fetched_dates = _observed_dates(
+            [
+                {"timestamp": datetime.fromtimestamp(float(row.get("t")) / 1000.0, tz=timezone.utc)}
+                for row in raw_records
+                if row.get("t") is not None
+            ]
+        )
+        writable_dates = [_canonical_date_from_record(record) for record in normalized]
+        writable_dates = [day for day in writable_dates if day is not None]
         rows_valid = len(normalized)
         rows_written = 0
         status = "planned"
+        remaining_missing_dates_count = len(missing_dates)
         if args.confirm_write:
             writer = OhlcvWriter(connection)
             if normalized:
                 write_result = writer.write(normalized)
                 rows_written = write_result.written_count
-                status = "completed" if write_result.status.value == "success" else "failed"
+                if write_result.status.value == "success":
+                    post_coverage_rows = _fetch_all(connection, coverage_query, params)
+                    post_coverage = calculate_coverage(rows=post_coverage_rows, start_date=start_date, end_date=end_date)
+                    remaining_missing_dates_count = len(post_coverage["missing_weekdays"])
+                    status = "completed" if remaining_missing_dates_count == 0 else "partial_fill"
+                else:
+                    status = "failed"
             else:
-                status = "completed"
+                status = "partial_fill" if remaining_missing_dates_count > 0 else "completed"
         _print_summary(
             symbol=args.symbol,
             timeframe=args.timeframe,
@@ -219,6 +264,10 @@ def main() -> int:
             validation_failures=validation_failures + rows_invalid,
             write_confirmed=args.confirm_write,
             status=status,
+            fetched_dates=fetched_dates,
+            writable_dates=writable_dates,
+            rows_filtered_out=max(0, len(raw_records) - len(normalized)),
+            remaining_missing_dates_count=remaining_missing_dates_count if args.confirm_write else None,
         )
     finally:
         if connection is not None and hasattr(connection, "close"):

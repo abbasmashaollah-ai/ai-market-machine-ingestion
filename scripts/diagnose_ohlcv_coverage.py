@@ -41,12 +41,16 @@ def _build_query(source: str | None) -> tuple[str, tuple[object, ...]]:
     base = (
         "SELECT symbol, timestamp, source, adjusted "
         "FROM canonical_ohlcv "
-        "WHERE symbol = %s AND timestamp >= %s AND timestamp <= %s AND timeframe = %s"
+        "WHERE symbol = %s AND timestamp >= %s AND timestamp < %s AND timeframe = %s"
     )
     if source is not None:
         base += " AND source = %s"
     base += " ORDER BY timestamp ASC"
     return base, ()
+
+
+def _exclusive_end_date(end_date: date) -> date:
+    return end_date + timedelta(days=1)
 
 
 def _expected_weekdays(start_date: date, end_date: date) -> list[date]:
@@ -57,6 +61,28 @@ def _expected_weekdays(start_date: date, end_date: date) -> list[date]:
             days.append(current)
         current += timedelta(days=1)
     return days
+
+
+def calculate_coverage(
+    *,
+    rows: list[dict[str, object]],
+    start_date: date,
+    end_date: date,
+) -> dict[str, object]:
+    expected_weekdays = _expected_weekdays(start_date, end_date)
+    observed_dates = _ordered_unique([
+        row.get("timestamp").date() if hasattr(row.get("timestamp"), "date") else row.get("timestamp")
+        for row in rows
+        if row.get("timestamp") is not None
+    ])
+    observed_dates = [value for value in observed_dates if isinstance(value, date)]
+    missing_weekdays = [day for day in expected_weekdays if day not in observed_dates]
+    return {
+        "expected_weekdays": expected_weekdays,
+        "observed_dates": observed_dates,
+        "missing_weekdays": missing_weekdays,
+        "coverage_ratio": (len(observed_dates) / len(expected_weekdays)) if expected_weekdays else 0.0,
+    }
 
 
 def _format_date_list(values: list[date]) -> str:
@@ -86,15 +112,11 @@ def _print_summary(
     source_filter: str | None,
     rows: list[dict[str, object]],
 ) -> None:
-    expected_weekdays = _expected_weekdays(start_date, end_date)
-    observed_dates = _ordered_unique([
-        row.get("timestamp").date() if hasattr(row.get("timestamp"), "date") else row.get("timestamp")
-        for row in rows
-        if row.get("timestamp") is not None
-    ])
-    observed_dates = [value for value in observed_dates if isinstance(value, date)]
-    missing_weekdays = [day for day in expected_weekdays if day not in observed_dates]
-    coverage_ratio = (len(observed_dates) / len(expected_weekdays)) if expected_weekdays else 0.0
+    coverage = calculate_coverage(rows=rows, start_date=start_date, end_date=end_date)
+    expected_weekdays = coverage["expected_weekdays"]
+    observed_dates = coverage["observed_dates"]
+    missing_weekdays = coverage["missing_weekdays"]
+    coverage_ratio = coverage["coverage_ratio"]
     sources = _ordered_unique([row.get("source") for row in rows])
     adjusted_values = _ordered_unique([row.get("adjusted") for row in rows])
     first_timestamp = rows[0].get("timestamp") if rows else None
@@ -138,7 +160,12 @@ def main() -> int:
     start_date = _parse_date(args.start_date)
     end_date = _parse_date(args.end_date)
     query, _ = _build_query(args.source)
-    params: tuple[object, ...] = (args.symbol, start_date, end_date, args.timeframe) + ((args.source,) if args.source is not None else ())
+    params: tuple[object, ...] = (
+        args.symbol,
+        start_date,
+        _exclusive_end_date(end_date),
+        args.timeframe,
+    ) + ((args.source,) if args.source is not None else ())
 
     connection = None
     try:

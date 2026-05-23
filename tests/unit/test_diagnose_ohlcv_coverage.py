@@ -128,7 +128,7 @@ class DiagnoseOhlcvCoverageTests(unittest.TestCase):
 
         sql, params = connection.execute.call_args.args
         self.assertIn("AND source = %s", sql)
-        self.assertEqual(params, ("SPY", date(2025, 1, 2), date(2025, 1, 10), "1d", "polygon_aggregates"))
+        self.assertEqual(params, ("SPY", date(2025, 1, 2), date(2025, 1, 11), "1d", "polygon_aggregates"))
         printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
         self.assertIn("source_filter=polygon_aggregates", printed)
         self.assertIn("sources=['polygon_aggregates']", printed)

@@ -43,12 +43,17 @@ The command prints:
 - `end_date`
 - `source_filter`
 - `missing_dates_count`
+- `missing_dates`
+- `fetched_dates`
+- `writable_dates`
+- `rows_filtered_out`
 - `rows_fetched`
 - `rows_valid`
 - `rows_written`
 - `validation_failures`
 - `write_confirmed`
 - `status`
+- `remaining_missing_dates_count` on confirmed writes
 
 ## Verification Log
 

@@ -126,6 +126,9 @@ class FillPolygonOhlcvGapsTests(unittest.TestCase):
         writer.write.assert_called_once()
         written_records = writer.write.call_args.args[0]
         self.assertEqual(len(written_records), 1)
+        self.assertEqual(written_records[0].source, "polygon_aggregates")
+        self.assertEqual(written_records[0].timeframe, "1d")
+        self.assertTrue(written_records[0].adjusted)
 
     def test_polygon_key_required_only_when_gaps_require_fetch(self) -> None:
         mod = self._module()
@@ -163,6 +166,112 @@ class FillPolygonOhlcvGapsTests(unittest.TestCase):
             mod.main()
 
         writer.write.assert_not_called()
+
+    def test_partial_fill_status_when_polygon_lacks_one_missing_date(self) -> None:
+        mod = self._module()
+        connection = Mock()
+        first = Mock()
+        first.fetchall.return_value = [
+            {"symbol": "SPY", "timestamp": datetime(2025, 1, 2, tzinfo=timezone.utc), "source": "polygon_aggregates", "adjusted": True},
+            {"symbol": "SPY", "timestamp": datetime(2025, 1, 3, tzinfo=timezone.utc), "source": "polygon_aggregates", "adjusted": True},
+            {"symbol": "SPY", "timestamp": datetime(2025, 1, 6, tzinfo=timezone.utc), "source": "polygon_aggregates", "adjusted": True},
+            {"symbol": "SPY", "timestamp": datetime(2025, 1, 7, tzinfo=timezone.utc), "source": "polygon_aggregates", "adjusted": True},
+            {"symbol": "SPY", "timestamp": datetime(2025, 1, 8, tzinfo=timezone.utc), "source": "polygon_aggregates", "adjusted": True},
+        ]
+        second = Mock()
+        second.fetchall.return_value = [
+            {"symbol": "SPY", "timestamp": datetime(2025, 1, 2, tzinfo=timezone.utc), "source": "polygon_aggregates", "adjusted": True},
+            {"symbol": "SPY", "timestamp": datetime(2025, 1, 3, tzinfo=timezone.utc), "source": "polygon_aggregates", "adjusted": True},
+            {"symbol": "SPY", "timestamp": datetime(2025, 1, 6, tzinfo=timezone.utc), "source": "polygon_aggregates", "adjusted": True},
+            {"symbol": "SPY", "timestamp": datetime(2025, 1, 7, tzinfo=timezone.utc), "source": "polygon_aggregates", "adjusted": True},
+            {"symbol": "SPY", "timestamp": datetime(2025, 1, 8, tzinfo=timezone.utc), "source": "polygon_aggregates", "adjusted": True},
+            {"symbol": "SPY", "timestamp": datetime(2025, 1, 9, tzinfo=timezone.utc), "source": "polygon_aggregates", "adjusted": True},
+        ]
+        connection.execute.side_effect = [first, second]
+        fake_client = Mock()
+        fake_client.fetch_aggregates_raw.return_value = [
+            {"ticker": "SPY", "t": 1736380800000, "o": 100, "h": 101, "l": 99, "c": 100.5, "v": 1234, "adjusted": True},
+        ]
+        writer = Mock()
+        writer.write.return_value = type("Result", (), {"written_count": 1, "status": type("Status", (), {"value": "success"})()})()
+        with patch.dict(os.environ, {"DATABASE_URL": "postgresql://example/db", "POLYGON_API_KEY": "polygon-secret"}, clear=True), patch.object(
+            mod, "load_local_env_if_available", return_value=False
+        ), patch.object(mod, "_open_connection", return_value=connection), patch.object(mod, "_build_polygon_client", return_value=fake_client), patch.object(
+            mod, "OhlcvWriter", return_value=writer
+        ), patch("builtins.print") as print_mock, patch("sys.argv", self._argv("--confirm-write")):
+            mod.main()
+
+        printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
+        self.assertIn("status=partial_fill", printed)
+        self.assertIn("remaining_missing_dates_count=1", printed)
+        self.assertIn("rows_filtered_out=", printed)
+        self.assertEqual(connection.execute.call_count, 2)
+
+    def test_completed_status_when_post_write_coverage_has_no_gaps(self) -> None:
+        mod = self._module()
+        connection = Mock()
+        first = Mock()
+        first.fetchall.return_value = [
+            {"symbol": "SPY", "timestamp": datetime(2025, 1, 2, tzinfo=timezone.utc), "source": "polygon_aggregates", "adjusted": True},
+            {"symbol": "SPY", "timestamp": datetime(2025, 1, 3, tzinfo=timezone.utc), "source": "polygon_aggregates", "adjusted": True},
+            {"symbol": "SPY", "timestamp": datetime(2025, 1, 6, tzinfo=timezone.utc), "source": "polygon_aggregates", "adjusted": True},
+            {"symbol": "SPY", "timestamp": datetime(2025, 1, 7, tzinfo=timezone.utc), "source": "polygon_aggregates", "adjusted": True},
+            {"symbol": "SPY", "timestamp": datetime(2025, 1, 8, tzinfo=timezone.utc), "source": "polygon_aggregates", "adjusted": True},
+        ]
+        second = Mock()
+        second.fetchall.return_value = [
+            {"symbol": "SPY", "timestamp": datetime(2025, 1, 2, tzinfo=timezone.utc), "source": "polygon_aggregates", "adjusted": True},
+            {"symbol": "SPY", "timestamp": datetime(2025, 1, 3, tzinfo=timezone.utc), "source": "polygon_aggregates", "adjusted": True},
+            {"symbol": "SPY", "timestamp": datetime(2025, 1, 6, tzinfo=timezone.utc), "source": "polygon_aggregates", "adjusted": True},
+            {"symbol": "SPY", "timestamp": datetime(2025, 1, 7, tzinfo=timezone.utc), "source": "polygon_aggregates", "adjusted": True},
+            {"symbol": "SPY", "timestamp": datetime(2025, 1, 8, tzinfo=timezone.utc), "source": "polygon_aggregates", "adjusted": True},
+            {"symbol": "SPY", "timestamp": datetime(2025, 1, 9, tzinfo=timezone.utc), "source": "polygon_aggregates", "adjusted": True},
+            {"symbol": "SPY", "timestamp": datetime(2025, 1, 10, tzinfo=timezone.utc), "source": "polygon_aggregates", "adjusted": True},
+        ]
+        connection.execute.side_effect = [first, second]
+        fake_client = Mock()
+        fake_client.fetch_aggregates_raw.return_value = [
+            {"ticker": "SPY", "t": 1736380800000, "o": 100, "h": 101, "l": 99, "c": 100.5, "v": 1234, "adjusted": True},
+            {"ticker": "SPY", "t": 1736467200000, "o": 101, "h": 102, "l": 100, "c": 101.5, "v": 1234, "adjusted": True},
+        ]
+        writer = Mock()
+        writer.write.return_value = type("Result", (), {"written_count": 2, "status": type("Status", (), {"value": "success"})()})()
+        with patch.dict(os.environ, {"DATABASE_URL": "postgresql://example/db", "POLYGON_API_KEY": "polygon-secret"}, clear=True), patch.object(
+            mod, "load_local_env_if_available", return_value=False
+        ), patch.object(mod, "_open_connection", return_value=connection), patch.object(mod, "_build_polygon_client", return_value=fake_client), patch.object(
+            mod, "OhlcvWriter", return_value=writer
+        ), patch("builtins.print") as print_mock, patch("sys.argv", self._argv("--confirm-write")):
+            mod.main()
+
+        printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
+        self.assertIn("status=completed", printed)
+        self.assertIn("remaining_missing_dates_count=0", printed)
+
+    def test_post_write_coverage_recheck_is_read_only(self) -> None:
+        mod = self._module()
+        connection = Mock()
+        first = Mock()
+        first.fetchall.return_value = [
+            {"symbol": "SPY", "timestamp": datetime(2025, 1, 2, tzinfo=timezone.utc), "source": "polygon_aggregates", "adjusted": True},
+        ]
+        second = Mock()
+        second.fetchall.return_value = first.fetchall.return_value
+        connection.execute.side_effect = [first, second]
+        fake_client = Mock()
+        fake_client.fetch_aggregates_raw.return_value = [
+            {"ticker": "SPY", "t": 1736121600000, "o": 100, "h": 101, "l": 99, "c": 100.5, "v": 1234, "adjusted": True},
+        ]
+        writer = Mock()
+        writer.write.return_value = type("Result", (), {"written_count": 1, "status": type("Status", (), {"value": "success"})()})()
+        with patch.dict(os.environ, {"DATABASE_URL": "postgresql://example/db", "POLYGON_API_KEY": "polygon-secret"}, clear=True), patch.object(
+            mod, "load_local_env_if_available", return_value=False
+        ), patch.object(mod, "_open_connection", return_value=connection), patch.object(mod, "_build_polygon_client", return_value=fake_client), patch.object(
+            mod, "OhlcvWriter", return_value=writer
+        ), patch("builtins.print"), patch("sys.argv", self._argv("--confirm-write")):
+            mod.main()
+
+        connection.commit.assert_not_called()
+        connection.rollback.assert_not_called()
 
     def test_no_checkpoint_update(self) -> None:
         mod = self._module()
