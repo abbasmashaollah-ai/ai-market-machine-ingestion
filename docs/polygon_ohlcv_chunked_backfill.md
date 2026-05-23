@@ -90,4 +90,25 @@ Returned:
 - `quality_status=pass`
 - `rows_returned=1`
 
+Evidence-chain verification:
+
+`python -m scripts.verify_polygon_ohlcv_evidence_chain --symbol SPY --start-date 2025-01-02 --end-date 2025-01-10 --timeframe 1d`
+
+Returned:
+
+- `symbol=SPY`
+- `timeframe=1d`
+- `row_count=12`
+- `coverage_ratio=1.000`
+- `missing_dates=[]`
+- `latest_run_status=success`
+- `run_match_mode=fallback`
+- `quality_results_count=1`
+- `latest_quality_status=pass`
+- `quality_match_mode=fallback`
+- `lineage_rows_count=1`
+- `latest_lineage_quality_status=pass`
+- `lineage_match_mode=fallback`
+- `evidence_status=complete`
+
 `ai-market-machine-data` remains the schema owner.
