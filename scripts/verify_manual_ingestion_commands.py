@@ -13,6 +13,7 @@ MODULES = (
     "scripts.inspect_polygon_ohlcv_checkpoint",
     "scripts.verify_polygon_ohlcv_rows",
     "scripts.diagnose_ohlcv_overlap",
+    "scripts.diagnose_ohlcv_coverage",
 )
 
 
