@@ -10,3 +10,10 @@ venv/
 !.env.example
 .DS_Store
 Thumbs.db
+
+# Local project docs
+docs/
+.idea/
+
+# Keep README tracked
+!README.md
