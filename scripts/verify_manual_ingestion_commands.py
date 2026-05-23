@@ -16,6 +16,7 @@ MODULES = (
     "scripts.inspect_ingestion_run_history",
     "scripts.inspect_data_quality_results",
     "scripts.inspect_data_lineage",
+    "scripts.verify_polygon_ohlcv_evidence_chain",
     "scripts.inspect_polygon_ohlcv_checkpoint",
     "scripts.verify_polygon_ohlcv_rows",
     "scripts.diagnose_ohlcv_overlap",

@@ -18,6 +18,7 @@ The script imports these manual command modules:
 - `scripts.inspect_polygon_ohlcv_checkpoint`
 - `scripts.verify_polygon_ohlcv_rows`
 - `scripts.inspect_data_lineage`
+- `scripts.verify_polygon_ohlcv_evidence_chain`
 - `scripts.diagnose_ohlcv_overlap`
 - `scripts.diagnose_ohlcv_coverage`
 - `scripts.fill_polygon_ohlcv_gaps`
