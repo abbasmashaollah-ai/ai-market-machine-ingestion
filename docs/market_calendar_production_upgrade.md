@@ -29,6 +29,8 @@ The production target must be deterministic and ultimately verified before use. 
 
 The read-only consumer contract is documented in [Market Calendar Provider Interface](market_calendar_provider_interface.md). The current minimal helper remains manual-only fallback until the production calendar exists.
 
+Fallback behavior is documented in [Market Calendar Fallback Behavior](market_calendar_fallback_behavior.md). The production calendar must be verified before automation or scale.
+
 ## Safety
 
 This upgrade planning does not:

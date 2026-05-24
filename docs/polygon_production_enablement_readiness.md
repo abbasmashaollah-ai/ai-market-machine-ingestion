@@ -41,6 +41,8 @@ The market calendar blocker is documented in [Market Calendar Production Upgrade
 
 The selected provider strategy is documented in [Market Calendar Provider Strategy](market_calendar_provider_strategy.md).
 
+Fallback behavior is documented in [Market Calendar Fallback Behavior](market_calendar_fallback_behavior.md).
+
 ## Safety
 
 This summary does not:

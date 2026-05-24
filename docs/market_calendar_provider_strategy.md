@@ -9,6 +9,8 @@ The selected direction is a hybrid calendar approach.
 - ingestion consumes the verified calendar consistently
 - the current minimal helper remains fallback and manual-only until the production calendar exists
 
+Fallback behavior is documented in [Market Calendar Fallback Behavior](market_calendar_fallback_behavior.md). The minimal helper is forbidden for production scheduler, large backfills, flat-file persistence, and official gap-fill decisions.
+
 ## Ownership
 
 `ai-market-machine-data` owns the persisted production calendar schema.

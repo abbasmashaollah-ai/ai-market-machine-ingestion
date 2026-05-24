@@ -20,6 +20,8 @@ This document defines the read-only interface that ingestion will consume later.
 - the current minimal helper remains manual-only fallback
 - no trading or AI decision logic is introduced
 
+Fallback behavior is documented in [Market Calendar Fallback Behavior](market_calendar_fallback_behavior.md). The minimal helper is allowed only for manual tests and planning diagnostics.
+
 ## Safety
 
 This interface planning does not:
