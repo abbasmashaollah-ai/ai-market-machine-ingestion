@@ -26,6 +26,8 @@ The persisted calendar handoff is documented in [Market Calendar Schema Handoff]
 
 The consumer contract is documented in [Market Calendar Consumer Readiness](market_calendar_consumer_readiness.md).
 
+The mock consumer expectations are documented in [Market Calendar Mock Consumer Contract](market_calendar_mock_consumer_contract.md).
+
 ## Safety
 
 This interface planning does not:

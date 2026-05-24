@@ -32,6 +32,7 @@ The script imports these manual command modules:
 - `scripts.diagnose_market_calendar_fallback_behavior`
 - `scripts.diagnose_market_calendar_schema_handoff`
 - `scripts.diagnose_market_calendar_consumer_readiness`
+- `scripts.diagnose_market_calendar_mock_consumer_contract`
 - `scripts.diagnose_us_market_calendar_readiness`
 - `scripts.diagnose_polygon_quota_readiness`
 - `scripts.diagnose_polygon_flatfile_readiness`

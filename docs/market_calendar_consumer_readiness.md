@@ -8,6 +8,8 @@ This document defines how ingestion will consume the verified calendar read-only
 - ingestion has no schema ownership for calendar data
 - the current minimal helper remains manual-only fallback
 
+Mock expectations for the read-only consumer are documented in [Market Calendar Mock Consumer Contract](market_calendar_mock_consumer_contract.md).
+
 ## Shared use
 
 The same consumer contract must serve:
