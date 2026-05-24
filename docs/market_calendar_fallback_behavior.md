@@ -31,6 +31,8 @@ The verified production calendar must ultimately drive:
 
 The persisted schema handoff is documented in [Market Calendar Schema Handoff](market_calendar_schema_handoff.md). The minimal helper must not be used to create or migrate schema.
 
+The read-only consumer contract is documented in [Market Calendar Consumer Readiness](market_calendar_consumer_readiness.md).
+
 ## Safety
 
 This fallback planning does not:

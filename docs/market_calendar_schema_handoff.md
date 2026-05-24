@@ -28,6 +28,8 @@ This document defines the production calendar table/view/API contract that inges
 - the same verified calendar must drive daily updates, backfills, flat-file coverage, scheduler decisions, and gap-fill logic
 - no trading or AI decision logic is introduced
 
+The consumer contract is documented in [Market Calendar Consumer Readiness](market_calendar_consumer_readiness.md).
+
 ## Safety
 
 This handoff planning does not:

@@ -45,6 +45,8 @@ Fallback behavior is documented in [Market Calendar Fallback Behavior](market_ca
 
 The schema handoff is documented in [Market Calendar Schema Handoff](market_calendar_schema_handoff.md).
 
+The consumer contract is documented in [Market Calendar Consumer Readiness](market_calendar_consumer_readiness.md).
+
 ## Safety
 
 This summary does not:
