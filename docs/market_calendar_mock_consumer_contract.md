@@ -20,6 +20,8 @@ This document defines the mocked expectations for ingestion-side calendar consum
 - the same consumer must serve daily updates, backfills, flat-file coverage, scheduler, and gap-fill
 - no trading or AI decision logic is introduced
 
+The deterministic mock provider used by tests is documented in [Market Calendar Mock Provider](market_calendar_mock_provider.md).
+
 ## Safety
 
 This mock contract planning does not:

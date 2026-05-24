@@ -9,6 +9,7 @@ This document defines how ingestion will consume the verified calendar read-only
 - the current minimal helper remains manual-only fallback
 
 Mock expectations for the read-only consumer are documented in [Market Calendar Mock Consumer Contract](market_calendar_mock_consumer_contract.md).
+The deterministic mock provider used by tests is documented in [Market Calendar Mock Provider](market_calendar_mock_provider.md).
 
 ## Shared use
 
