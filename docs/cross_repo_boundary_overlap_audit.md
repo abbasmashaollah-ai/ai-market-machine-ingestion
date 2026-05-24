@@ -38,3 +38,4 @@ This audit is read-only. It does not:
 - add schema changes or migrations
 - add AI, trading, risk, signal, regime, or portfolio logic
 
+The cleanup plan is documented in [Cross-Repo Boundary Cleanup Plan](cross_repo_boundary_cleanup_plan.md).
