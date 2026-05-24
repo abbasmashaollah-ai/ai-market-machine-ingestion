@@ -26,3 +26,5 @@ This comparison does not:
 - add AI, trading, risk, signal, regime, portfolio, strategy, or prediction logic
 
 `ai-market-machine-data` remains the schema owner.
+
+The next step is documented in [Verified Calendar Consumer Implementation Plan](verified_calendar_consumer_implementation_plan.md).

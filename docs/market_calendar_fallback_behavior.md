@@ -35,6 +35,7 @@ Provider comparisons with the mock fixture are documented in [Market Calendar Pr
 The comparison diagnostic is read-only and uses exclusive end-date semantics.
 
 The read-only consumer contract is documented in [Market Calendar Consumer Readiness](market_calendar_consumer_readiness.md).
+The next step is documented in [Verified Calendar Consumer Implementation Plan](verified_calendar_consumer_implementation_plan.md).
 
 ## Safety
 
