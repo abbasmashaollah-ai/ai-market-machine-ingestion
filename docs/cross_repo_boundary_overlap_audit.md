@@ -12,6 +12,7 @@ This audit documents the boundary between `ai-market-machine-data` and `ai-marke
 The data repo should eventually expose last-known vendor and ingestion health from stored evidence. It should not run vendor ingestion directly.
 
 No AI, trading, risk, signal, regime, or portfolio logic belongs in the data repo.
+Canonical standards are defined in `ai-market-machine-data` and enforced at runtime in `ai-market-machine-ingestion`.
 
 ## Audit scope
 
@@ -26,6 +27,12 @@ The diagnostic tracks:
 - ingestion mutation endpoint overlap
 - legacy or deprecate paths
 - packaging hygiene issues
+
+## Canonical Contract Boundary
+
+- data defines canonical standards
+- ingestion enforces canonical standards at runtime
+- ingestion must not define canonical schema, timestamp authority, or lineage contract authority
 
 ## Safety
 

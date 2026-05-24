@@ -57,6 +57,7 @@ class VerifyManualIngestionCommandsTests(unittest.TestCase):
         self.assertIn("scripts.diagnose_market_calendar_mock_provider", printed)
         self.assertIn("scripts.diagnose_market_calendar_provider_comparison", printed)
         self.assertIn("scripts.diagnose_verified_calendar_consumer_implementation_plan", printed)
+        self.assertIn("scripts.diagnose_canonical_contract_enforcement", printed)
         self.assertIn("scripts.diagnose_cross_repo_boundary_overlap", printed)
         self.assertNotIn("DATABASE_URL", printed)
         self.assertNotIn("FRED_API_KEY", printed)
@@ -99,6 +100,7 @@ class VerifyManualIngestionCommandsTests(unittest.TestCase):
         self.assertIn("scripts.diagnose_market_calendar_mock_provider", import_names)
         self.assertIn("scripts.diagnose_market_calendar_provider_comparison", import_names)
         self.assertIn("scripts.diagnose_verified_calendar_consumer_implementation_plan", import_names)
+        self.assertIn("scripts.diagnose_canonical_contract_enforcement", import_names)
         self.assertIn("scripts.diagnose_cross_repo_boundary_overlap", import_names)
 
     def test_no_db_writes_or_scheduler_behavior(self) -> None:
