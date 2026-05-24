@@ -37,6 +37,8 @@ This document rolls up the main blockers for production scheduler and backfill e
 - `production_enablement_status=not_ready`
 - `core_foundation_status=strong_manual_foundation`
 
+The market calendar blocker is documented in [Market Calendar Production Upgrade](market_calendar_production_upgrade.md).
+
 ## Safety
 
 This summary does not:

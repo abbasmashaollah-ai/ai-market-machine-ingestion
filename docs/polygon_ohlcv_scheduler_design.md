@@ -63,6 +63,8 @@ Without those controls, automation would be operationally fragile.
 
 The current helper is minimal by design; use `scripts.diagnose_us_market_calendar_readiness` to document its gaps before any production enablement work.
 
+The production calendar target is documented in [Market Calendar Production Upgrade](market_calendar_production_upgrade.md). Daily updates, flat-file coverage validation, scheduler decisions, and gap-fill logic must share the same calendar.
+
 Monitoring and alerting readiness is documented in [Ingestion Monitoring and Alerting Readiness](ingestion_monitoring_alerting_readiness.md). It must be in place before production scheduler enablement.
 
 Retry and recovery readiness is documented in [Ingestion Retry and Recovery Readiness](ingestion_retry_recovery_readiness.md). Automatic retry is disabled for now, and recovery must use checkpoints, run history, quality, lineage, and evidence verification.
