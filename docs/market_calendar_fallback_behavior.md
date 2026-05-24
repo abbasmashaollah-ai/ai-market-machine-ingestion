@@ -31,6 +31,9 @@ The verified production calendar must ultimately drive:
 
 The persisted schema handoff is documented in [Market Calendar Schema Handoff](market_calendar_schema_handoff.md). The minimal helper must not be used to create or migrate schema.
 
+Provider comparisons with the mock fixture are documented in [Market Calendar Provider Comparison](market_calendar_provider_comparison.md).
+The comparison diagnostic is read-only and uses exclusive end-date semantics.
+
 The read-only consumer contract is documented in [Market Calendar Consumer Readiness](market_calendar_consumer_readiness.md).
 
 ## Safety

@@ -19,6 +19,9 @@ This document defines the deterministic fixture provider used by tests.
 - early close fixture: `2025-07-03`
 - timezone label: `America/New_York`
 
+Provider comparisons with the current minimal helper are documented in [Market Calendar Provider Comparison](market_calendar_provider_comparison.md).
+That comparison uses exclusive end-date semantics and remains diagnostic only.
+
 ## Safety
 
 This mock provider does not:
