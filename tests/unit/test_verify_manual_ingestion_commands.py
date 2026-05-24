@@ -51,6 +51,7 @@ class VerifyManualIngestionCommandsTests(unittest.TestCase):
         self.assertIn("scripts.diagnose_market_calendar_provider_strategy", printed)
         self.assertIn("scripts.diagnose_market_calendar_provider_interface", printed)
         self.assertIn("scripts.diagnose_market_calendar_fallback_behavior", printed)
+        self.assertIn("scripts.diagnose_market_calendar_schema_handoff", printed)
         self.assertNotIn("DATABASE_URL", printed)
         self.assertNotIn("FRED_API_KEY", printed)
 
@@ -86,6 +87,7 @@ class VerifyManualIngestionCommandsTests(unittest.TestCase):
         self.assertIn("scripts.diagnose_market_calendar_provider_strategy", import_names)
         self.assertIn("scripts.diagnose_market_calendar_provider_interface", import_names)
         self.assertIn("scripts.diagnose_market_calendar_fallback_behavior", import_names)
+        self.assertIn("scripts.diagnose_market_calendar_schema_handoff", import_names)
 
     def test_no_db_writes_or_scheduler_behavior(self) -> None:
         mod = self._module()

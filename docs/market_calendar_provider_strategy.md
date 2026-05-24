@@ -27,6 +27,8 @@ The same verified calendar must drive:
 
 The read-only consumer contract is documented in [Market Calendar Provider Interface](market_calendar_provider_interface.md).
 
+The schema handoff for the persisted calendar is documented in [Market Calendar Schema Handoff](market_calendar_schema_handoff.md). Ingestion remains a read-only consumer.
+
 ## Safety
 
 This strategy does not:

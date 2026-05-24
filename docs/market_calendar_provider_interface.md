@@ -22,6 +22,8 @@ This document defines the read-only interface that ingestion will consume later.
 
 Fallback behavior is documented in [Market Calendar Fallback Behavior](market_calendar_fallback_behavior.md). The minimal helper is allowed only for manual tests and planning diagnostics.
 
+The persisted calendar handoff is documented in [Market Calendar Schema Handoff](market_calendar_schema_handoff.md). Ingestion must not create or migrate calendar schema.
+
 ## Safety
 
 This interface planning does not:

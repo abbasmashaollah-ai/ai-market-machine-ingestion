@@ -43,6 +43,8 @@ The selected provider strategy is documented in [Market Calendar Provider Strate
 
 Fallback behavior is documented in [Market Calendar Fallback Behavior](market_calendar_fallback_behavior.md).
 
+The schema handoff is documented in [Market Calendar Schema Handoff](market_calendar_schema_handoff.md).
+
 ## Safety
 
 This summary does not:

@@ -29,6 +29,8 @@ The verified production calendar must ultimately drive:
 - scheduler decisions
 - gap-fill logic
 
+The persisted schema handoff is documented in [Market Calendar Schema Handoff](market_calendar_schema_handoff.md). The minimal helper must not be used to create or migrate schema.
+
 ## Safety
 
 This fallback planning does not:
