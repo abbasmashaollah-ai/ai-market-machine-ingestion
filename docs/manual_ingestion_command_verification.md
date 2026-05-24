@@ -36,6 +36,7 @@ The script imports these manual command modules:
 - `scripts.diagnose_market_calendar_mock_provider`
 - `scripts.diagnose_market_calendar_provider_comparison`
 - `scripts.diagnose_verified_calendar_consumer_implementation_plan`
+- `scripts.diagnose_cross_repo_boundary_overlap`
 - `scripts.diagnose_us_market_calendar_readiness`
 - `scripts.diagnose_polygon_quota_readiness`
 - `scripts.diagnose_polygon_flatfile_readiness`
