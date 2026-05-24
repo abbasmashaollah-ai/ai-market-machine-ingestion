@@ -39,6 +39,8 @@ This document rolls up the main blockers for production scheduler and backfill e
 
 The market calendar blocker is documented in [Market Calendar Production Upgrade](market_calendar_production_upgrade.md).
 
+The selected provider strategy is documented in [Market Calendar Provider Strategy](market_calendar_provider_strategy.md).
+
 ## Safety
 
 This summary does not:

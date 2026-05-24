@@ -65,6 +65,8 @@ The current helper is minimal by design; use `scripts.diagnose_us_market_calenda
 
 The production calendar target is documented in [Market Calendar Production Upgrade](market_calendar_production_upgrade.md). Daily updates, flat-file coverage validation, scheduler decisions, and gap-fill logic must share the same calendar.
 
+The chosen calendar provider strategy is documented in [Market Calendar Provider Strategy](market_calendar_provider_strategy.md). The current minimal helper remains fallback/manual-only until the production calendar exists.
+
 Monitoring and alerting readiness is documented in [Ingestion Monitoring and Alerting Readiness](ingestion_monitoring_alerting_readiness.md). It must be in place before production scheduler enablement.
 
 Retry and recovery readiness is documented in [Ingestion Retry and Recovery Readiness](ingestion_retry_recovery_readiness.md). Automatic retry is disabled for now, and recovery must use checkpoints, run history, quality, lineage, and evidence verification.

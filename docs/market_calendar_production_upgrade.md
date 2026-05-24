@@ -2,6 +2,8 @@
 
 This document defines the requirements for moving from the current minimal calendar helper to a production-grade calendar.
 
+The chosen provider strategy is documented in [Market Calendar Provider Strategy](market_calendar_provider_strategy.md). The hybrid approach is the selected direction.
+
 ## Current helper
 
 The current helper remains safe for manual tests only. It is intentionally minimal and dependency-free.
@@ -22,6 +24,8 @@ The production calendar must be shared across:
 - flat-file coverage validation
 - scheduler decisions
 - gap-fill logic
+
+The production target must be deterministic and ultimately verified before use. The same verified calendar should be consumed consistently by ingestion, scheduler, and coverage checks.
 
 ## Safety
 

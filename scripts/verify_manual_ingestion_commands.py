@@ -25,6 +25,7 @@ MODULES = (
     "scripts.diagnose_ingestion_failure_recovery_runbook",
     "scripts.diagnose_polygon_production_enablement_readiness",
     "scripts.diagnose_market_calendar_production_upgrade",
+    "scripts.diagnose_market_calendar_provider_strategy",
     "scripts.diagnose_us_market_calendar_readiness",
     "scripts.diagnose_polygon_quota_readiness",
     "scripts.diagnose_polygon_flatfile_readiness",
