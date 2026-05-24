@@ -23,6 +23,8 @@ The same verified calendar must drive:
 - scheduler decisions
 - gap-fill logic
 
+The read-only consumer contract is documented in [Market Calendar Provider Interface](market_calendar_provider_interface.md).
+
 ## Safety
 
 This strategy does not:

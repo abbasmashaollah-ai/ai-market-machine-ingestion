@@ -27,6 +27,8 @@ The production calendar must be shared across:
 
 The production target must be deterministic and ultimately verified before use. The same verified calendar should be consumed consistently by ingestion, scheduler, and coverage checks.
 
+The read-only consumer contract is documented in [Market Calendar Provider Interface](market_calendar_provider_interface.md). The current minimal helper remains manual-only fallback until the production calendar exists.
+
 ## Safety
 
 This upgrade planning does not:
