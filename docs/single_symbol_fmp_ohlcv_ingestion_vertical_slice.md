@@ -12,6 +12,7 @@ This repository now contains the first production-oriented single-symbol FMP OHL
 - retry/error classification
 - checkpoint planning
 - lineage/evidence payload creation
+- controlled multi-symbol fan-out reuse
 
 `ai-market-machine-data` continues to own:
 
@@ -47,6 +48,8 @@ It does not:
 - introduce trading, regime, portfolio, or risk logic
 - import `ai-market-machine-data`
 
+The single-symbol orchestrator remains the reusable execution unit for the new multi-symbol fan-out layer. That fan-out layer lives in this repository, keeps dry-run defaults, and aggregates one single-symbol plan per requested symbol.
+
 ## Compatibility shape
 
 The returned plan includes:
@@ -81,7 +84,6 @@ The returned plan includes:
 - broad backfill orchestration
 - checkpoint persistence
 - sync-state persistence
-- multi-symbol fan-out
 - ai-market-machine-data imports
 
 ## Writer handoff contract
