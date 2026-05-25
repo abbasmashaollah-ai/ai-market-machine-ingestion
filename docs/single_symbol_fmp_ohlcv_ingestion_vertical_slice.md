@@ -23,7 +23,7 @@ This repository now contains the first production-oriented single-symbol FMP OHL
 
 ## Current slice behavior
 
-The slice is intentionally dry-run/write-plan only for now.
+The slice is intentionally dry-run/write-plan by default.
 
 It:
 
@@ -36,6 +36,7 @@ It:
 - emits lineage/evidence metadata compatible with the data-side contract shape
 - emits checkpoint plan metadata
 - classifies vendor fetch failures narrowly
+- can optionally execute an injected writer in tests or controlled integration scenarios
 
 It does not:
 
@@ -58,6 +59,10 @@ The returned plan includes:
 - intended writer target
 - writer handoff readiness
 - writer payload preview
+- writer execution requested
+- writer execution performed
+- writer result
+- writer errors
 - lineage evidence
 - checkpoint plan
 - errors
@@ -94,6 +99,29 @@ The preview is only a contract artifact and includes:
 - `adjusted`
 
 The slice validates that these fields are present before declaring `writer_handoff_ready: true`.
+
+## Writer execution interface
+
+The orchestrator accepts an explicit writer execution mode.
+
+Default behavior:
+
+- `writer_execution_requested: false`
+- `writer_execution_performed: false`
+- `did_write_db: false`
+- `writer_result: null`
+- `writer_errors: ()`
+
+Injected writer mode:
+
+- a caller passes a writer object or callable
+- the caller sets `execute_writer: true`
+- the orchestrator sends the writer-ready payload to the injected writer
+- `writer_result` captures the writer response in a plain dictionary
+- `writer_errors` captures any explicit writer failure or exception
+- `did_write_db` becomes `true` only when the injected writer explicitly reports success
+
+This is a controlled integration hook for testing and future staged enablement.
 
 ## Why DB writes remain disabled
 

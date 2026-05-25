@@ -6,6 +6,7 @@ from datetime import date
 from app.ingestion.ohlcv.normalization import normalize_fmp_ohlcv_records
 from app.models.normalized import NormalizedOHLCVRecord
 from app.state.checkpoints import CheckpointStatus, IngestionCheckpoint
+from app.writers.canonical_writer import WriteStatus, WriterResult
 from app.vendors.fmp.client import FmpClientConfig, FmpFetchError, UnsupportedFmpClient, build_fmp_client
 
 
@@ -33,9 +34,13 @@ class FmpOhlcvIngestionPlan:
     normalized_records: tuple[NormalizedOHLCVRecord, ...] = ()
     lineage_evidence: dict[str, object] = field(default_factory=dict)
     checkpoint_plan: dict[str, object] = field(default_factory=dict)
+    writer_execution_requested: bool = False
+    writer_execution_performed: bool = False
     writer_handoff_ready: bool = False
     intended_writer_target: str = "canonical_ohlcv"
     writer_payload_preview: dict[str, object] = field(default_factory=dict)
+    writer_result: dict[str, object] | None = None
+    writer_errors: tuple[dict[str, object], ...] = field(default_factory=tuple)
     errors: tuple[dict[str, object], ...] = field(default_factory=tuple)
     status: str = "completed"
 
@@ -140,6 +145,19 @@ def _build_writer_payload_preview(records: tuple[NormalizedOHLCVRecord, ...]) ->
     }
 
 
+def _writer_result_to_dict(result: WriterResult) -> dict[str, object]:
+    return {
+        "writer_name": result.writer_name,
+        "status": result.status.value,
+        "written_count": result.written_count,
+        "skipped_count": result.skipped_count,
+        "failed_count": result.failed_count,
+        "message": result.message,
+        "details": dict(result.details),
+        "succeeded": result.succeeded,
+    }
+
+
 def _build_fmp_client(request: FmpOhlcvIngestionRequest) -> UnsupportedFmpClient:
     return build_fmp_client(FmpClientConfig(api_key=request.api_key))
 
@@ -148,11 +166,15 @@ def build_single_symbol_ohlcv_write_plan(
     request: FmpOhlcvIngestionRequest,
     *,
     client: UnsupportedFmpClient | None = None,
+    writer: object | None = None,
+    execute_writer: bool = False,
 ) -> FmpOhlcvIngestionPlan:
     fmp_client = client or _build_fmp_client(request)
     errors: list[dict[str, object]] = []
+    writer_errors: list[dict[str, object]] = []
     raw_records: list[dict[str, object]] = []
     normalized_records: tuple[NormalizedOHLCVRecord, ...] = ()
+    writer_result: dict[str, object] | None = None
     try:
         raw_records = fmp_client.fetch_historical_ohlcv_raw(
             request.symbol,
@@ -186,7 +208,49 @@ def build_single_symbol_ohlcv_write_plan(
     )
     checkpoint_plan = _build_checkpoint_plan(request)
     writer_payload_preview = _build_writer_payload_preview(normalized_records)
-    status = "failed" if errors else "completed"
+    writer_execution_requested = bool(execute_writer)
+    writer_execution_performed = False
+    did_write_db = False
+    if writer_execution_requested and not errors:
+        try:
+            if writer is None:
+                raise ValueError("writer execution was requested but no writer was provided")
+            writer_execution_performed = True
+            result = writer.write(list(writer_payload_preview["records"]))  # type: ignore[call-arg]
+            if not isinstance(result, WriterResult):
+                raise TypeError("writer did not return a WriterResult")
+            writer_result = _writer_result_to_dict(result)
+            if result.status == WriteStatus.SUCCESS:
+                did_write_db = True
+            else:
+                writer_errors.append(
+                    {
+                        "kind": "writer_failure",
+                        "message": result.message or "writer returned failure",
+                        "writer_name": result.writer_name,
+                        "status": result.status.value,
+                        "details": dict(result.details),
+                    }
+                )
+        except Exception as exc:
+            writer_errors.append(
+                {
+                    "kind": "writer_error",
+                    "message": str(exc),
+                    "retryable": False,
+                    "source": "writer_execution",
+                }
+            )
+    if not writer_execution_requested or not writer_execution_performed:
+        did_write_db = False
+    lineage_evidence = _build_lineage_evidence(
+        request=request,
+        normalized_record_count=len(normalized_records),
+        did_write_db=did_write_db,
+    )
+    if did_write_db:
+        lineage_evidence["write_mode"] = "write"
+    status = "failed" if errors or writer_errors else "completed"
     return FmpOhlcvIngestionPlan(
         vendor="fmp",
         symbol=request.symbol,
@@ -195,15 +259,19 @@ def build_single_symbol_ohlcv_write_plan(
         requested_end_date=request.end_date,
         raw_record_count=len(raw_records),
         normalized_record_count=len(normalized_records),
-        did_write_db=False,
+        did_write_db=did_write_db,
         intended_target="canonical_ohlcv",
         write_mode="dry_run",
         normalized_records=normalized_records,
         lineage_evidence=lineage_evidence,
         checkpoint_plan=checkpoint_plan,
+        writer_execution_requested=writer_execution_requested,
+        writer_execution_performed=writer_execution_performed,
         writer_handoff_ready=bool(normalized_records) and not errors,
         intended_writer_target="canonical_ohlcv",
         writer_payload_preview=writer_payload_preview,
+        writer_result=writer_result,
+        writer_errors=tuple(writer_errors),
         errors=tuple(errors),
         status=status,
     )
