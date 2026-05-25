@@ -3,7 +3,12 @@ from datetime import date
 from pathlib import Path
 from unittest.mock import Mock
 
-from app.ingestion.ohlcv.orchestrator import FmpOhlcvIngestionRequest, build_single_symbol_ohlcv_write_plan
+from app.ingestion.ohlcv.orchestrator import (
+    FmpOhlcvIngestionRequest,
+    _required_writer_fields,
+    build_single_symbol_ohlcv_write_plan,
+)
+from app.ingestion.ohlcv.normalization import normalize_fmp_ohlcv_record
 from app.vendors.common.http import HttpResponse, ResponseMetadata
 from app.vendors.fmp.client import FmpClientConfig, UnsupportedFmpClient
 
@@ -35,6 +40,10 @@ class FmpSingleSymbolOrchestratorTests(unittest.TestCase):
         self.assertFalse(plan.did_write_db)
         self.assertEqual(plan.intended_target, "canonical_ohlcv")
         self.assertEqual(plan.write_mode, "dry_run")
+        self.assertTrue(plan.writer_handoff_ready)
+        self.assertEqual(plan.intended_writer_target, "canonical_ohlcv")
+        self.assertEqual(plan.writer_payload_preview["writer_name"], "ohlcv_writer")
+        self.assertEqual(plan.writer_payload_preview["record_count"], 1)
         self.assertEqual(plan.status, "completed")
         self.assertEqual(plan.normalized_records[0].symbol, "AAPL")
         self.assertEqual(plan.lineage_evidence["dataset"], "ohlcv")
@@ -69,6 +78,25 @@ class FmpSingleSymbolOrchestratorTests(unittest.TestCase):
         self.assertEqual(plan.errors[0]["kind"], "transient")
         self.assertTrue(plan.errors[0]["retryable"])
         self.assertFalse(plan.did_write_db)
+
+    def test_writer_required_fields_validation(self) -> None:
+        record = normalize_fmp_ohlcv_record(
+            {
+                "date": "2026-01-02",
+                "open": 100,
+                "high": 101,
+                "low": 99,
+                "close": 100.5,
+                "volume": 12345,
+            },
+            symbol="AAPL",
+        )
+
+        preview = _required_writer_fields(record)
+
+        self.assertEqual(preview["symbol"], "AAPL")
+        self.assertEqual(preview["adjustment_status"], "unadjusted")
+        self.assertEqual(preview["data_quality_status"], "pending")
 
     def test_source_boundary_has_no_data_repo_imports(self) -> None:
         for relative_path in (

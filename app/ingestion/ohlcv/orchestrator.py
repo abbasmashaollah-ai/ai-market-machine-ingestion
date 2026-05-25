@@ -33,6 +33,9 @@ class FmpOhlcvIngestionPlan:
     normalized_records: tuple[NormalizedOHLCVRecord, ...] = ()
     lineage_evidence: dict[str, object] = field(default_factory=dict)
     checkpoint_plan: dict[str, object] = field(default_factory=dict)
+    writer_handoff_ready: bool = False
+    intended_writer_target: str = "canonical_ohlcv"
+    writer_payload_preview: dict[str, object] = field(default_factory=dict)
     errors: tuple[dict[str, object], ...] = field(default_factory=tuple)
     status: str = "completed"
 
@@ -87,6 +90,56 @@ def _build_lineage_evidence(
     }
 
 
+def _required_writer_fields(record: NormalizedOHLCVRecord) -> dict[str, object]:
+    missing: list[str] = []
+    symbol = record.symbol or record.symbol_id
+    if symbol is None:
+        missing.append("symbol")
+    if record.timestamp is None:
+        missing.append("timestamp")
+    for field_name, field_value in (
+        ("open", record.open),
+        ("high", record.high),
+        ("low", record.low),
+        ("close", record.close),
+        ("volume", record.volume),
+        ("source", record.source),
+        ("timeframe", record.timeframe),
+    ):
+        if field_value is None or field_value == "":
+            missing.append(field_name)
+    if record.adjusted is None:
+        missing.append("adjusted")
+    if record.quality_status is None:
+        missing.append("data_quality_status")
+    if missing:
+        raise ValueError(f"normalized OHLCV record is missing writer-required fields: {', '.join(sorted(set(missing)))}")
+    return {
+        "symbol": symbol,
+        "timestamp": record.timestamp,
+        "open": record.open,
+        "high": record.high,
+        "low": record.low,
+        "close": record.close,
+        "volume": record.volume,
+        "source": record.source,
+        "adjustment_status": "adjusted" if record.adjusted else "unadjusted",
+        "data_quality_status": record.quality_status or "pending",
+        "timeframe": record.timeframe,
+        "adjusted": record.adjusted,
+    }
+
+
+def _build_writer_payload_preview(records: tuple[NormalizedOHLCVRecord, ...]) -> dict[str, object]:
+    return {
+        "writer_name": "ohlcv_writer",
+        "target_table": "canonical_ohlcv",
+        "record_count": len(records),
+        "records": tuple(_required_writer_fields(record) for record in records),
+        "handoff_ready": bool(records),
+    }
+
+
 def _build_fmp_client(request: FmpOhlcvIngestionRequest) -> UnsupportedFmpClient:
     return build_fmp_client(FmpClientConfig(api_key=request.api_key))
 
@@ -132,6 +185,7 @@ def build_single_symbol_ohlcv_write_plan(
         did_write_db=False,
     )
     checkpoint_plan = _build_checkpoint_plan(request)
+    writer_payload_preview = _build_writer_payload_preview(normalized_records)
     status = "failed" if errors else "completed"
     return FmpOhlcvIngestionPlan(
         vendor="fmp",
@@ -147,6 +201,9 @@ def build_single_symbol_ohlcv_write_plan(
         normalized_records=normalized_records,
         lineage_evidence=lineage_evidence,
         checkpoint_plan=checkpoint_plan,
+        writer_handoff_ready=bool(normalized_records) and not errors,
+        intended_writer_target="canonical_ohlcv",
+        writer_payload_preview=writer_payload_preview,
         errors=tuple(errors),
         status=status,
     )
