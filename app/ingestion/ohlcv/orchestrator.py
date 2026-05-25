@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date
+from typing import Protocol
 
 from app.ingestion.ohlcv.normalization import normalize_fmp_ohlcv_records
 from app.models.normalized import NormalizedOHLCVRecord
@@ -34,6 +35,10 @@ class FmpOhlcvIngestionPlan:
     normalized_records: tuple[NormalizedOHLCVRecord, ...] = ()
     lineage_evidence: dict[str, object] = field(default_factory=dict)
     checkpoint_plan: dict[str, object] = field(default_factory=dict)
+    checkpoint_persistence_requested: bool = False
+    checkpoint_persistence_performed: bool = False
+    checkpoint_result: dict[str, object] | None = None
+    checkpoint_errors: tuple[dict[str, object], ...] = field(default_factory=tuple)
     writer_execution_requested: bool = False
     writer_execution_performed: bool = False
     writer_handoff_ready: bool = False
@@ -43,6 +48,11 @@ class FmpOhlcvIngestionPlan:
     writer_errors: tuple[dict[str, object], ...] = field(default_factory=tuple)
     errors: tuple[dict[str, object], ...] = field(default_factory=tuple)
     status: str = "completed"
+
+
+class CheckpointWriter(Protocol):
+    def save(self, checkpoint: dict[str, object]) -> object:
+        ...
 
 
 def _build_checkpoint_plan(request: FmpOhlcvIngestionRequest) -> dict[str, object]:
@@ -68,6 +78,18 @@ def _build_checkpoint_plan(request: FmpOhlcvIngestionRequest) -> dict[str, objec
         "attempt_count": checkpoint.attempt_count,
         "metadata": checkpoint.metadata,
     }
+
+
+def _checkpoint_result_to_dict(result: object) -> dict[str, object]:
+    if isinstance(result, dict):
+        return dict(result)
+    payload: dict[str, object] = {}
+    for field_name in ("checkpoint_id", "job_id", "status", "message", "details", "succeeded"):
+        if hasattr(result, field_name):
+            payload[field_name] = getattr(result, field_name)
+    if payload:
+        return payload
+    return {"result_type": result.__class__.__name__, "repr": repr(result)}
 
 
 def _build_lineage_evidence(
@@ -168,13 +190,22 @@ def build_single_symbol_ohlcv_write_plan(
     client: UnsupportedFmpClient | None = None,
     writer: object | None = None,
     execute_writer: bool = False,
+    checkpoint_writer: object | None = None,
+    execute_checkpoint_persistence: bool = False,
 ) -> FmpOhlcvIngestionPlan:
     fmp_client = client or _build_fmp_client(request)
     errors: list[dict[str, object]] = []
     writer_errors: list[dict[str, object]] = []
+    checkpoint_errors: list[dict[str, object]] = []
     raw_records: list[dict[str, object]] = []
     normalized_records: tuple[NormalizedOHLCVRecord, ...] = ()
     writer_result: dict[str, object] | None = None
+    checkpoint_result: dict[str, object] | None = None
+    lineage_evidence = _build_lineage_evidence(
+        request=request,
+        normalized_record_count=len(normalized_records),
+        did_write_db=False,
+    )
     try:
         raw_records = fmp_client.fetch_historical_ohlcv_raw(
             request.symbol,
@@ -201,11 +232,6 @@ def build_single_symbol_ohlcv_write_plan(
                 "source": "orchestrator",
             }
         )
-    lineage_evidence = _build_lineage_evidence(
-        request=request,
-        normalized_record_count=len(normalized_records),
-        did_write_db=False,
-    )
     checkpoint_plan = _build_checkpoint_plan(request)
     writer_payload_preview = _build_writer_payload_preview(normalized_records)
     writer_execution_requested = bool(execute_writer)
@@ -243,6 +269,36 @@ def build_single_symbol_ohlcv_write_plan(
             )
     if not writer_execution_requested or not writer_execution_performed:
         did_write_db = False
+    checkpoint_persistence_requested = bool(execute_checkpoint_persistence)
+    checkpoint_persistence_performed = False
+    if checkpoint_persistence_requested and not errors and not writer_errors:
+        try:
+            if checkpoint_writer is None:
+                raise ValueError("checkpoint persistence was requested but no checkpoint writer was provided")
+            checkpoint_persistence_performed = True
+            checkpoint_input = dict(checkpoint_plan)
+            checkpoint_input["did_write_db"] = did_write_db
+            checkpoint_input["writer_execution_performed"] = writer_execution_performed
+            checkpoint_input["writer_execution_requested"] = writer_execution_requested
+            checkpoint_input["writer_handoff_ready"] = writer_payload_preview["handoff_ready"]
+            checkpoint_input["writer_payload_preview"] = writer_payload_preview
+            checkpoint_input["lineage_evidence"] = lineage_evidence
+            if hasattr(checkpoint_writer, "save"):
+                result = checkpoint_writer.save(checkpoint_input)  # type: ignore[call-arg]
+            elif callable(checkpoint_writer):
+                result = checkpoint_writer(checkpoint_input)  # type: ignore[call-arg]
+            else:
+                raise TypeError("checkpoint writer must be callable or expose a save method")
+            checkpoint_result = _checkpoint_result_to_dict(result)
+        except Exception as exc:
+            checkpoint_errors.append(
+                {
+                    "kind": "checkpoint_error",
+                    "message": str(exc),
+                    "retryable": False,
+                    "source": "checkpoint_persistence",
+                }
+            )
     lineage_evidence = _build_lineage_evidence(
         request=request,
         normalized_record_count=len(normalized_records),
@@ -250,7 +306,7 @@ def build_single_symbol_ohlcv_write_plan(
     )
     if did_write_db:
         lineage_evidence["write_mode"] = "write"
-    status = "failed" if errors or writer_errors else "completed"
+    status = "failed" if errors or writer_errors or checkpoint_errors else "completed"
     return FmpOhlcvIngestionPlan(
         vendor="fmp",
         symbol=request.symbol,
@@ -265,6 +321,10 @@ def build_single_symbol_ohlcv_write_plan(
         normalized_records=normalized_records,
         lineage_evidence=lineage_evidence,
         checkpoint_plan=checkpoint_plan,
+        checkpoint_persistence_requested=checkpoint_persistence_requested,
+        checkpoint_persistence_performed=checkpoint_persistence_performed,
+        checkpoint_result=checkpoint_result,
+        checkpoint_errors=tuple(checkpoint_errors),
         writer_execution_requested=writer_execution_requested,
         writer_execution_performed=writer_execution_performed,
         writer_handoff_ready=bool(normalized_records) and not errors,

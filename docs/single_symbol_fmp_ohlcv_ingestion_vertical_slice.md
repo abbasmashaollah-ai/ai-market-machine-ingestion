@@ -37,6 +37,7 @@ It:
 - emits checkpoint plan metadata
 - classifies vendor fetch failures narrowly
 - can optionally execute an injected writer in tests or controlled integration scenarios
+- can optionally execute an injected checkpoint writer in tests or controlled integration scenarios
 
 It does not:
 
@@ -63,6 +64,10 @@ The returned plan includes:
 - writer execution performed
 - writer result
 - writer errors
+- checkpoint persistence requested
+- checkpoint persistence performed
+- checkpoint result
+- checkpoint errors
 - lineage evidence
 - checkpoint plan
 - errors
@@ -122,6 +127,28 @@ Injected writer mode:
 - `did_write_db` becomes `true` only when the injected writer explicitly reports success
 
 This is a controlled integration hook for testing and future staged enablement.
+
+## Checkpoint persistence interface
+
+The orchestrator also exposes an explicit checkpoint persistence mode.
+
+Default behavior:
+
+- `checkpoint_persistence_requested: false`
+- `checkpoint_persistence_performed: false`
+- `checkpoint_result: null`
+- `checkpoint_errors: ()`
+
+Injected checkpoint mode:
+
+- a caller passes a checkpoint writer object or callable
+- the caller sets `execute_checkpoint_persistence: true`
+- the orchestrator sends the checkpoint plan payload to the injected checkpoint writer
+- `checkpoint_result` captures the checkpoint writer response in a plain dictionary
+- `checkpoint_errors` captures any explicit checkpoint failure or exception
+- checkpoint persistence failures do not make the run look successful
+
+This is a controlled integration hook for testing and future staged enablement. It keeps checkpoint persistence disabled by default.
 
 ## Why DB writes remain disabled
 

@@ -24,6 +24,16 @@ class _RecordingWriter:
         return self.result
 
 
+class _RecordingCheckpointWriter:
+    def __init__(self, result: object) -> None:
+        self.result = result
+        self.calls: list[dict[str, object]] = []
+
+    def save(self, checkpoint: dict[str, object]) -> object:
+        self.calls.append(dict(checkpoint))
+        return self.result
+
+
 class FmpSingleSymbolOrchestratorTests(unittest.TestCase):
     def test_write_plan_is_dry_run_and_includes_metadata(self) -> None:
         transport = Mock()
@@ -204,6 +214,125 @@ class FmpSingleSymbolOrchestratorTests(unittest.TestCase):
         self.assertFalse(plan.writer_execution_performed)
         self.assertFalse(plan.did_write_db)
         self.assertEqual(writer.calls, [])
+
+    def test_default_mode_does_not_call_checkpoint_writer(self) -> None:
+        transport = Mock()
+        transport.request.return_value = HttpResponse(
+            metadata=ResponseMetadata(status_code=200, elapsed_seconds=0.1),
+            text='{"historical": [{"date": "2026-01-02", "open": 100, "high": 101, "low": 99, "close": 100.5, "volume": 12345}]}',
+            json={"historical": [{"date": "2026-01-02", "open": 100, "high": 101, "low": 99, "close": 100.5, "volume": 12345}]},
+        )
+        client = UnsupportedFmpClient(FmpClientConfig(api_key="secret"), http_client=transport)
+        checkpoint_writer = _RecordingCheckpointWriter({"status": "saved"})
+
+        plan = build_single_symbol_ohlcv_write_plan(
+            FmpOhlcvIngestionRequest(
+                symbol="AAPL",
+                start_date=date(2026, 1, 2),
+                end_date=date(2026, 1, 2),
+                api_key="secret",
+            ),
+            client=client,
+            checkpoint_writer=checkpoint_writer,
+        )
+
+        self.assertFalse(plan.checkpoint_persistence_requested)
+        self.assertFalse(plan.checkpoint_persistence_performed)
+        self.assertIsNone(plan.checkpoint_result)
+        self.assertEqual(plan.checkpoint_errors, ())
+        self.assertEqual(checkpoint_writer.calls, [])
+
+    def test_injected_checkpoint_mode_calls_checkpoint_writer_with_plan_payload(self) -> None:
+        transport = Mock()
+        transport.request.return_value = HttpResponse(
+            metadata=ResponseMetadata(status_code=200, elapsed_seconds=0.1),
+            text='{"historical": [{"date": "2026-01-02", "open": 100, "high": 101, "low": 99, "close": 100.5, "volume": 12345}]}',
+            json={"historical": [{"date": "2026-01-02", "open": 100, "high": 101, "low": 99, "close": 100.5, "volume": 12345}]},
+        )
+        client = UnsupportedFmpClient(FmpClientConfig(api_key="secret"), http_client=transport)
+        checkpoint_writer = _RecordingCheckpointWriter({"checkpoint_id": "fmp:ohlcv:AAPL:1d:2026-01-02:2026-01-02", "status": "saved"})
+
+        plan = build_single_symbol_ohlcv_write_plan(
+            FmpOhlcvIngestionRequest(
+                symbol="AAPL",
+                start_date=date(2026, 1, 2),
+                end_date=date(2026, 1, 2),
+                api_key="secret",
+            ),
+            client=client,
+            checkpoint_writer=checkpoint_writer,
+            execute_checkpoint_persistence=True,
+        )
+
+        self.assertTrue(plan.checkpoint_persistence_requested)
+        self.assertTrue(plan.checkpoint_persistence_performed)
+        self.assertEqual(plan.checkpoint_result["status"], "saved")
+        self.assertEqual(plan.checkpoint_errors, ())
+        self.assertEqual(len(checkpoint_writer.calls), 1)
+        self.assertEqual(checkpoint_writer.calls[0]["checkpoint_id"], "fmp:ohlcv:AAPL:1d:2026-01-02:2026-01-02")
+        self.assertEqual(checkpoint_writer.calls[0]["metadata"]["checkpoint_persistence"], "not_implemented")
+        self.assertIn("lineage_evidence", checkpoint_writer.calls[0])
+        self.assertIn("writer_payload_preview", checkpoint_writer.calls[0])
+
+    def test_checkpoint_writer_failure_is_captured(self) -> None:
+        transport = Mock()
+        transport.request.return_value = HttpResponse(
+            metadata=ResponseMetadata(status_code=200, elapsed_seconds=0.1),
+            text='{"historical": [{"date": "2026-01-02", "open": 100, "high": 101, "low": 99, "close": 100.5, "volume": 12345}]}',
+            json={"historical": [{"date": "2026-01-02", "open": 100, "high": 101, "low": 99, "close": 100.5, "volume": 12345}]},
+        )
+        client = UnsupportedFmpClient(FmpClientConfig(api_key="secret"), http_client=transport)
+
+        def _failing_checkpoint_writer(checkpoint: dict[str, object]) -> object:
+            raise RuntimeError("checkpoint failed")
+
+        plan = build_single_symbol_ohlcv_write_plan(
+            FmpOhlcvIngestionRequest(
+                symbol="AAPL",
+                start_date=date(2026, 1, 2),
+                end_date=date(2026, 1, 2),
+                api_key="secret",
+            ),
+            client=client,
+            checkpoint_writer=_failing_checkpoint_writer,
+            execute_checkpoint_persistence=True,
+        )
+
+        self.assertTrue(plan.checkpoint_persistence_requested)
+        self.assertTrue(plan.checkpoint_persistence_performed)
+        self.assertIsNone(plan.checkpoint_result)
+        self.assertEqual(plan.status, "failed")
+        self.assertEqual(plan.checkpoint_errors[0]["kind"], "checkpoint_error")
+        self.assertFalse(plan.did_write_db)
+
+    def test_checkpoint_failure_does_not_mark_successful_ingestion(self) -> None:
+        transport = Mock()
+        transport.request.return_value = HttpResponse(
+            metadata=ResponseMetadata(status_code=200, elapsed_seconds=0.1),
+            text='{"historical": [{"date": "2026-01-02", "open": 100, "high": 101, "low": 99, "close": 100.5, "volume": 12345}]}',
+            json={"historical": [{"date": "2026-01-02", "open": 100, "high": 101, "low": 99, "close": 100.5, "volume": 12345}]},
+        )
+        client = UnsupportedFmpClient(FmpClientConfig(api_key="secret"), http_client=transport)
+
+        class _FailingCheckpointWriter:
+            def save(self, checkpoint: dict[str, object]) -> object:
+                raise RuntimeError("boom")
+
+        plan = build_single_symbol_ohlcv_write_plan(
+            FmpOhlcvIngestionRequest(
+                symbol="AAPL",
+                start_date=date(2026, 1, 2),
+                end_date=date(2026, 1, 2),
+                api_key="secret",
+            ),
+            client=client,
+            checkpoint_writer=_FailingCheckpointWriter(),
+            execute_checkpoint_persistence=True,
+        )
+
+        self.assertEqual(plan.status, "failed")
+        self.assertFalse(plan.did_write_db)
+        self.assertEqual(plan.checkpoint_errors[0]["kind"], "checkpoint_error")
 
     def test_source_boundary_has_no_data_repo_imports(self) -> None:
         for relative_path in (
