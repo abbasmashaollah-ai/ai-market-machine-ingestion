@@ -14,3 +14,5 @@ Checks:
 - forbidden imports are absent
 
 No DB writes happen in preflight.
+
+The evidence plan remains deferred until the event-calendar persistence contract is approved.
