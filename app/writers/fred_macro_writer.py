@@ -117,6 +117,12 @@ class FredMacroWriter:
                 message=message,
                 details={"error_type": exc.__class__.__name__, "error_message": message},
             )
+        finally:
+            if connection is not None and hasattr(connection, "close"):
+                try:
+                    connection.close()
+                except Exception:
+                    pass
 
 
 def build_fred_macro_writer(connection: _ConnectionLike | Callable[[], _ConnectionLike] | None = None) -> CanonicalWriter:

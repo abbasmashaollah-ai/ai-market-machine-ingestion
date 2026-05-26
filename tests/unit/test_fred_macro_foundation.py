@@ -141,6 +141,7 @@ class FredMacroFoundationTests(unittest.TestCase):
         self.assertIn("rows_written=1", printed)
         self.assertIn("rows_skipped=0", printed)
         self.assertIn("write_confirmed=True", printed)
+        self.assertIn("write_status=WRITTEN", printed)
 
     def test_confirm_write_requires_live_check_and_database_url(self) -> None:
         mod = self._module()
@@ -276,3 +277,56 @@ class FredMacroFoundationTests(unittest.TestCase):
         self.assertIn("rows_written=0", printed)
         self.assertIn("rows_skipped=0", printed)
         self.assertIn("write_confirmed=False", printed)
+        self.assertIn("write_status=DRY_RUN", printed)
+
+    def test_confirmed_write_idempotent_rows_reports_skipped(self) -> None:
+        mod = self._module()
+
+        class Writer:
+            def write(self, records):
+                return type("Result", (), {"written_count": 0, "skipped_count": len(records), "status": type("S", (), {"value": "success"})()})()
+
+        fake_result = type(
+            "FakeResult",
+            (),
+            {
+                "records": (type("Record", (), {"value": 1.0})(),),
+                "invalid_rows": (),
+                "latest_observation_date": "2026-01-02",
+            },
+        )()
+        with patch.dict(os.environ, {"FRED_API_KEY": "secret", "DATABASE_URL": "postgresql://example/db"}, clear=True), patch.object(
+            mod, "_load_local_env_if_available", return_value=False
+        ), patch.object(mod, "fetch_fred_macro_series", return_value=fake_result), patch.object(
+            mod, "FredMacroWriter", return_value=Writer()
+        ), patch("builtins.print") as print_mock:
+            mod.main(["--live-check", "--confirm-write", "--series", "DGS10"])
+        printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
+        self.assertIn("rows_written=0", printed)
+        self.assertIn("rows_skipped=1", printed)
+        self.assertIn("write_status=SKIPPED", printed)
+
+    def test_confirmed_write_no_effect_reports_status(self) -> None:
+        mod = self._module()
+
+        class Writer:
+            def write(self, records):
+                return type("Result", (), {"written_count": 0, "skipped_count": 0, "status": type("S", (), {"value": "success"})()})()
+
+        fake_result = type(
+            "FakeResult",
+            (),
+            {
+                "records": (type("Record", (), {"value": 1.0})(),),
+                "invalid_rows": (),
+                "latest_observation_date": "2026-01-02",
+            },
+        )()
+        with patch.dict(os.environ, {"FRED_API_KEY": "secret", "DATABASE_URL": "postgresql://example/db"}, clear=True), patch.object(
+            mod, "_load_local_env_if_available", return_value=False
+        ), patch.object(mod, "fetch_fred_macro_series", return_value=fake_result), patch.object(
+            mod, "FredMacroWriter", return_value=Writer()
+        ), patch("builtins.print") as print_mock:
+            mod.main(["--live-check", "--confirm-write", "--series", "DGS10"])
+        printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
+        self.assertIn("write_status=NO_EFFECT", printed)

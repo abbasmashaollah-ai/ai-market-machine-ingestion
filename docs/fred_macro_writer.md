@@ -15,5 +15,7 @@ Persistence behavior:
 - performs idempotent conflict handling against the approved uniqueness key
 - persists the approved observation fields only
 - leaves vintage and realtime fields deferred
+- returns `SKIPPED` when rows are already present
+- returns `NO_EFFECT` if the confirmed-write path is invoked but no write result is produced
 
 The writer is only available to the confirmed-write manual path.

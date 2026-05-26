@@ -34,6 +34,7 @@ def _emit(
     rows_written: int = 0,
     rows_skipped: int = 0,
     write_confirmed: bool = False,
+    write_status: str = "DRY_RUN",
     normalized_records: tuple[object, ...] = (),
 ) -> None:
     print(f"series_count={len(get_starter_fred_macro_series())}")
@@ -45,6 +46,7 @@ def _emit(
     print(f"rows_written={rows_written}")
     print(f"rows_skipped={rows_skipped}")
     print(f"write_confirmed={write_confirmed}")
+    print(f"write_status={write_status}")
     print(f"starter_series={[series.series_id for series in get_starter_fred_macro_series()]}")
     print(f"no_vendor_calls={no_vendor_calls}")
     print(f"no_db_writes={no_db_writes}")
@@ -97,11 +99,27 @@ def main(argv: list[str] | None = None) -> int:
             latest_observation_dates[series_id] = result.latest_observation_date
         rows_written = 0
         rows_skipped = 0
+        write_status = "DRY_RUN"
+        no_db_writes = True
         if args.confirm_write and normalized_records:
             writer = FredMacroWriter()
             writer_result = writer.write(list(normalized_records))
             rows_written = writer_result.written_count
             rows_skipped = writer_result.skipped_count
+            no_db_writes = False
+            writer_status = getattr(getattr(writer_result, "status", None), "value", None)
+            if writer_status in (None, "success"):
+                if rows_written > 0:
+                    write_status = "WRITTEN"
+                elif rows_skipped > 0:
+                    write_status = "SKIPPED"
+                else:
+                    write_status = "NO_EFFECT"
+            else:
+                write_status = "FAILED"
+        elif args.confirm_write:
+            no_db_writes = False
+            write_status = "NO_EFFECT"
         _emit(
             requested_series=requested_series,
             normalized_count=len(normalized_records),
@@ -109,7 +127,7 @@ def main(argv: list[str] | None = None) -> int:
             invalid_count=len(invalid_records),
             latest_observation_dates=latest_observation_dates,
             no_vendor_calls=False,
-            no_db_writes=True,
+            no_db_writes=no_db_writes,
             show_series=args.show_series,
             show_values=args.show_values,
             show_invalid=args.show_invalid,
@@ -117,6 +135,7 @@ def main(argv: list[str] | None = None) -> int:
             rows_written=rows_written,
             rows_skipped=rows_skipped,
             write_confirmed=bool(args.confirm_write),
+            write_status=write_status,
             normalized_records=tuple(normalized_records),
         )
     else:
@@ -136,6 +155,7 @@ def main(argv: list[str] | None = None) -> int:
             rows_written=0,
             rows_skipped=0,
             write_confirmed=False,
+            write_status="DRY_RUN",
             normalized_records=records,
         )
     return 0
