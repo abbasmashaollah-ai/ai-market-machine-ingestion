@@ -7,6 +7,7 @@ MODULES = (
     "scripts.inspect_fred_macro_checkpoint",
     "scripts.preview_fred_macro_incremental",
     "scripts.dry_run_fred_macro_incremental",
+    "scripts.dry_run_fred_macro_foundation",
     "scripts.persist_fred_macro_incremental",
     "scripts.dry_run_polygon_ohlcv_incremental",
     "scripts.persist_polygon_ohlcv_incremental",
