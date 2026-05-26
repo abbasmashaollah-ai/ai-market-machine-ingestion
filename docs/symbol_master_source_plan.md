@@ -10,6 +10,8 @@ This document describes the planned source candidates for future symbol master c
 - Nasdaq/official listings
 - manual fixture
 
+Polygon now has a dry-run adapter path for reference ticker planning. It remains live-check only and still requires an explicit operator flag before any vendor fetch is attempted.
+
 ## Boundary
 
 - planning only
