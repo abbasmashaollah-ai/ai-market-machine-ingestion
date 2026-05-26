@@ -17,5 +17,7 @@ Persistence behavior:
 - leaves vintage and realtime fields deferred
 - returns `SKIPPED` when rows are already present
 - returns `NO_EFFECT` if the confirmed-write path is invoked but no write result is produced
+- sanitizes failure diagnostics before returning them
+- surfaces common database failures as safe writer errors without leaking credentials
 
 The writer is only available to the confirmed-write manual path.

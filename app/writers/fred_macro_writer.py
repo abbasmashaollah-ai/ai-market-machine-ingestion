@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from datetime import datetime, timezone
+import re
 from typing import Callable, Protocol
 
 from app.normalization.fred_macro import NormalizedFredMacroRecord
@@ -51,6 +52,22 @@ def _insert_sql() -> str:
     DO UPDATE SET
         value = excluded.value
     """.strip()
+
+
+def _sanitize_error_message(message: str) -> str:
+    sanitized = message
+    sanitized = re.sub(r"(?i)postgres(?:ql)?://[^\s@]+@", "database connection://<redacted>@", sanitized)
+    sanitized = re.sub(r"(?i)postgres(?:ql)?://[^\s]+", "database connection", sanitized)
+    sanitized = re.sub(r"(?i)(password|passwd|pwd|token|secret|key)=([^\s&]+)", r"\1=<redacted>", sanitized)
+    sanitized = re.sub(r"(?i)DATABASE_URL", "database connection", sanitized)
+    sanitized = re.sub(r"(?i)permission denied", "database permission denied", sanitized)
+    sanitized = re.sub(r"(?i)relation \"[^\"]+\" does not exist", "missing table or view", sanitized)
+    sanitized = re.sub(r"(?i)column \"[^\"]+\" does not exist", "missing column", sanitized)
+    sanitized = re.sub(r"(?i)duplicate key value violates unique constraint", "unique constraint violation", sanitized)
+    sanitized = re.sub(r"(?i)could not connect to server", "connection failure", sanitized)
+    sanitized = re.sub(r"(?i)connection refused", "connection failure", sanitized)
+    sanitized = re.sub(r"(?i)syntax error at or near", "sql failure", sanitized)
+    return sanitized.strip()
 
 
 class FredMacroWriter:
@@ -108,14 +125,15 @@ class FredMacroWriter:
         except Exception as exc:
             if connection is not None and hasattr(connection, "rollback"):
                 connection.rollback()
-            message = f"{exc.__class__.__name__}: {exc}"
+            sanitized_message = _sanitize_error_message(str(exc))
+            message = f"{exc.__class__.__name__}: {sanitized_message}"
             return WriterResult(
                 writer_name=self.writer_name,
                 status=WriteStatus.FAILURE,
                 failed_count=0,
                 skipped_count=0,
                 message=message,
-                details={"error_type": exc.__class__.__name__, "error_message": message},
+                details={"error_type": exc.__class__.__name__, "error_message": sanitized_message},
             )
         finally:
             if connection is not None and hasattr(connection, "close"):

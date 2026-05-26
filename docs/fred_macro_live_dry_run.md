@@ -11,6 +11,8 @@ Boundary:
 - confirmed writes require `--live-check`, `--confirm-write`, `DATABASE_URL`, and `FredMacroWriter`
 - `write_status` is `DRY_RUN`, `WRITTEN`, `SKIPPED`, `NO_EFFECT`, or `FAILED`
 - `no_db_writes=False` when confirmed write is attempted
+- `write_error` is printed only when `write_status=FAILED`
+- failure diagnostics are sanitized and never include `DATABASE_URL`, credentials, or API keys
 
 Supported starter series:
 - DGS10

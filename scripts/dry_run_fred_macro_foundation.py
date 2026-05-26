@@ -7,7 +7,7 @@ from app.normalization.fred_macro import build_fred_macro_fixture_records, get_s
 from app.vendors.common.http import UrlLibHttpClient
 from app.vendors.fred.client import FredClientConfig, UnsupportedFredClient
 from app.vendors.fred_macro import fetch_fred_macro_series
-from app.writers.fred_macro_writer import FredMacroWriter
+from app.writers.fred_macro_writer import FredMacroWriter, _sanitize_error_message
 
 
 def _load_local_env_if_available() -> bool:
@@ -16,6 +16,18 @@ def _load_local_env_if_available() -> bool:
     except ImportError:
         return False
     return bool(load_dotenv())
+
+
+def _extract_write_error(writer_result: object) -> str | None:
+    message = getattr(writer_result, "message", None)
+    if message:
+        return _sanitize_error_message(str(message))
+    details = getattr(writer_result, "details", None)
+    if isinstance(details, dict):
+        error_message = details.get("error_message")
+        if error_message:
+            return _sanitize_error_message(str(error_message))
+    return None
 
 
 def _emit(
@@ -35,6 +47,7 @@ def _emit(
     rows_skipped: int = 0,
     write_confirmed: bool = False,
     write_status: str = "DRY_RUN",
+    write_error: str | None = None,
     normalized_records: tuple[object, ...] = (),
 ) -> None:
     print(f"series_count={len(get_starter_fred_macro_series())}")
@@ -47,6 +60,8 @@ def _emit(
     print(f"rows_skipped={rows_skipped}")
     print(f"write_confirmed={write_confirmed}")
     print(f"write_status={write_status}")
+    if write_error is not None and write_status == "FAILED":
+        print(f"write_error={write_error}")
     print(f"starter_series={[series.series_id for series in get_starter_fred_macro_series()]}")
     print(f"no_vendor_calls={no_vendor_calls}")
     print(f"no_db_writes={no_db_writes}")
@@ -100,6 +115,7 @@ def main(argv: list[str] | None = None) -> int:
         rows_written = 0
         rows_skipped = 0
         write_status = "DRY_RUN"
+        write_error = None
         no_db_writes = True
         if args.confirm_write and normalized_records:
             writer = FredMacroWriter()
@@ -117,6 +133,7 @@ def main(argv: list[str] | None = None) -> int:
                     write_status = "NO_EFFECT"
             else:
                 write_status = "FAILED"
+                write_error = _extract_write_error(writer_result)
         elif args.confirm_write:
             no_db_writes = False
             write_status = "NO_EFFECT"
@@ -136,6 +153,7 @@ def main(argv: list[str] | None = None) -> int:
             rows_skipped=rows_skipped,
             write_confirmed=bool(args.confirm_write),
             write_status=write_status,
+            write_error=write_error,
             normalized_records=tuple(normalized_records),
         )
     else:
@@ -156,6 +174,7 @@ def main(argv: list[str] | None = None) -> int:
             rows_skipped=0,
             write_confirmed=False,
             write_status="DRY_RUN",
+            write_error=None,
             normalized_records=records,
         )
     return 0

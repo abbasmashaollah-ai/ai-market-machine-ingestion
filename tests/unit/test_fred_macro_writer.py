@@ -13,15 +13,16 @@ class _Result:
 
 
 class _Connection:
-    def __init__(self, *, fail_on_execute: bool = False) -> None:
+    def __init__(self, *, fail_on_execute: bool = False, error: Exception | None = None) -> None:
         self.fail_on_execute = fail_on_execute
+        self.error = error
         self.executed: list[tuple[str, tuple[object, ...]]] = []
         self.committed = False
         self.rolled_back = False
 
     def execute(self, sql: str, params: tuple[object, ...] = ()):
         if self.fail_on_execute:
-            raise RuntimeError("database unavailable")
+            raise self.error or RuntimeError("database unavailable")
         self.executed.append((sql, params))
         return _Result(1)
 
@@ -83,3 +84,13 @@ class FredMacroWriterTests(unittest.TestCase):
         self.assertNotIn("requests", text.lower())
         self.assertNotIn("httpx", text.lower())
 
+    def test_generic_db_exception_is_sanitized(self) -> None:
+        connection = _Connection(fail_on_execute=True, error=RuntimeError("postgresql://user:secret@example/db"))
+        writer = FredMacroWriter(connection)
+
+        result = writer.write([self._record()])
+
+        self.assertEqual(result.status.value, "failure")
+        self.assertNotIn("secret", result.message or "")
+        self.assertNotIn("postgresql://user:secret@example/db", result.message or "")
+        self.assertNotIn("secret", str(result.details))
