@@ -43,6 +43,16 @@ def polygon_vendor_symbol(symbol: str) -> str:
     return mapping.get(symbol.upper(), symbol)
 
 
+def polygon_canonical_symbol(vendor_symbol: str) -> str:
+    reverse = {
+        "I:VIX": "VIX",
+        "I:VVIX": "VVIX",
+        "I:VXN": "VXN",
+        "I:RVX": "RVX",
+    }
+    return reverse.get(vendor_symbol.upper(), vendor_symbol)
+
+
 class PolygonVolatilityIndexAdapter:
     def __init__(
         self,
@@ -88,7 +98,11 @@ class PolygonVolatilityIndexAdapter:
             raise
         except Exception as exc:
             raise RuntimeError(_sanitize_error_message(str(exc))) from exc
+        if not payload:
+            raise RuntimeError("polygon returned no volatility observations")
         records = _normalize_polygon_aggregate_payloads(symbol=symbol, vendor_symbol=vendor_symbol, payload=payload)
+        if not records:
+            raise RuntimeError("polygon returned no valid volatility observations")
         records.sort(key=lambda record: (record.observation_date or date.min, record.symbol or ""))
         if max_observations is not None:
             records = records[-max_observations:]
@@ -119,9 +133,11 @@ def _normalize_polygon_aggregate_payloads(
         if isinstance(timestamp, (int, float)):
             observation_date = datetime.fromtimestamp(float(timestamp) / 1000.0, tz=timezone.utc).date()
         value = row.get("c")
+        vendor_value = row.get("ticker") or row.get("symbol") or vendor_symbol
+        normalized_symbol = polygon_canonical_symbol(str(vendor_value))
         normalized = normalize_volatility_index_record(
             {
-                "symbol": symbol,
+                "symbol": normalized_symbol if normalized_symbol else symbol,
                 "observation_date": observation_date.isoformat() if observation_date else None,
                 "value": value,
                 "source": "polygon",

@@ -93,8 +93,12 @@ def _normalize_live_records(
             invalid_records.append({"symbol": symbol, "error": _sanitize_vendor_error(str(exc))})
             latest_observation_dates[symbol] = None
             continue
+        if not symbol_records:
+            invalid_records.append({"symbol": symbol, "error": "polygon returned no valid volatility observations"})
+            latest_observation_dates[symbol] = None
+            continue
         normalized_records.extend(symbol_records)
-        latest_observation_dates[symbol] = symbol_records[-1].observation_date.isoformat() if symbol_records and symbol_records[-1].observation_date else None
+        latest_observation_dates[symbol] = symbol_records[-1].observation_date.isoformat() if symbol_records[-1].observation_date else None
         if sleep_seconds_between_symbols > 0 and index < len(requested_symbols) - 1:
             time.sleep(sleep_seconds_between_symbols)
     normalized_records = tuple(

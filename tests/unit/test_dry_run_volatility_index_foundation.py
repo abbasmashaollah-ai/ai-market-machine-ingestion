@@ -94,12 +94,16 @@ class VolatilityIndexFoundationTests(unittest.TestCase):
         self.assertIn("no_db_writes=true", printed)
 
     def test_polygon_symbol_mapping(self) -> None:
-        from app.vendors.polygon_volatility_index import polygon_vendor_symbol
+        from app.vendors.polygon_volatility_index import polygon_canonical_symbol, polygon_vendor_symbol
 
         self.assertEqual(polygon_vendor_symbol("VIX"), "I:VIX")
         self.assertEqual(polygon_vendor_symbol("VVIX"), "I:VVIX")
         self.assertEqual(polygon_vendor_symbol("VXN"), "I:VXN")
         self.assertEqual(polygon_vendor_symbol("RVX"), "I:RVX")
+        self.assertEqual(polygon_canonical_symbol("I:VIX"), "VIX")
+        self.assertEqual(polygon_canonical_symbol("I:VVIX"), "VVIX")
+        self.assertEqual(polygon_canonical_symbol("I:VXN"), "VXN")
+        self.assertEqual(polygon_canonical_symbol("I:RVX"), "RVX")
 
     def test_newest_n_observation_selection(self) -> None:
         from app.vendors.polygon_volatility_index import PolygonVolatilityIndexAdapter, PolygonVolatilityIndexSourceConfig
@@ -205,6 +209,24 @@ class VolatilityIndexFoundationTests(unittest.TestCase):
         self.assertNotIn("alembic", adapter_text.lower())
         self.assertNotIn("httpx", adapter_text.lower())
         self.assertNotIn("DATABASE_URL", adapter_text)
+
+    def test_missing_or_empty_payload_becomes_invalid_with_safe_reason(self) -> None:
+        mod = self._module()
+
+        class Client:
+            def fetch_aggregates_raw(self, ticker, from_date, to_date, *, adjusted=True):
+                return []
+
+        from app.vendors.polygon_volatility_index import PolygonVolatilityIndexAdapter, PolygonVolatilityIndexSourceConfig
+
+        adapter = PolygonVolatilityIndexAdapter(PolygonVolatilityIndexSourceConfig(api_key="secret"), client=Client())
+        with patch.dict("os.environ", {"POLYGON_API_KEY": "polygon-secret"}, clear=True), patch.object(
+            mod, "PolygonVolatilityIndexAdapter", return_value=adapter
+        ), patch("builtins.print") as print_mock:
+            mod.main(["--live-check", "--symbol", "VIX", "--show-invalid"])
+        printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
+        self.assertIn("invalid_count=1", printed)
+        self.assertIn("polygon returned no volatility observations", printed)
 
     def test_docs_coverage(self) -> None:
         text = Path("docs/volatility_index_foundation.md").read_text(encoding="utf-8").lower()

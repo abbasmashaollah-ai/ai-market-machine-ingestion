@@ -7,6 +7,7 @@
 - default mode uses a deterministic fixture
 - `--live-check` fetches Polygon volatility observations when `POLYGON_API_KEY` is present
 - live-check normalizes into `NormalizedVolatilityIndexRecord`
+- `I:VIX`, `I:VVIX`, `I:VXN`, and `I:RVX` are normalized back to `VIX`, `VVIX`, `VXN`, and `RVX`
 - `--symbol` can be repeated for starter symbols
 - `--max-observations` keeps the newest observations first
 - `--show-values` prints normalized values
@@ -26,6 +27,7 @@
 - `invalid_count`
 - `latest_observation_dates`
 - `rate_limit_detected`
+- `invalid_records` include safe failure reasons when Polygon returns no usable payload
 - `no_db_writes=true`
 
 ## Boundary
