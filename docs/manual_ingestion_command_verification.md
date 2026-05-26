@@ -10,6 +10,7 @@ The script imports these manual command modules:
 - `scripts.preview_fred_macro_incremental`
 - `scripts.dry_run_fred_macro_incremental`
 - `scripts.verify_fred_macro_evidence_chain`
+- `scripts.dry_run_event_calendar_foundation`
 - `scripts.dry_run_volatility_index_foundation`
 - `scripts.dry_run_volatility_index_foundation --live-check`
 - `scripts.plan_volatility_index_sources`
@@ -105,6 +106,8 @@ The scheduler plan command is also read-only. It describes the intended schedule
 New ingestion domains should start from `docs/domain_vertical_slice_template.md` so the producer boundary, preflight, verifier, and evidence contracts stay consistent.
 
 The symbol master dry-run command is the current ingestion-side foundation for future symbol master work. It remains dry-run only and does not write to the database.
+
+The event calendar dry-run foundation is the current ingestion-side foundation for future event calendar work. It remains dry-run only and does not write to the database.
 
 The volatility index dry-run foundation is the current ingestion-side foundation for future volatility work. It remains dry-run only and does not call vendors or write to the database.
 
