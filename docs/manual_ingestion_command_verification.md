@@ -25,6 +25,7 @@ The script imports these manual command modules:
 - `scripts.run_fmp_ohlcv_daily_update`
 - `scripts.preflight_fmp_ohlcv_operations`
 - `scripts.verify_fmp_ohlcv_evidence_chain`
+- `scripts.assess_ohlcv_scheduler_readiness`
 - `scripts.diagnose_ingestion_monitoring_readiness`
 - `scripts.diagnose_ingestion_retry_recovery_readiness`
 - `scripts.diagnose_ingestion_failure_recovery_runbook`
@@ -86,6 +87,8 @@ The script does not:
 - run ingestion
 - persist checkpoints
 - run automatically on Railway startup
+
+The scheduler readiness assessor is read-only. It checks that the manual OHLCV foundation is present before any scheduler is activated, but it does not start a scheduler or change Railway startup behavior.
 
 This is an operator-run verification only.
 

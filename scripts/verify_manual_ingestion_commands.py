@@ -23,6 +23,7 @@ MODULES = (
     "scripts.run_fmp_ohlcv_daily_update",
     "scripts.preflight_fmp_ohlcv_operations",
     "scripts.verify_fmp_ohlcv_evidence_chain",
+    "scripts.assess_ohlcv_scheduler_readiness",
     "scripts.diagnose_ingestion_monitoring_readiness",
     "scripts.diagnose_ingestion_retry_recovery_readiness",
     "scripts.diagnose_ingestion_failure_recovery_runbook",

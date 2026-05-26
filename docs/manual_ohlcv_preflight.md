@@ -30,3 +30,5 @@ These preflights do not:
 - call vendors unless a vendor-specific check explicitly requires it
 
 The commands remain operator-run only.
+
+The scheduler readiness assessor (`scripts.assess_ohlcv_scheduler_readiness.py`) consumes these preflights as part of a read-only readiness check. It does not activate a scheduler.
