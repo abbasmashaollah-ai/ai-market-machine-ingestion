@@ -2,13 +2,9 @@ from __future__ import annotations
 
 import argparse
 import os
-from collections import OrderedDict
 from datetime import date, timedelta
 
-from app.ingestion.backfill.planner import split_date_range_into_chunks
-from app.ingestion.manual.polygon_ohlcv_incremental import _build_checkpoint_key
 from app.market_calendar.us_market_calendar import expected_trading_days
-from app.state.manual_polygon_ohlcv_checkpoint_store import ManualPolygonOHLCVCheckpointStore
 from scripts.persist_fred_macro import _open_connection, load_local_env_if_available
 
 
@@ -55,7 +51,17 @@ def _run_exact_query() -> str:
     return (
         "SELECT run_id, job_id, status, started_at, finished_at "
         "FROM ingestion_runs "
-        "WHERE vendor = %s AND dataset = %s AND started_at >= %s AND finished_at < %s "
+        "WHERE vendor = %s AND dataset = %s AND symbol = %s AND started_at >= %s AND finished_at < %s "
+        "ORDER BY finished_at DESC NULLS LAST, started_at DESC NULLS LAST "
+        "LIMIT %s"
+    )
+
+
+def _run_fallback_query() -> str:
+    return (
+        "SELECT run_id, job_id, status, started_at, finished_at "
+        "FROM ingestion_runs "
+        "WHERE vendor = %s AND dataset = %s AND symbol = %s "
         "ORDER BY finished_at DESC NULLS LAST, started_at DESC NULLS LAST "
         "LIMIT %s"
     )
@@ -81,16 +87,6 @@ def _quality_fallback_query() -> str:
     )
 
 
-def _checkpoint_exact_query() -> str:
-    return (
-        "SELECT checkpoint_id, status, last_successful_date, updated_at "
-        "FROM ingestion_checkpoints "
-        "WHERE checkpoint_id = %s "
-        "ORDER BY updated_at DESC "
-        "LIMIT %s"
-    )
-
-
 def _lineage_exact_query() -> str:
     return (
         "SELECT quality_status, created_at "
@@ -111,30 +107,12 @@ def _lineage_fallback_query() -> str:
     )
 
 
-def _run_fallback_query() -> str:
-    return (
-        "SELECT run_id, job_id, status, started_at, finished_at "
-        "FROM ingestion_runs "
-        "WHERE vendor = %s AND dataset = %s "
-        "ORDER BY finished_at DESC NULLS LAST, started_at DESC NULLS LAST "
-        "LIMIT %s"
-    )
-
-
-def _exclusive_end_date(end_date: date) -> date:
-    return end_date + timedelta(days=1)
-
-
 def _ordered_unique(values: list[object]) -> list[object]:
     seen: list[object] = []
     for value in values:
         if value not in seen:
             seen.append(value)
     return seen
-
-
-def _chunk_windows(start_date: date, end_date: date, chunk_days: int) -> list[tuple[date, date]]:
-    return [(chunk.start_date, chunk.end_date) for chunk in split_date_range_into_chunks(start_date, end_date, max_days_per_chunk=chunk_days)]
 
 
 def _coverage(rows: list[dict[str, object]], start_date: date, end_date: date) -> dict[str, object]:
@@ -156,22 +134,6 @@ def _coverage(rows: list[dict[str, object]], start_date: date, end_date: date) -
     }
 
 
-def _status_from_requirement(*, required: bool, present: bool, unexpected_warn: bool = True) -> str:
-    if required:
-        return "PASS" if present else "FAIL"
-    if present and unexpected_warn:
-        return "WARN"
-    return "PASS"
-
-
-def _evidence_status(*, canonical_count: int, run_count: int, quality_count: int, lineage_count: int, missing_dates: list[date]) -> str:
-    if canonical_count == 0 and run_count == 0 and quality_count == 0 and lineage_count == 0 and not missing_dates:
-        return "missing"
-    if canonical_count > 0 and run_count > 0 and quality_count > 0 and lineage_count > 0 and not missing_dates:
-        return "complete"
-    return "partial"
-
-
 def _load_with_fallback(
     *,
     connection: object,
@@ -189,22 +151,22 @@ def _load_with_fallback(
     return [], "none"
 
 
+def _status_from_requirement(*, required: bool, present: bool) -> str:
+    if required:
+        return "PASS" if present else "FAIL"
+    return "WARN" if present else "PASS"
+
+
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Verify the Polygon OHLCV evidence chain safely.")
+    parser = argparse.ArgumentParser(description="Verify the FMP OHLCV evidence chain safely.")
     parser.add_argument("--symbol", required=True, help="Ticker symbol.")
     parser.add_argument("--start-date", required=True, help="Start date in YYYY-MM-DD format.")
     parser.add_argument("--end-date", required=True, help="End date in YYYY-MM-DD format.")
     parser.add_argument("--timeframe", default="1d", help="Timeframe, default 1d.")
-    parser.add_argument("--chunk-days", type=int, default=30, help="Chunk size in days for checkpoint verification, default 30.")
-    parser.add_argument("--confirmed-write", action="store_true", help="Require canonical rows as a confirmed-write run.")
-    parser.add_argument("--record-run", action="store_true", help="Require run-history rows for the inspected window.")
+    parser.add_argument("--confirmed-write", action="store_true", help="Require canonical rows for the inspected window.")
+    parser.add_argument("--record-run", action="store_true", help="Require run history rows for the inspected window.")
     parser.add_argument("--record-quality", action="store_true", help="Require quality rows for the inspected window.")
     parser.add_argument("--record-lineage", action="store_true", help="Require lineage rows for the inspected window.")
-    parser.add_argument(
-        "--resume-from-checkpoint",
-        action="store_true",
-        help="Require checkpoint rows for each chunk window when the backfill is expected to resume from checkpoint state.",
-    )
     parser.add_argument("--limit", type=int, default=3, help="Maximum operational records to inspect, default 3.")
     args = parser.parse_args()
 
@@ -215,81 +177,47 @@ def main() -> int:
 
     start_date = _parse_date(args.start_date)
     end_date = _parse_date(args.end_date)
-    exclusive_end = _exclusive_end_date(end_date)
+    exclusive_end = end_date + timedelta(days=1)
     connection = _open_connection(database_url)
     try:
-        canonical_rows = _fetch_all(
-            connection,
-            _canonical_query(),
-            (args.symbol, start_date, exclusive_end, args.timeframe),
-        )
+        canonical_rows = _fetch_all(connection, _canonical_query(), (args.symbol, start_date, exclusive_end, args.timeframe))
         coverage = _coverage(canonical_rows, start_date, end_date)
         run_rows, run_match_mode = _load_with_fallback(
             connection=connection,
             exact_sql=_run_exact_query(),
-            exact_params=("polygon", "ohlcv", start_date, exclusive_end, args.limit),
+            exact_params=("fmp", "ohlcv", args.symbol, start_date, exclusive_end, args.limit),
             fallback_sql=_run_fallback_query(),
-            fallback_params=("polygon", "ohlcv", args.limit),
+            fallback_params=("fmp", "ohlcv", args.symbol, args.limit),
         )
         quality_rows, quality_match_mode = _load_with_fallback(
             connection=connection,
             exact_sql=_quality_exact_query(),
-            exact_params=("polygon", "ohlcv", args.symbol, args.timeframe, start_date, exclusive_end, args.limit),
+            exact_params=("fmp", "ohlcv", args.symbol, args.timeframe, start_date, exclusive_end, args.limit),
             fallback_sql=_quality_fallback_query(),
-            fallback_params=("polygon", "ohlcv", args.symbol, args.timeframe, args.limit),
+            fallback_params=("fmp", "ohlcv", args.symbol, args.timeframe, args.limit),
         )
         lineage_rows, lineage_match_mode = _load_with_fallback(
             connection=connection,
             exact_sql=_lineage_exact_query(),
-            exact_params=("polygon", "ohlcv", args.symbol, args.timeframe, start_date, exclusive_end, args.limit),
+            exact_params=("fmp", "ohlcv", args.symbol, args.timeframe, start_date, exclusive_end, args.limit),
             fallback_sql=_lineage_fallback_query(),
-            fallback_params=("polygon", "ohlcv", args.symbol, args.timeframe, args.limit),
+            fallback_params=("fmp", "ohlcv", args.symbol, args.timeframe, args.limit),
         )
-        checkpoint_store = ManualPolygonOHLCVCheckpointStore(connection)
-        chunk_ranges = _chunk_windows(start_date, end_date, args.chunk_days)
-        checkpoint_rows = []
-        checkpoint_failures = []
-        for chunk_start, chunk_end in chunk_ranges:
-            checkpoint_key = _build_checkpoint_key(
-                symbol=args.symbol,
-                timeframe=args.timeframe,
-                start_date=chunk_start,
-                end_date=chunk_end,
-            )
-            checkpoint = checkpoint_store.load(checkpoint_key)
-            if checkpoint is not None:
-                checkpoint_rows.append(checkpoint)
-                checkpoint_ok = (
-                    checkpoint.last_successful_observation_date is not None
-                    and checkpoint.last_successful_observation_date >= chunk_end
-                )
-                if args.resume_from_checkpoint and not checkpoint_ok:
-                    checkpoint_failures.append(
-                        f"checkpoint_mismatch:{checkpoint.checkpoint_key}:{chunk_start.isoformat()}:{chunk_end.isoformat()}"
-                    )
 
         latest_run_status = run_rows[0].get("status") if run_rows else None
         latest_quality_status = quality_rows[0].get("status") if quality_rows else None
         latest_lineage_quality_status = lineage_rows[0].get("quality_status") if lineage_rows else None
-        canonical_status = _status_from_requirement(
-            required=args.confirmed_write,
-            present=bool(canonical_rows),
-            unexpected_warn=True,
-        )
-        if args.confirmed_write and coverage["missing"]:
-            canonical_status = "FAIL"
+
+        canonical_status = "PASS" if not args.confirmed_write and not canonical_rows else "WARN" if not args.confirmed_write else "FAIL"
+        if args.confirmed_write and canonical_rows and not coverage["missing"]:
+            canonical_status = "PASS"
+
         run_status = _status_from_requirement(required=args.record_run, present=bool(run_rows))
         quality_status = _status_from_requirement(required=args.record_quality, present=bool(quality_rows))
         lineage_status = _status_from_requirement(required=args.record_lineage, present=bool(lineage_rows))
-        checkpoint_present = len(checkpoint_rows) > 0
-        checkpoint_complete = len(checkpoint_rows) == len(chunk_ranges) and not checkpoint_failures
-        checkpoint_status = "PASS"
-        if args.resume_from_checkpoint:
-            checkpoint_status = "PASS" if checkpoint_present and checkpoint_complete else "FAIL"
-        elif checkpoint_present:
-            checkpoint_status = "WARN"
-        component_statuses = [canonical_status, run_status, quality_status, lineage_status, checkpoint_status]
+        component_statuses = [canonical_status, run_status, quality_status, lineage_status]
         evidence_status = "FAIL" if "FAIL" in component_statuses else "WARN" if "WARN" in component_statuses else "PASS"
+
         print(
             f"symbol={args.symbol} "
             f"timeframe={args.timeframe} "
@@ -310,10 +238,6 @@ def main() -> int:
             f"latest_lineage_quality_status={latest_lineage_quality_status} "
             f"lineage_status={lineage_status} "
             f"lineage_match_mode={lineage_match_mode} "
-            f"checkpoint_rows_count={len(checkpoint_rows)} "
-            f"checkpoint_expected_chunks={len(chunk_ranges)} "
-            f"checkpoint_failures={len(checkpoint_failures)} "
-            f"checkpoint_status={checkpoint_status} "
             f"evidence_status={evidence_status}"
         )
     finally:
