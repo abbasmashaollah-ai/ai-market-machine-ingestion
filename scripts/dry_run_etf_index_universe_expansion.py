@@ -33,12 +33,18 @@ def _emit(summary: dict[str, object]) -> None:
     for key in ("candidate_count", "found_count", "missing_count", "no_vendor_calls", "no_db_writes"):
         print(f"{key}={summary.get(key)}")
     print(f"group_counts={summary.get('group_counts')}")
+    if summary.get("show_found"):
+        print(f"found_symbols={summary.get('found_symbols')}")
+    if summary.get("show_missing"):
+        print(f"missing_symbols={summary.get('missing_symbols')}")
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Dry-run ETF/index universe expansion planning.")
     parser.add_argument("--check-symbol-master", action="store_true", help="Validate candidates against public.symbol_master.")
     parser.add_argument("--vendor", default="polygon", help="Expected vendor in symbol_master, default polygon.")
+    parser.add_argument("--show-missing", action="store_true", help="Print missing symbols as a safe list.")
+    parser.add_argument("--show-found", action="store_true", help="Print found symbols as a safe list.")
     args = parser.parse_args(argv)
 
     candidates = build_etf_index_universe_candidates()
@@ -49,6 +55,10 @@ def main(argv: list[str] | None = None) -> int:
         "group_counts": summarize_candidate_groups(candidates),
         "no_vendor_calls": True,
         "no_db_writes": True,
+        "show_found": args.show_found,
+        "show_missing": args.show_missing,
+        "found_symbols": [],
+        "missing_symbols": [candidate.symbol for candidate in candidates],
     }
 
     if args.check_symbol_master:
@@ -69,6 +79,8 @@ def main(argv: list[str] | None = None) -> int:
             )
             found_symbols = {str(row.get("symbol")) for row in rows if row.get("symbol")}
             found_count = sum(1 for candidate in candidates if candidate.symbol in found_symbols)
+            summary["found_symbols"] = [candidate.symbol for candidate in candidates if candidate.symbol in found_symbols]
+            summary["missing_symbols"] = [candidate.symbol for candidate in candidates if candidate.symbol not in found_symbols]
             summary["found_count"] = found_count
             summary["missing_count"] = len(candidates) - found_count
         finally:

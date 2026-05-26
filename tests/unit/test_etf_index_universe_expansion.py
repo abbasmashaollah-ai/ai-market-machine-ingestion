@@ -63,6 +63,8 @@ class EtfIndexUniverseExpansionTests(unittest.TestCase):
         self.assertIn("missing_count=", printed)
         self.assertIn("no_vendor_calls=True", printed)
         self.assertIn("no_db_writes=True", printed)
+        self.assertNotIn("found_symbols=", printed)
+        self.assertNotIn("missing_symbols=", printed)
 
     def test_check_symbol_master_requires_database_url(self) -> None:
         mod = self._module()
@@ -87,6 +89,34 @@ class EtfIndexUniverseExpansionTests(unittest.TestCase):
         self.assertIn("found_count=2", printed)
         self.assertIn("missing_count=", printed)
         self.assertTrue(connection.closed)
+
+    def test_show_missing_output(self) -> None:
+        mod = self._module()
+        connection = _Connection([{"symbol": "SPY"}])
+        with patch.dict(os.environ, {"DATABASE_URL": "postgresql://user:pass@host/db"}, clear=True), patch.object(
+            mod, "load_local_env_if_available", return_value=False
+        ), patch.object(mod, "_open_connection", return_value=connection), patch("builtins.print") as print_mock, patch(
+            "sys.argv",
+            ["dry_run_etf_index_universe_expansion.py", "--check-symbol-master", "--show-missing"],
+        ):
+            mod.main()
+
+        printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
+        self.assertIn("missing_symbols=", printed)
+
+    def test_show_found_output(self) -> None:
+        mod = self._module()
+        connection = _Connection([{"symbol": "SPY"}, {"symbol": "QQQ"}])
+        with patch.dict(os.environ, {"DATABASE_URL": "postgresql://user:pass@host/db"}, clear=True), patch.object(
+            mod, "load_local_env_if_available", return_value=False
+        ), patch.object(mod, "_open_connection", return_value=connection), patch("builtins.print") as print_mock, patch(
+            "sys.argv",
+            ["dry_run_etf_index_universe_expansion.py", "--check-symbol-master", "--show-found"],
+        ):
+            mod.main()
+
+        printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
+        self.assertIn("found_symbols=", printed)
 
     def test_no_vendor_calls_and_no_db_writes(self) -> None:
         mod = self._module()
@@ -114,6 +144,8 @@ class EtfIndexUniverseExpansionTests(unittest.TestCase):
         self.assertIn("no_vendor_calls=true", text)
         self.assertIn("no_db_writes=true", text)
         self.assertIn("public.symbol_master", text)
+        self.assertIn("show-missing", text)
+        self.assertIn("show-found", text)
 
     def test_inventory_contains_command(self) -> None:
         import scripts.verify_manual_ingestion_commands as inventory

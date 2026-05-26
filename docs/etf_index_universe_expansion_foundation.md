@@ -44,6 +44,8 @@ It prints:
 - `group_counts`
 - `no_vendor_calls=true`
 - `no_db_writes=true`
+- `--show-missing` prints `missing_symbols`
+- `--show-found` prints `found_symbols`
 
 When `--check-symbol-master` is used, the command requires `DATABASE_URL` and reads `public.symbol_master` only.
 When `--live-check` is used on the targeted lookup command, `POLYGON_API_KEY` is required and `SymbolMasterWriter` remains the only persistence path when `--confirm-write` is also set.
