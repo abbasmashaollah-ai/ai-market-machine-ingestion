@@ -1,20 +1,50 @@
 from __future__ import annotations
 
 import argparse
+import os
 
-from app.normalization.fred_macro import build_fred_macro_fixture_records, get_starter_fred_macro_series
+from app.normalization.fred_macro import FredMacroSeriesDefinition, build_fred_macro_fixture_records, get_starter_fred_macro_series
+from app.vendors.common.http import UrlLibHttpClient
+from app.vendors.fred.client import FredClientConfig, UnsupportedFredClient
+from app.vendors.fred_macro import fetch_fred_macro_series
 
 
-def _emit(records: tuple[object, ...], *, show_series: bool, show_invalid: bool, invalid_records: tuple[dict[str, object], ...]) -> None:
+def _load_local_env_if_available() -> bool:
+    try:
+        from dotenv import load_dotenv
+    except ImportError:
+        return False
+    return bool(load_dotenv())
+
+
+def _emit(
+    *,
+    requested_series: list[str],
+    normalized_count: int,
+    valid_count: int,
+    invalid_count: int,
+    latest_observation_dates: dict[str, str | None],
+    no_vendor_calls: bool,
+    no_db_writes: bool,
+    show_series: bool,
+    show_values: bool,
+    show_invalid: bool,
+    invalid_records: tuple[dict[str, object], ...],
+    normalized_records: tuple[object, ...] = (),
+) -> None:
     print(f"series_count={len(get_starter_fred_macro_series())}")
-    print(f"normalized_count={len(records)}")
-    print(f"valid_count={len(records)}")
-    print(f"invalid_count={len(invalid_records)}")
+    print(f"requested_series={requested_series}")
+    print(f"normalized_count={normalized_count}")
+    print(f"valid_count={valid_count}")
+    print(f"invalid_count={invalid_count}")
+    print(f"latest_observation_dates={latest_observation_dates}")
     print(f"starter_series={[series.series_id for series in get_starter_fred_macro_series()]}")
-    print("no_vendor_calls=True")
-    print("no_db_writes=True")
+    print(f"no_vendor_calls={no_vendor_calls}")
+    print(f"no_db_writes={no_db_writes}")
     if show_series:
         print(f"series={[series.series_id for series in get_starter_fred_macro_series()]}")
+    if show_values:
+        print(f"normalized_values={[getattr(record, 'value', None) for record in normalized_records]}")
     if show_invalid:
         print(f"invalid_records={invalid_records}")
 
@@ -23,11 +53,64 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Dry-run FRED macro foundation planning.")
     parser.add_argument("--show-series", action="store_true", help="Show starter series IDs.")
     parser.add_argument("--show-invalid", action="store_true", help="Show invalid fixture records.")
+    parser.add_argument("--live-check", action="store_true", help="Fetch live FRED observations.")
+    parser.add_argument("--series", action="append", help="Specific series to fetch; defaults to starter series.")
+    parser.add_argument("--show-values", action="store_true", help="Show normalized record values.")
+    parser.add_argument("--max-observations", type=int, default=None, help="Limit observations per series.")
     args = parser.parse_args(argv)
 
-    records = build_fred_macro_fixture_records()
-    invalid_records: tuple[dict[str, object], ...] = ()
-    _emit(records, show_series=args.show_series, show_invalid=args.show_invalid, invalid_records=invalid_records)
+    starter_series = get_starter_fred_macro_series()
+    requested_series = [series.upper() for series in args.series] if args.series else [series.series_id for series in starter_series]
+    if args.live_check:
+        _load_local_env_if_available()
+        api_key = os.getenv("FRED_API_KEY")
+        if not api_key:
+            raise RuntimeError("FRED_API_KEY is required when --live-check is used")
+        client = UnsupportedFredClient(FredClientConfig(api_key=api_key), http_client=UrlLibHttpClient())
+        requested_definitions = {series.series_id: series for series in starter_series}
+        normalized_records = []
+        latest_observation_dates: dict[str, str | None] = {}
+        invalid_records: list[dict[str, object]] = []
+        for series_id in requested_series:
+            definition = requested_definitions.get(series_id)
+            if definition is None:
+                invalid_records.append({"series_id": series_id, "error": "missing_or_unsupported_series"})
+                latest_observation_dates[series_id] = None
+                continue
+            result = fetch_fred_macro_series(client, definition, max_observations=args.max_observations)
+            normalized_records.extend(result.records)
+            invalid_records.extend(result.invalid_rows)
+            latest_observation_dates[series_id] = result.latest_observation_date
+        _emit(
+            requested_series=requested_series,
+            normalized_count=len(normalized_records),
+            valid_count=len(normalized_records),
+            invalid_count=len(invalid_records),
+            latest_observation_dates=latest_observation_dates,
+            no_vendor_calls=False,
+            no_db_writes=True,
+            show_series=args.show_series,
+            show_values=args.show_values,
+            show_invalid=args.show_invalid,
+            invalid_records=tuple(invalid_records),
+            normalized_records=tuple(normalized_records),
+        )
+    else:
+        records = build_fred_macro_fixture_records()
+        _emit(
+            requested_series=requested_series,
+            normalized_count=len(records),
+            valid_count=len(records),
+            invalid_count=0,
+            latest_observation_dates={series.series_id: "2026-01-01" for series in starter_series},
+            no_vendor_calls=True,
+            no_db_writes=True,
+            show_series=args.show_series,
+            show_values=args.show_values,
+            show_invalid=args.show_invalid,
+            invalid_records=(),
+            normalized_records=records,
+        )
     return 0
 
 

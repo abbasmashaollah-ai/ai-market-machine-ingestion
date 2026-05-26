@@ -45,6 +45,7 @@ class FredMacroFoundationTests(unittest.TestCase):
             mod.main([])
         printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
         self.assertIn("series_count=5", printed)
+        self.assertIn("requested_series=", printed)
         self.assertIn("normalized_count=5", printed)
         self.assertIn("valid_count=5", printed)
         self.assertIn("invalid_count=0", printed)
@@ -59,17 +60,56 @@ class FredMacroFoundationTests(unittest.TestCase):
         self.assertIn("series=[", printed)
         self.assertIn("DGS10", printed)
 
+    def test_show_values_behavior(self) -> None:
+        mod = self._module()
+        with patch("builtins.print") as print_mock:
+            mod.main(["--show-values"])
+        printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
+        self.assertIn("normalized_values=[", printed)
+
     def test_no_vendor_calls(self) -> None:
         mod = self._module()
-        with patch("importlib.import_module") as import_mock:
+        with patch("builtins.print"), patch("scripts.dry_run_fred_macro_foundation.UnsupportedFredClient") as client_mock:
             mod.main([])
-        imported = [call.args[0] for call in import_mock.mock_calls if call.args]
-        self.assertFalse(any(name.startswith("app.vendors") for name in imported))
+        client_mock.assert_not_called()
 
     def test_no_db_writes(self) -> None:
         mod = self._module()
         with patch("builtins.print"):
             mod.main([])
+
+    def test_live_check_normalization(self) -> None:
+        mod = self._module()
+        fake_result = type(
+            "FakeResult",
+            (),
+            {
+                "records": (),
+                "invalid_rows": (),
+                "latest_observation_date": "2026-01-02",
+            },
+        )()
+        with patch.dict(os.environ, {"FRED_API_KEY": "secret"}, clear=True), patch.object(
+            mod, "_load_local_env_if_available", return_value=False
+        ), patch.object(mod, "fetch_fred_macro_series", return_value=fake_result) as fetch_mock, patch(
+            "builtins.print"
+        ) as print_mock:
+            mod.main(["--live-check", "--series", "DGS10"])
+        fetch_mock.assert_called_once()
+        printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
+        self.assertIn("requested_series=['DGS10']", printed)
+        self.assertIn("latest_observation_dates={'DGS10': '2026-01-02'}", printed)
+
+    def test_missing_invalid_series_handling(self) -> None:
+        mod = self._module()
+        with patch.dict(os.environ, {"FRED_API_KEY": "secret"}, clear=True), patch.object(
+            mod, "_load_local_env_if_available", return_value=False
+        ), patch.object(mod, "fetch_fred_macro_series") as fetch_mock, patch("builtins.print") as print_mock:
+            mod.main(["--live-check", "--series", "UNKNOWN", "--show-invalid"])
+        fetch_mock.assert_not_called()
+        printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
+        self.assertIn("invalid_count=1", printed)
+        self.assertIn("missing_or_unsupported_series", printed)
 
     def test_no_forbidden_imports(self) -> None:
         text = Path("scripts/dry_run_fred_macro_foundation.py").read_text(encoding="utf-8")
@@ -78,6 +118,12 @@ class FredMacroFoundationTests(unittest.TestCase):
         self.assertNotIn("alembic", text.lower())
         self.assertNotIn("requests", text.lower())
         self.assertNotIn("httpx", text.lower())
+        vendor_text = Path("app/vendors/fred_macro.py").read_text(encoding="utf-8")
+        self.assertNotIn("FastAPI", vendor_text)
+        self.assertNotIn("APIRouter", vendor_text)
+        self.assertNotIn("alembic", vendor_text.lower())
+        self.assertNotIn("requests", vendor_text.lower())
+        self.assertNotIn("httpx", vendor_text.lower())
 
     def test_docs_coverage(self) -> None:
         text = Path("docs/fred_macro_foundation.md").read_text(encoding="utf-8").lower()
@@ -87,3 +133,8 @@ class FredMacroFoundationTests(unittest.TestCase):
         self.assertIn("dgs10", text)
         self.assertIn("unrate", text)
 
+    def test_live_dry_run_doc(self) -> None:
+        text = Path("docs/fred_macro_live_dry_run.md").read_text(encoding="utf-8").lower()
+        self.assertIn("live dry-run", text)
+        self.assertIn("no db writes", text)
+        self.assertIn("api key is only required for `--live-check`", text)
