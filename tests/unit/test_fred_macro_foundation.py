@@ -123,20 +123,36 @@ class FredMacroFoundationTests(unittest.TestCase):
         )()
         captured = {}
 
+        class Connection:
+            def __init__(self) -> None:
+                self.closed = False
+
+            def close(self) -> None:
+                self.closed = True
+
         class Writer:
+            def __init__(self, connection):
+                captured["connection"] = connection
+
             def write(self, records):
                 captured["records"] = records
-                return type("Result", (), {"written_count": len(records), "skipped_count": 0})()
+                return type("Result", (), {"written_count": len(records), "skipped_count": 0, "status": type("S", (), {"value": "success"})()})()
 
+        connection = Connection()
         with patch.dict(os.environ, {"FRED_API_KEY": "secret", "DATABASE_URL": "postgresql://example/db"}, clear=True), patch.object(
             mod, "_load_local_env_if_available", return_value=False
         ), patch.object(mod, "fetch_fred_macro_series", return_value=fake_result) as fetch_mock, patch.object(
-            mod, "FredMacroWriter", return_value=Writer()
-        ) as writer_mock, patch("builtins.print") as print_mock:
+            mod, "_open_connection", return_value=connection
+        ) as open_mock, patch.object(mod, "FredMacroWriter", side_effect=lambda conn: Writer(conn)) as writer_mock, patch(
+            "builtins.print"
+        ) as print_mock:
             mod.main(["--live-check", "--confirm-write", "--series", "DGS10"])
         fetch_mock.assert_called_once()
+        open_mock.assert_called_once()
         writer_mock.assert_called_once()
+        self.assertIs(captured["connection"], connection)
         self.assertTrue(all(record.__class__.__name__ == "Record" for record in captured["records"]))
+        self.assertTrue(connection.closed)
         printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
         self.assertIn("rows_written=1", printed)
         self.assertIn("rows_skipped=0", printed)
@@ -295,12 +311,25 @@ class FredMacroFoundationTests(unittest.TestCase):
                 "latest_observation_date": "2026-01-02",
             },
         )()
+        class Connection:
+            def __init__(self) -> None:
+                self.closed = False
+
+            def close(self) -> None:
+                self.closed = True
+
+        connection = Connection()
         with patch.dict(os.environ, {"FRED_API_KEY": "secret", "DATABASE_URL": "postgresql://example/db"}, clear=True), patch.object(
             mod, "_load_local_env_if_available", return_value=False
         ), patch.object(mod, "fetch_fred_macro_series", return_value=fake_result), patch.object(
-            mod, "FredMacroWriter", return_value=Writer()
-        ), patch("builtins.print") as print_mock:
+            mod, "_open_connection", return_value=connection
+        ) as open_mock, patch.object(mod, "FredMacroWriter", return_value=Writer()) as writer_mock, patch(
+            "builtins.print"
+        ) as print_mock:
             mod.main(["--live-check", "--confirm-write", "--series", "DGS10"])
+        open_mock.assert_called_once()
+        writer_mock.assert_called_once()
+        self.assertTrue(connection.closed)
         printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
         self.assertIn("rows_written=0", printed)
         self.assertIn("rows_skipped=1", printed)
@@ -323,12 +352,25 @@ class FredMacroFoundationTests(unittest.TestCase):
                 "latest_observation_date": "2026-01-02",
             },
         )()
+        class Connection:
+            def __init__(self) -> None:
+                self.closed = False
+
+            def close(self) -> None:
+                self.closed = True
+
+        connection = Connection()
         with patch.dict(os.environ, {"FRED_API_KEY": "secret", "DATABASE_URL": "postgresql://example/db"}, clear=True), patch.object(
             mod, "_load_local_env_if_available", return_value=False
         ), patch.object(mod, "fetch_fred_macro_series", return_value=fake_result), patch.object(
-            mod, "FredMacroWriter", return_value=Writer()
-        ), patch("builtins.print") as print_mock:
+            mod, "_open_connection", return_value=connection
+        ) as open_mock, patch.object(mod, "FredMacroWriter", return_value=Writer()) as writer_mock, patch(
+            "builtins.print"
+        ) as print_mock:
             mod.main(["--live-check", "--confirm-write", "--series", "DGS10"])
+        open_mock.assert_called_once()
+        writer_mock.assert_called_once()
+        self.assertTrue(connection.closed)
         printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
         self.assertIn("write_status=NO_EFFECT", printed)
         self.assertNotIn("write_error=", printed)
@@ -359,12 +401,25 @@ class FredMacroFoundationTests(unittest.TestCase):
                 "latest_observation_date": "2026-01-02",
             },
         )()
+        class Connection:
+            def __init__(self) -> None:
+                self.closed = False
+
+            def close(self) -> None:
+                self.closed = True
+
+        connection = Connection()
         with patch.dict(os.environ, {"FRED_API_KEY": "secret", "DATABASE_URL": "postgresql://example/db"}, clear=True), patch.object(
             mod, "_load_local_env_if_available", return_value=False
         ), patch.object(mod, "fetch_fred_macro_series", return_value=fake_result), patch.object(
-            mod, "FredMacroWriter", return_value=Writer()
-        ), patch("builtins.print") as print_mock:
+            mod, "_open_connection", return_value=connection
+        ) as open_mock, patch.object(mod, "FredMacroWriter", return_value=Writer()) as writer_mock, patch(
+            "builtins.print"
+        ) as print_mock:
             mod.main(["--live-check", "--confirm-write", "--series", "DGS10"])
+        open_mock.assert_called_once()
+        writer_mock.assert_called_once()
+        self.assertTrue(connection.closed)
         printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
         self.assertIn("write_status=FAILED", printed)
         self.assertIn("write_error=", printed)
@@ -379,6 +434,13 @@ class FredMacroFoundationTests(unittest.TestCase):
             def write(self, records):
                 return type("Result", (), {"written_count": len(records), "skipped_count": 0, "status": type("S", (), {"value": "success"})()})()
 
+        class Connection:
+            def __init__(self) -> None:
+                self.closed = False
+
+            def close(self) -> None:
+                self.closed = True
+
         fake_result = type(
             "FakeResult",
             (),
@@ -388,11 +450,17 @@ class FredMacroFoundationTests(unittest.TestCase):
                 "latest_observation_date": "2026-01-02",
             },
         )()
+        connection = Connection()
         with patch.dict(os.environ, {"FRED_API_KEY": "secret", "DATABASE_URL": "postgresql://example/db"}, clear=True), patch.object(
             mod, "_load_local_env_if_available", return_value=False
         ), patch.object(mod, "fetch_fred_macro_series", return_value=fake_result), patch.object(
-            mod, "FredMacroWriter", return_value=Writer()
-        ), patch("builtins.print") as print_mock:
+            mod, "_open_connection", return_value=connection
+        ) as open_mock, patch.object(mod, "FredMacroWriter", return_value=Writer()) as writer_mock, patch(
+            "builtins.print"
+        ) as print_mock:
             mod.main(["--live-check", "--confirm-write", "--series", "DGS10"])
+        open_mock.assert_called_once()
+        writer_mock.assert_called_once()
+        self.assertTrue(connection.closed)
         printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
         self.assertNotIn("write_error=", printed)

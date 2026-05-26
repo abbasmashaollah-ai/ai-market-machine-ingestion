@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import closing
 import os
 
 from app.normalization.fred_macro import build_fred_macro_fixture_records, get_starter_fred_macro_series
@@ -16,6 +17,24 @@ def _load_local_env_if_available() -> bool:
     except ImportError:
         return False
     return bool(load_dotenv())
+
+
+def _load_postgres_connect():
+    try:
+        from psycopg import connect as psycopg_connect  # type: ignore
+    except ImportError:
+        try:
+            from psycopg2 import connect as psycopg_connect  # type: ignore
+        except ImportError as exc:  # pragma: no cover - dependency specific
+            raise RuntimeError("FRED confirmed writes require psycopg or psycopg2.") from exc
+    return psycopg_connect
+
+
+def _open_connection(database_url: str):
+    scheme = database_url.split(":", 1)[0].lower()
+    if scheme not in {"postgresql", "postgres"}:
+        raise RuntimeError("FRED confirmed writes require a postgres DATABASE_URL")
+    return _load_postgres_connect()(database_url)
 
 
 def _extract_write_error(writer_result: object) -> str | None:
@@ -117,23 +136,27 @@ def main(argv: list[str] | None = None) -> int:
         write_status = "DRY_RUN"
         write_error = None
         no_db_writes = True
-        if args.confirm_write and normalized_records:
-            writer = FredMacroWriter()
-            writer_result = writer.write(list(normalized_records))
-            rows_written = writer_result.written_count
-            rows_skipped = writer_result.skipped_count
+        if args.confirm_write:
             no_db_writes = False
-            writer_status = getattr(getattr(writer_result, "status", None), "value", None)
-            if writer_status in (None, "success"):
-                if rows_written > 0:
-                    write_status = "WRITTEN"
-                elif rows_skipped > 0:
-                    write_status = "SKIPPED"
+            if normalized_records:
+                with closing(_open_connection(os.environ["DATABASE_URL"])) as connection:
+                    writer = FredMacroWriter(connection)
+                    writer_result = writer.write(list(normalized_records))
+                rows_written = writer_result.written_count
+                rows_skipped = writer_result.skipped_count
+                writer_status = getattr(getattr(writer_result, "status", None), "value", None)
+                if writer_status in (None, "success"):
+                    if rows_written > 0:
+                        write_status = "WRITTEN"
+                    elif rows_skipped > 0:
+                        write_status = "SKIPPED"
+                    else:
+                        write_status = "NO_EFFECT"
                 else:
-                    write_status = "NO_EFFECT"
+                    write_status = "FAILED"
+                    write_error = _extract_write_error(writer_result)
             else:
-                write_status = "FAILED"
-                write_error = _extract_write_error(writer_result)
+                write_status = "NO_EFFECT"
         elif args.confirm_write:
             no_db_writes = False
             write_status = "NO_EFFECT"
