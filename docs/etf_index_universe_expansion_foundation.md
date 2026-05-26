@@ -12,6 +12,7 @@ It may:
 - describe core ETF, sector ETF, and major index proxy coverage
 - optionally compare candidate symbols against `public.symbol_master` when explicitly requested
 - report candidate counts, found counts, missing counts, and group counts
+- support targeted live lookup through `scripts/fetch_polygon_symbol_master_by_symbols.py`
 
 It does not:
 
@@ -33,6 +34,7 @@ It does not:
 ## Manual command
 
 `scripts/dry_run_etf_index_universe_expansion.py` is the operator-facing dry-run command.
+`scripts/fetch_polygon_symbol_master_by_symbols.py` is the manual targeted lookup command.
 
 It prints:
 
@@ -44,6 +46,7 @@ It prints:
 - `no_db_writes=true`
 
 When `--check-symbol-master` is used, the command requires `DATABASE_URL` and reads `public.symbol_master` only.
+When `--live-check` is used on the targeted lookup command, `POLYGON_API_KEY` is required and `SymbolMasterWriter` remains the only persistence path when `--confirm-write` is also set.
 
 ## Boundary
 

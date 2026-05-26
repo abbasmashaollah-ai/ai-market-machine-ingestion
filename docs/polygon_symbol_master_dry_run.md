@@ -13,6 +13,7 @@
 - `--limit` defaults to a small safe batch size
 - `--max-records` blocks oversized batches before any confirmed write
 - `--exchange`, `--asset-type`, `--active-only`, and `--include-inactive` narrow the selected batch
+- `scripts/fetch_polygon_symbol_master_by_symbols.py` provides the targeted ETF/index symbol lookup path
 - no scheduler activation
 - no FastAPI routes
 - no migrations

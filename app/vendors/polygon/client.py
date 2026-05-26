@@ -9,6 +9,7 @@ from app.vendors.polygon.endpoints import (
     daily_aggregates_path,
     reference_tickers_params,
     reference_tickers_path,
+    ticker_details_path,
 )
 from app.vendors.polygon.rate_limiter import PolygonRateLimiter
 from app.vendors.polygon.retry import RetryPolicy, build_retry_policy
@@ -33,6 +34,9 @@ class PolygonClient(Protocol):
         ...
 
     def fetch_tickers_raw(self) -> list[dict[str, object]]:
+        ...
+
+    def fetch_ticker_raw(self, ticker: str) -> dict[str, object]:
         ...
 
 
@@ -82,6 +86,20 @@ class UnsupportedPolygonClient:
         )
         response = self.http_client.request(request_metadata)
         return self._extract_raw_list(response)
+
+    def fetch_ticker_raw(self, ticker: str) -> dict[str, object]:
+        if self.http_client is None:
+            raise NotImplementedError("Polygon client transport is not configured.")
+        self._acquire_rate_limit()
+        request_metadata = RequestMetadata(
+            method="GET",
+            url=self._build_url(ticker_details_path(ticker)),
+            timeout_seconds=self.config.timeout_seconds,
+            query_params={"apiKey": self.config.api_key} if self.config.api_key is not None else {},
+        )
+        response = self.http_client.request(request_metadata)
+        payload = response.json
+        return payload if isinstance(payload, dict) else {}
 
     def fetch_tickers_filtered_raw(self, *, active: bool | None = None, limit: int | None = None) -> list[dict[str, object]]:
         if self.http_client is None:

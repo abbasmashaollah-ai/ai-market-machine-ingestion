@@ -48,6 +48,15 @@ class PolygonSymbolMasterAdapter:
         except Exception as exc:
             raise RuntimeError(_sanitize_error_message(str(exc))) from exc
 
+    def fetch_reference_ticker_raw(self, ticker: str) -> dict[str, object]:
+        try:
+            client = self._client_or_build()
+            if hasattr(client, "fetch_ticker_raw"):
+                return client.fetch_ticker_raw(ticker)  # type: ignore[attr-defined]
+            raise NotImplementedError("Polygon client transport does not support ticker detail lookups.")
+        except Exception as exc:
+            raise RuntimeError(_sanitize_error_message(str(exc))) from exc
+
     def fetch_reference_tickers(
         self,
         *,
