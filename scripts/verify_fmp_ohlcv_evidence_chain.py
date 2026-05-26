@@ -5,6 +5,7 @@ import os
 from datetime import date, timedelta
 
 from app.market_calendar.us_market_calendar import expected_trading_days
+from scripts.evidence_chain_helpers import evidence_status_from_counts, status_from_requirement
 from scripts.persist_fred_macro import _open_connection, load_local_env_if_available
 
 
@@ -151,12 +152,6 @@ def _load_with_fallback(
     return [], "none"
 
 
-def _status_from_requirement(*, required: bool, present: bool) -> str:
-    if required:
-        return "PASS" if present else "FAIL"
-    return "WARN" if present else "PASS"
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description="Verify the FMP OHLCV evidence chain safely.")
     parser.add_argument("--symbol", required=True, help="Ticker symbol.")
@@ -203,18 +198,25 @@ def main() -> int:
             fallback_sql=_lineage_fallback_query(),
             fallback_params=("fmp", "ohlcv", args.symbol, args.timeframe, args.limit),
         )
+        _evidence_shape = evidence_status_from_counts(
+            canonical_count=len(canonical_rows),
+            run_count=len(run_rows),
+            quality_count=len(quality_rows),
+            lineage_count=len(lineage_rows),
+            missing_dates=coverage["missing"],
+        )
 
         latest_run_status = run_rows[0].get("status") if run_rows else None
         latest_quality_status = quality_rows[0].get("status") if quality_rows else None
         latest_lineage_quality_status = lineage_rows[0].get("quality_status") if lineage_rows else None
 
-        canonical_status = "PASS" if not args.confirmed_write and not canonical_rows else "WARN" if not args.confirmed_write else "FAIL"
+        canonical_status = status_from_requirement(required=args.confirmed_write, present=bool(canonical_rows))
         if args.confirmed_write and canonical_rows and not coverage["missing"]:
             canonical_status = "PASS"
 
-        run_status = _status_from_requirement(required=args.record_run, present=bool(run_rows))
-        quality_status = _status_from_requirement(required=args.record_quality, present=bool(quality_rows))
-        lineage_status = _status_from_requirement(required=args.record_lineage, present=bool(lineage_rows))
+        run_status = status_from_requirement(required=args.record_run, present=bool(run_rows))
+        quality_status = status_from_requirement(required=args.record_quality, present=bool(quality_rows))
+        lineage_status = status_from_requirement(required=args.record_lineage, present=bool(lineage_rows))
         component_statuses = [canonical_status, run_status, quality_status, lineage_status]
         evidence_status = "FAIL" if "FAIL" in component_statuses else "WARN" if "WARN" in component_statuses else "PASS"
 

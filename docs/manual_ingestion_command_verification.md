@@ -69,6 +69,8 @@ The script imports these manual command modules:
 
 It verifies each module exposes a callable `main()` entrypoint and prints a safe inventory line for each.
 
+The FMP and Polygon evidence verifiers intentionally share common status helpers so their operator-facing PASS/WARN/FAIL semantics stay aligned.
+
 ## Safety
 
 The script does not:

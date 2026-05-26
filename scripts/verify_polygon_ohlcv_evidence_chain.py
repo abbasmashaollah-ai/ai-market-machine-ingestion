@@ -9,6 +9,7 @@ from app.ingestion.backfill.planner import split_date_range_into_chunks
 from app.ingestion.manual.polygon_ohlcv_incremental import _build_checkpoint_key
 from app.market_calendar.us_market_calendar import expected_trading_days
 from app.state.manual_polygon_ohlcv_checkpoint_store import ManualPolygonOHLCVCheckpointStore
+from scripts.evidence_chain_helpers import evidence_status_from_counts, status_from_requirement
 from scripts.persist_fred_macro import _open_connection, load_local_env_if_available
 
 
@@ -156,22 +157,6 @@ def _coverage(rows: list[dict[str, object]], start_date: date, end_date: date) -
     }
 
 
-def _status_from_requirement(*, required: bool, present: bool, unexpected_warn: bool = True) -> str:
-    if required:
-        return "PASS" if present else "FAIL"
-    if present and unexpected_warn:
-        return "WARN"
-    return "PASS"
-
-
-def _evidence_status(*, canonical_count: int, run_count: int, quality_count: int, lineage_count: int, missing_dates: list[date]) -> str:
-    if canonical_count == 0 and run_count == 0 and quality_count == 0 and lineage_count == 0 and not missing_dates:
-        return "missing"
-    if canonical_count > 0 and run_count > 0 and quality_count > 0 and lineage_count > 0 and not missing_dates:
-        return "complete"
-    return "partial"
-
-
 def _load_with_fallback(
     *,
     connection: object,
@@ -245,6 +230,13 @@ def main() -> int:
             fallback_sql=_lineage_fallback_query(),
             fallback_params=("polygon", "ohlcv", args.symbol, args.timeframe, args.limit),
         )
+        _evidence_shape = evidence_status_from_counts(
+            canonical_count=len(canonical_rows),
+            run_count=len(run_rows),
+            quality_count=len(quality_rows),
+            lineage_count=len(lineage_rows),
+            missing_dates=coverage["missing"],
+        )
         checkpoint_store = ManualPolygonOHLCVCheckpointStore(connection)
         chunk_ranges = _chunk_windows(start_date, end_date, args.chunk_days)
         checkpoint_rows = []
@@ -271,16 +263,16 @@ def main() -> int:
         latest_run_status = run_rows[0].get("status") if run_rows else None
         latest_quality_status = quality_rows[0].get("status") if quality_rows else None
         latest_lineage_quality_status = lineage_rows[0].get("quality_status") if lineage_rows else None
-        canonical_status = _status_from_requirement(
+        canonical_status = status_from_requirement(
             required=args.confirmed_write,
             present=bool(canonical_rows),
             unexpected_warn=True,
         )
         if args.confirmed_write and coverage["missing"]:
             canonical_status = "FAIL"
-        run_status = _status_from_requirement(required=args.record_run, present=bool(run_rows))
-        quality_status = _status_from_requirement(required=args.record_quality, present=bool(quality_rows))
-        lineage_status = _status_from_requirement(required=args.record_lineage, present=bool(lineage_rows))
+        run_status = status_from_requirement(required=args.record_run, present=bool(run_rows))
+        quality_status = status_from_requirement(required=args.record_quality, present=bool(quality_rows))
+        lineage_status = status_from_requirement(required=args.record_lineage, present=bool(lineage_rows))
         checkpoint_present = len(checkpoint_rows) > 0
         checkpoint_complete = len(checkpoint_rows) == len(chunk_ranges) and not checkpoint_failures
         checkpoint_status = "PASS"

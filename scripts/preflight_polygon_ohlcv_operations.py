@@ -5,6 +5,7 @@ import os
 from datetime import date, timedelta
 
 from scripts.persist_fred_macro import _open_connection, load_local_env_if_available
+from scripts.evidence_chain_helpers import evidence_status_from_counts
 from scripts.plan_polygon_ohlcv_daily_update import (
     DEFAULT_SYMBOLS,
     _as_date as _as_date_daily,
@@ -14,15 +15,7 @@ from scripts.plan_polygon_ohlcv_daily_update import (
     _parse_date,
 )
 from scripts.plan_polygon_ohlcv_symbol_universe import _latest_existing_date as _latest_existing_date_from_rows
-from scripts.verify_polygon_ohlcv_evidence_chain import (
-    _canonical_query,
-    _coverage,
-    _evidence_status,
-    _lineage_fallback_query,
-    _quality_fallback_query,
-    _run_fallback_query,
-    _load_with_fallback,
-)
+from scripts.verify_polygon_ohlcv_evidence_chain import _canonical_query, _coverage, _lineage_fallback_query, _quality_fallback_query, _run_fallback_query, _load_with_fallback
 
 
 def _fetch_all(connection: object, sql: str, params: tuple[object, ...] = ()) -> list[dict[str, object]]:
@@ -218,7 +211,7 @@ def build_preflight_report(args: argparse.Namespace) -> tuple[list[dict[str, obj
                     fallback_sql=_lineage_fallback_query(),
                     fallback_params=("polygon", "ohlcv", symbol, args.timeframe, args.max_requests),
                 )
-                evidence_status = _evidence_status(
+                evidence_status = evidence_status_from_counts(
                     canonical_count=len(canonical_rows),
                     run_count=len(run_rows),
                     quality_count=len(quality_rows),

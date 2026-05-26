@@ -78,3 +78,5 @@ Scheduler and cron wiring remain out of scope so the ingestion-side replacement 
 This runner gives `ai-market-machine-ingestion` a manual daily FMP OHLCV orchestration surface built on the existing multi-symbol fan-out contract.
 
 That is the missing ingestion-side replacement candidate for the old data-repo daily FMP ingestion behavior and a prerequisite for eventual data-repo facade or removal work.
+
+The companion verifier lives in `scripts/verify_fmp_ohlcv_evidence_chain.py`, and it shares its PASS/WARN/FAIL semantics with the Polygon verifier through `scripts.evidence_chain_helpers`.
