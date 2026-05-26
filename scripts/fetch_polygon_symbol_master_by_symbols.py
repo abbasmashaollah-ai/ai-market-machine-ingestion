@@ -22,6 +22,16 @@ def _candidate_symbols() -> list[str]:
     return [candidate.symbol for candidate in build_etf_index_universe_candidates()]
 
 
+def _normalize_single_ticker_payload(payload: dict[str, object]) -> dict[str, object]:
+    if isinstance(payload.get("results"), dict):
+        result = payload["results"]
+        return result if isinstance(result, dict) else payload
+    if isinstance(payload.get("results"), list) and payload["results"]:
+        first = payload["results"][0]
+        return first if isinstance(first, dict) else payload
+    return payload
+
+
 def _is_rate_limit_error(exc: Exception) -> bool:
     message = str(exc).lower()
     return "429" in message or "rate limit" in message or "too many requests" in message
@@ -70,7 +80,7 @@ def main(argv: list[str] | None = None) -> int:
         rate_limit_failures = 0
         for index, symbol in enumerate(requested_symbols):
             try:
-                payload = adapter.fetch_reference_ticker_raw(symbol)
+                payload = _normalize_single_ticker_payload(adapter.fetch_reference_ticker_payload(symbol))
             except Exception as exc:
                 if _is_rate_limit_error(exc):
                     rate_limit_detected = True

@@ -57,6 +57,16 @@ class PolygonSymbolMasterAdapter:
         except Exception as exc:
             raise RuntimeError(_sanitize_error_message(str(exc))) from exc
 
+    def fetch_reference_ticker_payload(self, ticker: str) -> dict[str, object]:
+        payload = self.fetch_reference_ticker_raw(ticker)
+        if isinstance(payload.get("results"), dict):
+            result = payload["results"]
+            return result if isinstance(result, dict) else payload
+        if isinstance(payload.get("results"), list) and payload["results"]:
+            first = payload["results"][0]
+            return first if isinstance(first, dict) else payload
+        return payload
+
     def fetch_reference_tickers(
         self,
         *,

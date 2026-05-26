@@ -15,6 +15,8 @@
 - `--sleep-seconds-between-symbols` can be used to slow lookup cadence without changing the default dry-run behavior
 - `--no-stop-on-rate-limit` is available only for controlled retries with `--max-rate-limit-failures`
 - free-tier operators should keep batches small and stop on the first 429 unless there is a specific retry plan
+- single-ticker Polygon responses may be wrapped under `results`; the command normalizes that shape before validation
+- `missing` means Polygon returned no record, `invalid` means a record was returned but failed validation, and `failed` means the request errored out
 
 ## Boundary
 
