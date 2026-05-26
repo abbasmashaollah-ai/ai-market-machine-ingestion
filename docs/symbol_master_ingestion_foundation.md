@@ -58,6 +58,18 @@ The confirmed-write path remains bounded to the approved writer/store boundary a
 
 `--record-run`, `--record-quality`, and `--record-lineage` are intentionally deferred until a symbol-master-specific evidence store contract is approved.
 
+Preflight and evidence verification are available as read-only helpers:
+
+- `scripts/preflight_symbol_master_operations.py`
+- `scripts/verify_symbol_master_evidence_chain.py`
+
+Reference docs:
+
+- `docs/symbol_master_preflight.md`
+- `docs/symbol_master_evidence_chain.md`
+
+Those helpers stay read-only and do not introduce scheduler ownership or vendor dependencies.
+
 ## Boundary
 
 The symbol master ingestion foundation stays on the producer side and is deliberately limited to dry-run and normalization behavior until a later write path is explicitly approved.

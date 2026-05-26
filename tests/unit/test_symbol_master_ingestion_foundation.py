@@ -118,9 +118,17 @@ class SymbolMasterIngestionFoundationTests(unittest.TestCase):
         self.assertIn("schema contracts", text)
         self.assertIn("confirm-write", text)
         self.assertIn("symbolmasterwriter", text)
+        self.assertIn("preflight", text)
+        self.assertIn("verify_symbol_master_evidence_chain", text)
         writer_doc = Path("docs/symbol_master_writer.md").read_text(encoding="utf-8").lower()
         self.assertIn("symbol master writer", writer_doc)
         self.assertIn("commit once per batch", writer_doc)
+        preflight_doc = Path("docs/symbol_master_preflight.md").read_text(encoding="utf-8").lower()
+        self.assertIn("symbol master preflight", preflight_doc)
+        self.assertIn("manual command inventory", preflight_doc)
+        evidence_doc = Path("docs/symbol_master_evidence_chain.md").read_text(encoding="utf-8").lower()
+        self.assertIn("symbol master evidence chain", evidence_doc)
+        self.assertIn("row_count", evidence_doc)
 
     def test_manual_inventory_includes_symbol_master_command(self) -> None:
         import scripts.verify_manual_ingestion_commands as inventory
