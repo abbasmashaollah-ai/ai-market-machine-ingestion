@@ -83,6 +83,19 @@ class UnsupportedPolygonClient:
         response = self.http_client.request(request_metadata)
         return self._extract_raw_list(response)
 
+    def fetch_tickers_filtered_raw(self, *, active: bool | None = None, limit: int | None = None) -> list[dict[str, object]]:
+        if self.http_client is None:
+            raise NotImplementedError("Polygon client transport is not configured.")
+        self._acquire_rate_limit()
+        request_metadata = RequestMetadata(
+            method="GET",
+            url=self._build_url(reference_tickers_path()),
+            timeout_seconds=self.config.timeout_seconds,
+            query_params=reference_tickers_params(self.config.api_key, active=active, limit=limit),
+        )
+        response = self.http_client.request(request_metadata)
+        return self._extract_raw_list(response)
+
     def fetch_aggregates(self, ticker: str, from_date: str, to_date: str) -> list[dict[str, object]]:
         return self.fetch_aggregates_raw(ticker, from_date, to_date)
 

@@ -48,6 +48,20 @@ class PolygonSymbolMasterAdapter:
         except Exception as exc:
             raise RuntimeError(_sanitize_error_message(str(exc))) from exc
 
+    def fetch_reference_tickers(
+        self,
+        *,
+        active: bool | None = True,
+        limit: int | None = None,
+    ) -> list[dict[str, object]]:
+        try:
+            client = self._client_or_build()
+            if hasattr(client, "fetch_tickers_filtered_raw"):
+                return client.fetch_tickers_filtered_raw(active=active, limit=limit)  # type: ignore[attr-defined]
+            return client.fetch_tickers_raw()
+        except Exception as exc:
+            raise RuntimeError(_sanitize_error_message(str(exc))) from exc
+
     def map_reference_ticker(self, payload: dict[str, object]) -> NormalizedSymbolMasterRecord:
         ticker = _safe_text(payload.get("ticker"))
         active = _safe_bool(payload.get("active"))

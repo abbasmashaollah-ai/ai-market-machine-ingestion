@@ -10,6 +10,9 @@
 - confirmed writes require `--live-check`; fixture/sample confirmed writes are intentionally blocked
 - optional `--record-run`, `--record-quality`, and `--record-lineage` persist approved generic store rows when `DATABASE_URL` is present and the confirmed live path is active
 - recording is intentionally not enabled for fixture-only dry runs
+- `--limit` defaults to a small safe batch size
+- `--max-records` blocks oversized batches before any confirmed write
+- `--exchange`, `--asset-type`, `--active-only`, and `--include-inactive` narrow the selected batch
 - no scheduler activation
 - no FastAPI routes
 - no migrations
@@ -26,6 +29,11 @@
 - `rows_written`
 - `rows_skipped`
 - `write_confirmed`
+- `limit`
+- `max_records`
+- `active_filter`
+- `exchange_filter`
+- `asset_type_filter`
 
 ## Boundary
 

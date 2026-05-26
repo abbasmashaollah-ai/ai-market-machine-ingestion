@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import closing
 from dataclasses import dataclass
 import os
-from contextlib import closing
 from datetime import datetime, timezone
 from typing import Any
 
@@ -15,6 +15,9 @@ from app.state.ingestion_run_store import IngestionRunStore
 from app.state.runs import IngestionRun, RunStatus
 from app.vendors.polygon_symbol_master import PolygonSymbolMasterAdapter, PolygonSymbolMasterSourceConfig
 from app.writers.symbol_master_writer import SymbolMasterWriter
+
+DEFAULT_LIMIT = 25
+DEFAULT_MAX_RECORDS = 1000
 
 
 @dataclass(frozen=True)
@@ -53,6 +56,11 @@ def _emit(summary: dict[str, object]) -> None:
         "write_confirmed",
         "vendor",
         "dry_run",
+        "limit",
+        "max_records",
+        "active_filter",
+        "exchange_filter",
+        "asset_type_filter",
     ):
         print(f"{key}={summary.get(key)}")
 
@@ -63,11 +71,27 @@ def _build_adapter(*, live_check: bool) -> PolygonSymbolMasterAdapter:
     )
 
 
-def _build_records(*, live_check: bool) -> tuple[list[object], PolygonSymbolMasterAdapter]:
+def _normalize_records(
+    *,
+    live_check: bool,
+    active_only: bool,
+    exchange: str | None,
+    asset_type: str | None,
+    limit: int,
+) -> list[object]:
     adapter = _build_adapter(live_check=live_check)
-    payloads = adapter.fetch_reference_tickers_raw() if live_check else adapter.build_sample_reference_payloads()
+    if live_check:
+        payloads = adapter.fetch_reference_tickers(active=active_only, limit=limit)
+    else:
+        payloads = adapter.build_sample_reference_payloads()[:limit]
     records = [adapter.map_reference_ticker(payload) for payload in payloads]
-    return records, adapter
+    if exchange is not None:
+        records = [record for record in records if (record.exchange or "").lower() == exchange.lower()]
+    if asset_type is not None:
+        records = [record for record in records if (record.asset_type or "").lower() == asset_type.lower()]
+    if active_only:
+        records = [record for record in records if record.active is not False]
+    return records
 
 
 def _require_recording_contract(confirm_write: bool, live_check: bool) -> None:
@@ -129,7 +153,15 @@ def _lineage_payload(*, valid_count: int, invalid_count: int, write_confirmed: b
 
 def _record_optional_evidence(*, stores: _RecordingStores, run_id: str, valid_count: int, invalid_count: int, write_confirmed: bool) -> None:
     if stores.run_store is not None:
-        stores.run_store.save_run(_build_run(run_id=run_id, count=valid_count + invalid_count, valid_count=valid_count, invalid_count=invalid_count, write_confirmed=write_confirmed))
+        stores.run_store.save_run(
+            _build_run(
+                run_id=run_id,
+                count=valid_count + invalid_count,
+                valid_count=valid_count,
+                invalid_count=invalid_count,
+                write_confirmed=write_confirmed,
+            )
+        )
     if stores.quality_store is not None:
         stores.quality_store.save_validation_results(
             vendor="polygon",
@@ -145,8 +177,28 @@ def _record_optional_evidence(*, stores: _RecordingStores, run_id: str, valid_co
         stores.lineage_store.save_chunk_lineage(**payload)
 
 
-def build_summary(*, live_check: bool, confirm_write: bool, record_run: bool, record_quality: bool, record_lineage: bool) -> dict[str, object]:
-    records, _ = _build_records(live_check=live_check)
+def build_summary(
+    *,
+    live_check: bool,
+    confirm_write: bool,
+    record_run: bool,
+    record_quality: bool,
+    record_lineage: bool,
+    limit: int,
+    max_records: int,
+    exchange: str | None,
+    asset_type: str | None,
+    active_only: bool,
+) -> dict[str, object]:
+    records = _normalize_records(
+        live_check=live_check,
+        active_only=active_only,
+        exchange=exchange,
+        asset_type=asset_type,
+        limit=limit,
+    )
+    if len(records) > max_records:
+        raise RuntimeError(f"polygon symbol master batch exceeds max-records guardrail: {len(records)} > {max_records}")
     valid_records = [record for record in records if not validate_symbol_record(record)]
     summary: dict[str, object] = {
         "vendor": "polygon",
@@ -158,6 +210,11 @@ def build_summary(*, live_check: bool, confirm_write: bool, record_run: bool, re
         "rows_written": 0,
         "rows_skipped": 0,
         "write_confirmed": False,
+        "limit": limit,
+        "max_records": max_records,
+        "active_filter": active_only,
+        "exchange_filter": exchange,
+        "asset_type_filter": asset_type,
     }
     database_url = os.getenv("DATABASE_URL")
     if any((record_run, record_quality, record_lineage)) and not database_url:
@@ -175,7 +232,6 @@ def build_summary(*, live_check: bool, confirm_write: bool, record_run: bool, re
         summary["rows_written"] = write_result.written_count
         summary["rows_skipped"] = write_result.skipped_count
         summary["write_confirmed"] = write_result.succeeded
-        stores = _RecordingStores()
         if record_run or record_quality or record_lineage:
             with closing(_open_connection(database_url)) as connection:
                 stores = _RecordingStores(
@@ -204,17 +260,30 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--record-run", action="store_true", help="Persist run history when the approved contract is available.")
     parser.add_argument("--record-quality", action="store_true", help="Persist quality results when the approved contract is available.")
     parser.add_argument("--record-lineage", action="store_true", help="Persist lineage rows when the approved contract is available.")
+    parser.add_argument("--limit", type=int, default=DEFAULT_LIMIT, help="Maximum number of records to ingest from the selected sample or live fetch.")
+    parser.add_argument("--max-records", type=int, default=DEFAULT_MAX_RECORDS, help="Hard guardrail that blocks confirmed writes over this count.")
+    parser.add_argument("--exchange", help="Filter records by primary exchange after normalization.")
+    parser.add_argument("--asset-type", help="Filter records by normalized asset type after normalization.")
+    parser.add_argument("--active-only", action="store_true", help="Keep only active records.")
+    parser.add_argument("--include-inactive", action="store_true", help="Include inactive records.")
     args = parser.parse_args(argv)
     if args.live_check and not os.getenv("POLYGON_API_KEY"):
         raise RuntimeError("POLYGON_API_KEY is required for --live-check")
     if args.confirm_write and not os.getenv("DATABASE_URL"):
         raise RuntimeError("DATABASE_URL is required when --confirm-write is used")
+    if args.active_only and args.include_inactive:
+        raise RuntimeError("use either --active-only or --include-inactive, not both")
     summary = build_summary(
         live_check=args.live_check,
         confirm_write=args.confirm_write,
         record_run=args.record_run,
         record_quality=args.record_quality,
         record_lineage=args.record_lineage,
+        limit=args.limit,
+        max_records=args.max_records,
+        exchange=args.exchange,
+        asset_type=args.asset_type,
+        active_only=not args.include_inactive,
     )
     _emit(summary)
     return 0
