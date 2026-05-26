@@ -11,6 +11,10 @@
 - `--confirm-write` requires `DATABASE_URL` and `--live-check`
 - writes only through `app.writers.symbol_master_writer.SymbolMasterWriter`
 - prints `requested_count`, `found_count`, `missing_count`, `valid_count`, `invalid_count`, and `rows_written`
+- on low-tier Polygon access, the command stops safely on the first rate-limit response by default
+- `--sleep-seconds-between-symbols` can be used to slow lookup cadence without changing the default dry-run behavior
+- `--no-stop-on-rate-limit` is available only for controlled retries with `--max-rate-limit-failures`
+- free-tier operators should keep batches small and stop on the first 429 unless there is a specific retry plan
 
 ## Boundary
 
