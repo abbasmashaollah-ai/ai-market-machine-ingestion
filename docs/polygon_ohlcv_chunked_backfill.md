@@ -29,6 +29,7 @@ The command:
 - records compact quality outcomes through the approved quality result store when `--record-quality` is supplied and the contract is available
 - prints one safe summary line per chunk
 - prints one aggregate summary line
+- loads checkpoint state for resume when `--resume-from-checkpoint` is supplied and `DATABASE_URL` is available
 
 ## Quota Planning
 
