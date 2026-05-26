@@ -11,6 +11,7 @@ The script imports these manual command modules:
 - `scripts.dry_run_fred_macro_incremental`
 - `scripts.verify_fred_macro_evidence_chain`
 - `scripts.dry_run_volatility_index_foundation`
+- `scripts.plan_volatility_index_sources`
 - `scripts.persist_fred_macro_incremental`
 - `scripts.dry_run_polygon_ohlcv_incremental`
 - `scripts.persist_polygon_ohlcv_incremental`
@@ -105,6 +106,8 @@ New ingestion domains should start from `docs/domain_vertical_slice_template.md`
 The symbol master dry-run command is the current ingestion-side foundation for future symbol master work. It remains dry-run only and does not write to the database.
 
 The volatility index dry-run foundation is the current ingestion-side foundation for future volatility work. It remains dry-run only and does not call vendors or write to the database.
+
+The volatility index source plan command is a read-only planning helper. It documents candidate sources before any live vendor adapter is approved.
 
 This is an operator-run verification only.
 
