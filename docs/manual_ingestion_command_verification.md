@@ -93,6 +93,8 @@ The scheduler readiness assessor is read-only. It checks that the manual OHLCV f
 
 The scheduler plan command is also read-only. It describes the intended scheduled FMP path, while keeping Polygon backfill manual-only until explicit activation is approved later.
 
+New ingestion domains should start from `docs/domain_vertical_slice_template.md` so the producer boundary, preflight, verifier, and evidence contracts stay consistent.
+
 This is an operator-run verification only.
 
 `ai-market-machine-data` remains the schema owner.
