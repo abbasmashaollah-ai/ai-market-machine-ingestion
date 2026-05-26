@@ -8,6 +8,8 @@
 - `--live-check` fetches Polygon reference tickers when `POLYGON_API_KEY` is present
 - `--confirm-write` requires `DATABASE_URL` and writes through `app.writers.symbol_master_writer.SymbolMasterWriter`
 - confirmed writes require `--live-check`; fixture/sample confirmed writes are intentionally blocked
+- optional `--record-run`, `--record-quality`, and `--record-lineage` persist approved generic store rows when `DATABASE_URL` is present and the confirmed live path is active
+- recording is intentionally not enabled for fixture-only dry runs
 - no scheduler activation
 - no FastAPI routes
 - no migrations

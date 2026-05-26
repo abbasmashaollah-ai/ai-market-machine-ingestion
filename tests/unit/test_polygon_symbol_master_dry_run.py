@@ -27,6 +27,24 @@ class PolygonSymbolMasterDryRunTests(unittest.TestCase):
         self.assertIn("rows_skipped=0", printed)
         self.assertIn("write_confirmed=False", printed)
 
+    def test_record_flags_require_database_url(self) -> None:
+        mod = self._module()
+        with patch.dict("os.environ", {"POLYGON_API_KEY": "polygon-secret"}, clear=True), patch(
+            "sys.argv", ["dry_run_polygon_symbol_master.py", "--live-check", "--record-run"]
+        ):
+            with self.assertRaises(RuntimeError):
+                mod.main()
+
+    def test_recording_requires_live_check_and_confirm_write(self) -> None:
+        mod = self._module()
+        with patch.dict(
+            "os.environ",
+            {"POLYGON_API_KEY": "polygon-secret", "DATABASE_URL": "postgresql://example"},
+            clear=True,
+        ), patch("sys.argv", ["dry_run_polygon_symbol_master.py", "--record-run"]):
+            with self.assertRaisesRegex(RuntimeError, "requires --live-check and --confirm-write"):
+                mod.main()
+
     def test_live_check_requires_polygon_key(self) -> None:
         mod = self._module()
         with patch.dict("os.environ", {}, clear=True), patch("sys.argv", ["dry_run_polygon_symbol_master.py", "--live-check"]):
@@ -90,6 +108,52 @@ class PolygonSymbolMasterDryRunTests(unittest.TestCase):
         self.assertIn("rows_skipped=0", printed)
         self.assertIn("write_confirmed=True", printed)
 
+    def test_record_run_quality_and_lineage_call_approved_stores(self) -> None:
+        mod = self._module()
+        adapter = Mock()
+        adapter.fetch_reference_tickers_raw.return_value = [
+            {"ticker": "AAPL", "active": True, "delisted": False, "primary_exchange": "XNAS", "type": "CS", "currency": "USD"}
+        ]
+        from app.normalization.symbol_master import NormalizedSymbolMasterRecord
+
+        normalized_record = NormalizedSymbolMasterRecord(symbol="AAPL", active=True, vendor="polygon", vendor_symbol="AAPL")
+        adapter.map_reference_ticker.return_value = normalized_record
+        writer = Mock()
+        writer.write.return_value = type("Result", (), {"written_count": 1, "skipped_count": 0, "succeeded": True})()
+        run_store = Mock()
+        quality_store = Mock()
+        lineage_store = Mock()
+        connection = Mock()
+        with patch.dict(
+            "os.environ",
+            {"POLYGON_API_KEY": "polygon-secret", "DATABASE_URL": "postgresql://example"},
+            clear=True,
+        ), patch.object(mod, "_build_adapter", return_value=adapter), patch.object(mod, "_open_connection", return_value=connection), patch.object(
+            mod, "SymbolMasterWriter", return_value=writer
+        ), patch.object(mod, "IngestionRunStore", return_value=run_store) as run_store_cls, patch.object(
+            mod, "DataQualityResultStore", return_value=quality_store
+        ) as quality_store_cls, patch.object(mod, "DataLineageStore", return_value=lineage_store) as lineage_store_cls, patch(
+            "builtins.print"
+        ), patch(
+            "sys.argv",
+            [
+                "dry_run_polygon_symbol_master.py",
+                "--live-check",
+                "--confirm-write",
+                "--record-run",
+                "--record-quality",
+                "--record-lineage",
+            ],
+        ):
+            mod.main()
+
+        run_store_cls.assert_called_once_with(connection)
+        quality_store_cls.assert_called_once_with(connection)
+        lineage_store_cls.assert_called_once_with(connection)
+        self.assertTrue(run_store.save_run.called)
+        self.assertTrue(quality_store.save_validation_results.called)
+        self.assertTrue(lineage_store.save_chunk_lineage.called)
+
     def test_sanitized_vendor_errors(self) -> None:
         from app.vendors.polygon_symbol_master import PolygonSymbolMasterAdapter, PolygonSymbolMasterSourceConfig
 
@@ -119,3 +183,6 @@ class PolygonSymbolMasterDryRunTests(unittest.TestCase):
         self.assertIn("live-check", text)
         self.assertIn("confirm-write", text)
         self.assertIn("symbolmasterwriter", text)
+        self.assertIn("record-run", text)
+        self.assertIn("record-quality", text)
+        self.assertIn("record-lineage", text)

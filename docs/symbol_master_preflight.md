@@ -10,6 +10,7 @@
 - symbol-master docs exist
 - `DATABASE_URL` is required only for `--confirm-write` or `--check-existing`
 - `POLYGON_API_KEY` is required only for `scripts/dry_run_polygon_symbol_master.py --live-check`
+- `--record-run`, `--record-quality`, and `--record-lineage` require `DATABASE_URL` and the confirmed live Polygon path
 - forbidden imports are absent from the symbol master command and writer paths
 - the data-owned symbol master schema is referenced by table contract, not by data-repo internals
 

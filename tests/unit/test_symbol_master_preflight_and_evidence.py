@@ -138,6 +138,9 @@ class SymbolMasterPreflightAndEvidenceTests(unittest.TestCase):
         self.assertIn("inactive_count=1", printed)
         self.assertIn("symbol_found=True", printed)
         self.assertIn("evidence_status=PASS", printed)
+        self.assertIn("run_status=PASS", printed)
+        self.assertIn("quality_status=PASS", printed)
+        self.assertIn("lineage_status=PASS", printed)
         self.assertTrue(connection.closed)
 
     def test_evidence_verifier_warns_when_empty_without_symbol(self) -> None:
@@ -154,6 +157,7 @@ class SymbolMasterPreflightAndEvidenceTests(unittest.TestCase):
         printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
         self.assertIn("row_count=0", printed)
         self.assertIn("evidence_status=WARN", printed)
+        self.assertIn("run_status=WARN", printed)
 
     def test_evidence_verifier_fail_on_missing_symbol(self) -> None:
         mod = self._evidence_module()
@@ -170,6 +174,39 @@ class SymbolMasterPreflightAndEvidenceTests(unittest.TestCase):
         self.assertIn("symbol_found=False", printed)
         self.assertIn("symbol_status=FAIL", printed)
         self.assertIn("evidence_status=FAIL", printed)
+
+    def test_evidence_verifier_record_flags_require_database_url(self) -> None:
+        mod = self._evidence_module()
+        with patch.dict(os.environ, {}, clear=True), patch(
+            "scripts.verify_symbol_master_evidence_chain.load_local_env_if_available", return_value=False
+        ), patch("sys.argv", ["verify_symbol_master_evidence_chain.py", "--record-run"]):
+            with self.assertRaises(RuntimeError):
+                mod.main()
+
+    def test_evidence_verifier_record_flags_write_optional_stores(self) -> None:
+        mod = self._evidence_module()
+        connection = self._complete_connection()
+        run_store = Mock()
+        quality_store = Mock()
+        lineage_store = Mock()
+        with patch.dict(os.environ, {"DATABASE_URL": "postgresql://user:pass@host/db"}, clear=True), patch.object(
+            mod, "load_local_env_if_available", return_value=False
+        ), patch.object(mod, "_open_connection", return_value=connection), patch.object(mod, "IngestionRunStore", return_value=run_store) as run_store_cls, patch.object(
+            mod, "DataQualityResultStore", return_value=quality_store
+        ) as quality_store_cls, patch.object(mod, "DataLineageStore", return_value=lineage_store) as lineage_store_cls, patch(
+            "builtins.print"
+        ), patch(
+            "sys.argv",
+            ["verify_symbol_master_evidence_chain.py", "--record-run", "--record-quality", "--record-lineage"],
+        ):
+            mod.main()
+
+        run_store_cls.assert_called_once_with(connection)
+        quality_store_cls.assert_called_once_with(connection)
+        lineage_store_cls.assert_called_once_with(connection)
+        self.assertTrue(run_store.save_run.called)
+        self.assertTrue(quality_store.save_validation_results.called)
+        self.assertTrue(lineage_store.save_chunk_lineage.called)
 
     def test_evidence_verifier_source_has_no_forbidden_imports(self) -> None:
         text = Path("scripts/verify_symbol_master_evidence_chain.py").read_text(encoding="utf-8")

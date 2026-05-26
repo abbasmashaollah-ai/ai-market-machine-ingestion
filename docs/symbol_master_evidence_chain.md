@@ -9,7 +9,9 @@
 - reports `row_count`, `active_count`, and `inactive_count`
 - optionally checks a single `--symbol`
 - reports `symbol_found=true|false` when a symbol is provided
+- optional `--record-run`, `--record-quality`, and `--record-lineage` persist approved generic store rows when `DATABASE_URL` is present
 - emits PASS / WARN / FAIL output without writing to the database
+- reports `run_status`, `quality_status`, and `lineage_status`
 
 ## Boundary
 
