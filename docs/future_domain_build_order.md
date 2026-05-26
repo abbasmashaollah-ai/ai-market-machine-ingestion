@@ -3,7 +3,9 @@
 Recommended order for future ingestion vertical slices:
 
 1. symbol master
+   - started and verified through Polygon live population
 2. ETF/index universe expansion
+   - planned next domain after symbol master population pause
 3. Polygon flat-file OHLCV
 4. FRED macro
 5. volatility indexes
