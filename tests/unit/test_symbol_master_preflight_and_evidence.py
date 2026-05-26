@@ -72,6 +72,7 @@ class SymbolMasterPreflightAndEvidenceTests(unittest.TestCase):
         self.assertIn("inventory_ok=True", printed)
         self.assertIn("writer_doc_exists=True", printed)
         self.assertIn("foundation_doc_exists=True", printed)
+        self.assertIn("polygon_doc_exists=True", printed)
 
     def test_preflight_database_url_required_only_for_confirm_or_check_existing(self) -> None:
         mod = self._preflight_module()
@@ -97,6 +98,16 @@ class SymbolMasterPreflightAndEvidenceTests(unittest.TestCase):
         self.assertNotIn("import httpx", text.lower())
         self.assertNotIn("from ai_market_machine_data", text.lower())
         self.assertNotIn("import alembic", text.lower())
+
+    def test_polygon_command_inventory_is_present(self) -> None:
+        import scripts.verify_manual_ingestion_commands as inventory
+
+        self.assertIn("scripts.dry_run_polygon_symbol_master", inventory.MODULES)
+
+    def test_polygon_preflight_docs_cover_command(self) -> None:
+        text = Path("docs/symbol_master_preflight.md").read_text(encoding="utf-8").lower()
+        self.assertIn("polygon symbol master runner", text)
+        self.assertIn("polygon_api_key", text)
 
     def test_preflight_no_db_access_or_vendor_calls_without_flags(self) -> None:
         mod = self._preflight_module()

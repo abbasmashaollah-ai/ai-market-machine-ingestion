@@ -12,6 +12,7 @@ It may:
 - validate required symbol-master fields
 - report input, normalized, valid, invalid, rows-written, rows-skipped, and confirmation counts
 - write valid rows only when `--confirm-write` is explicitly requested through `app.writers.symbol_master_writer.SymbolMasterWriter`
+- act as the manual operator boundary for the Polygon symbol-master command when `--live-check` and `--confirm-write` are both set
 
 It does not:
 
@@ -55,6 +56,10 @@ It prints:
 When `--confirm-write` is used, the command requires `DATABASE_URL`, uses `app.writers.symbol_master_writer.SymbolMasterWriter`, and still does not assume any scheduler ownership.
 
 The confirmed-write path remains bounded to the approved writer/store boundary and does not create tables or run migrations.
+
+`scripts/dry_run_polygon_symbol_master.py` is the Polygon-specific manual command. It defaults to a fixture dry-run, requires `POLYGON_API_KEY` only for `--live-check`, and requires `DATABASE_URL` only for `--confirm-write`.
+
+Confirmed writes for the Polygon path require both `--live-check` and `--confirm-write`; fixture/sample writes are intentionally blocked.
 
 `--record-run`, `--record-quality`, and `--record-lineage` are intentionally deferred until a symbol-master-specific evidence store contract is approved.
 

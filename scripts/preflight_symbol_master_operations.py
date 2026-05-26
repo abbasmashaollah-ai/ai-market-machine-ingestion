@@ -24,7 +24,7 @@ def _assert_text_not_present(path: Path, needles: tuple[str, ...]) -> list[str]:
 def _check_inventory() -> bool:
     from scripts import verify_manual_ingestion_commands as inventory
 
-    return "scripts.dry_run_symbol_master_ingestion" in inventory.MODULES
+    return "scripts.dry_run_symbol_master_ingestion" in inventory.MODULES and "scripts.dry_run_polygon_symbol_master" in inventory.MODULES
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -39,12 +39,15 @@ def main(argv: list[str] | None = None) -> int:
     inventory_ok = _check_inventory()
     writer_doc_exists = Path("docs/symbol_master_writer.md").exists()
     foundation_doc_exists = Path("docs/symbol_master_ingestion_foundation.md").exists()
+    polygon_doc_exists = Path("docs/polygon_symbol_master_dry_run.md").exists()
     writer_source = Path("app/writers/symbol_master_writer.py")
     runner_source = Path("scripts/dry_run_symbol_master_ingestion.py")
+    polygon_runner_source = Path("scripts/dry_run_polygon_symbol_master.py")
 
     forbidden_violations = []
     forbidden_violations.extend(_assert_text_not_present(writer_source, ("ai_market_machine_data", "fastapi", "apirouter", "requests", "httpx", "alembic")))
     forbidden_violations.extend(_assert_text_not_present(runner_source, ("ai_market_machine_data", "fastapi", "apirouter", "requests", "httpx", "alembic")))
+    forbidden_violations.extend(_assert_text_not_present(polygon_runner_source, ("ai_market_machine_data", "fastapi", "apirouter", "requests", "httpx", "alembic")))
 
     data_contract_refs_ok = "symbol_master" in writer_source.read_text(encoding="utf-8").lower() and "app.database" not in writer_source.read_text(encoding="utf-8")
     status = "PASS"
@@ -54,7 +57,7 @@ def main(argv: list[str] | None = None) -> int:
     if not inventory_ok:
         status = "FAIL"
         blockers.append("manual command inventory missing symbol master dry-run runner")
-    if not writer_doc_exists or not foundation_doc_exists:
+    if not writer_doc_exists or not foundation_doc_exists or not polygon_doc_exists:
         status = "FAIL"
         blockers.append("symbol master docs missing")
     if forbidden_violations:
@@ -79,6 +82,7 @@ def main(argv: list[str] | None = None) -> int:
         f"inventory_ok={inventory_ok} "
         f"writer_doc_exists={writer_doc_exists} "
         f"foundation_doc_exists={foundation_doc_exists} "
+        f"polygon_doc_exists={polygon_doc_exists} "
         f"confirm_write={args.confirm_write} "
         f"check_existing={args.check_existing} "
         f"database_url_required={bool(args.confirm_write or args.check_existing)} "

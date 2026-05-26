@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 
 class PolygonSymbolMasterDryRunTests(unittest.TestCase):
@@ -11,26 +11,21 @@ class PolygonSymbolMasterDryRunTests(unittest.TestCase):
 
         return mod
 
-    def test_sample_mode_no_vendor_calls(self) -> None:
+    def test_default_dry_run_no_vendor_or_db_calls(self) -> None:
         mod = self._module()
-        with patch.object(mod, "PolygonSymbolMasterAdapter") as adapter_cls, patch("builtins.print") as print_mock:
-            adapter = adapter_cls.return_value
-            adapter.build_sample_reference_payloads.return_value = [
-                {"ticker": "AAPL", "active": True, "delisted": False, "primary_exchange": "XNAS", "type": "CS", "currency": "USD"}
-            ]
-            adapter.map_reference_ticker.return_value = type(
-                "Record",
-                (),
-                {"symbol": "AAPL", "active": True, "vendor": "polygon", "vendor_symbol": "AAPL", "exchange": "XNAS", "asset_type": "equity"},
-            )()
-            with patch("sys.argv", ["dry_run_polygon_symbol_master.py"]):
-                mod.main()
+        with patch.object(mod, "_build_records", wraps=mod._build_records) as build_records_mock, patch.object(
+            mod, "SymbolMasterWriter"
+        ) as writer_cls, patch("builtins.print") as print_mock, patch("sys.argv", ["dry_run_polygon_symbol_master.py"]):
+            mod.main()
 
-        adapter.fetch_reference_tickers_raw.assert_not_called()
+        build_records_mock.assert_called_once_with(live_check=False)
+        writer_cls.assert_not_called()
         printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
         self.assertIn("vendor=polygon", printed)
         self.assertIn("dry_run=True", printed)
-        self.assertIn("input_count=1", printed)
+        self.assertIn("rows_written=0", printed)
+        self.assertIn("rows_skipped=0", printed)
+        self.assertIn("write_confirmed=False", printed)
 
     def test_live_check_requires_polygon_key(self) -> None:
         mod = self._module()
@@ -38,40 +33,64 @@ class PolygonSymbolMasterDryRunTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 mod.main()
 
-    def test_live_check_uses_adapter_when_key_present(self) -> None:
+    def test_confirm_write_requires_database_url(self) -> None:
         mod = self._module()
-        with patch.dict("os.environ", {"POLYGON_API_KEY": "polygon-secret"}, clear=True), patch.object(
-            mod, "PolygonSymbolMasterAdapter"
-        ) as adapter_cls, patch("builtins.print"):
-            adapter = adapter_cls.return_value
-            adapter.fetch_reference_tickers_raw.return_value = [
-                {"ticker": "AAPL", "active": True, "delisted": False, "primary_exchange": "XNAS", "type": "CS", "currency": "USD"}
-            ]
-            adapter.map_reference_ticker.return_value = type(
-                "Record",
-                (),
-                {"symbol": "AAPL", "active": True, "vendor": "polygon", "vendor_symbol": "AAPL", "exchange": "XNAS", "asset_type": "equity"},
-            )()
-            with patch("sys.argv", ["dry_run_polygon_symbol_master.py", "--live-check"]):
+        with patch.dict("os.environ", {"POLYGON_API_KEY": "polygon-secret"}, clear=True), patch(
+            "sys.argv", ["dry_run_polygon_symbol_master.py", "--live-check", "--confirm-write"]
+        ):
+            with self.assertRaises(RuntimeError):
                 mod.main()
 
-        adapter.fetch_reference_tickers_raw.assert_called_once()
+    def test_confirm_write_without_live_check_is_blocked(self) -> None:
+        mod = self._module()
+        with patch.dict("os.environ", {"DATABASE_URL": "postgresql://example"}, clear=True), patch(
+            "sys.argv", ["dry_run_polygon_symbol_master.py", "--confirm-write"]
+        ):
+            with self.assertRaisesRegex(RuntimeError, "require --live-check"):
+                mod.main()
 
-    def test_active_delisted_mapping(self) -> None:
-        from app.vendors.polygon_symbol_master import PolygonSymbolMasterAdapter, PolygonSymbolMasterSourceConfig
+    def test_live_check_and_confirm_write_calls_writer_with_normalized_records(self) -> None:
+        mod = self._module()
+        adapter = Mock()
+        adapter.fetch_reference_tickers_raw.return_value = [
+            {"ticker": "AAPL", "active": True, "delisted": False, "primary_exchange": "XNAS", "type": "CS", "currency": "USD"}
+        ]
+        from app.normalization.symbol_master import NormalizedSymbolMasterRecord
 
-        adapter = PolygonSymbolMasterAdapter(PolygonSymbolMasterSourceConfig())
-        active = adapter.map_reference_ticker(
-            {"ticker": "AAPL", "active": True, "delisted": False, "primary_exchange": "XNAS", "type": "CS", "name": "Apple Inc.", "currency": "USD"}
+        normalized_record = NormalizedSymbolMasterRecord(
+            symbol="AAPL",
+            active=True,
+            vendor="polygon",
+            vendor_symbol="AAPL",
         )
-        inactive = adapter.map_reference_ticker(
-            {"ticker": "XYZ", "active": False, "delisted": True, "primary_exchange": "XNAS", "type": "CS", "name": "Example", "currency": "USD"}
-        )
-        self.assertTrue(active.active)
-        self.assertFalse(inactive.active)
-        self.assertEqual(active.asset_type, "equity")
+        adapter.map_reference_ticker.return_value = normalized_record
+        writer = Mock()
+        writer.write.return_value = type("Result", (), {"written_count": 1, "skipped_count": 0, "succeeded": True})()
+        connection = Mock()
+        with patch.dict(
+            "os.environ",
+            {"POLYGON_API_KEY": "polygon-secret", "DATABASE_URL": "postgresql://example"},
+            clear=True,
+        ), patch.object(mod, "_build_adapter", return_value=adapter), patch.object(
+            mod, "_open_connection", return_value=connection
+        ), patch.object(
+            mod, "SymbolMasterWriter", return_value=writer
+        ) as writer_cls, patch("builtins.print") as print_mock, patch(
+            "sys.argv", ["dry_run_polygon_symbol_master.py", "--live-check", "--confirm-write"]
+        ):
+            mod.main()
 
-    def test_sanitized_error_handling(self) -> None:
+        writer_cls.assert_called_once_with(connection)
+        writer.write.assert_called_once()
+        written_records = writer.write.call_args.args[0]
+        self.assertEqual(written_records, [normalized_record])
+        self.assertIsInstance(written_records[0], NormalizedSymbolMasterRecord)
+        printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
+        self.assertIn("rows_written=1", printed)
+        self.assertIn("rows_skipped=0", printed)
+        self.assertIn("write_confirmed=True", printed)
+
+    def test_sanitized_vendor_errors(self) -> None:
         from app.vendors.polygon_symbol_master import PolygonSymbolMasterAdapter, PolygonSymbolMasterSourceConfig
 
         adapter = PolygonSymbolMasterAdapter(PolygonSymbolMasterSourceConfig(api_key="polygon-secret"))
@@ -90,12 +109,13 @@ class PolygonSymbolMasterDryRunTests(unittest.TestCase):
         self.assertNotIn("ai_market_machine_data", text)
         self.assertNotIn("requests", text.lower())
         self.assertNotIn("httpx", text.lower())
-        self.assertNotIn("open_connection", text)
-        self.assertNotIn("commit(", text.lower())
-        self.assertNotIn("DATABASE_URL", text)
+        self.assertIn("SymbolMasterWriter", text)
+        self.assertIn("DATABASE_URL", text)
 
     def test_docs_cover_command(self) -> None:
         text = Path("docs/polygon_symbol_master_dry_run.md").read_text(encoding="utf-8").lower()
         self.assertIn("polygon symbol master dry run", text)
         self.assertIn("dry_run=true", text)
         self.assertIn("live-check", text)
+        self.assertIn("confirm-write", text)
+        self.assertIn("symbolmasterwriter", text)

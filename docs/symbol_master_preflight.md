@@ -5,9 +5,11 @@
 ## Checks
 
 - manual command inventory includes the symbol master runner
+- manual command inventory includes the Polygon symbol master runner
 - `app.writers.symbol_master_writer.SymbolMasterWriter` exists
 - symbol-master docs exist
 - `DATABASE_URL` is required only for `--confirm-write` or `--check-existing`
+- `POLYGON_API_KEY` is required only for `scripts/dry_run_polygon_symbol_master.py --live-check`
 - forbidden imports are absent from the symbol master command and writer paths
 - the data-owned symbol master schema is referenced by table contract, not by data-repo internals
 
