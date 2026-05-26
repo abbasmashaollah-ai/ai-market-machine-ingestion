@@ -9,6 +9,7 @@ from app.ingestion.ohlcv.orchestrator import (
     build_single_symbol_ohlcv_write_plan,
 )
 from app.ingestion.ohlcv.normalization import normalize_fmp_ohlcv_record
+from app.models.normalized import NormalizedOHLCVRecord
 from app.vendors.common.http import HttpResponse, ResponseMetadata
 from app.vendors.fmp.client import FmpClientConfig, UnsupportedFmpClient
 from app.writers.canonical_writer import WriteStatus, WriterResult
@@ -17,10 +18,10 @@ from app.writers.canonical_writer import WriteStatus, WriterResult
 class _RecordingWriter:
     def __init__(self, result: WriterResult) -> None:
         self.result = result
-        self.calls: list[list[dict[str, object]]] = []
+        self.calls: list[list[object]] = []
 
     def write(self, records: list[object]) -> WriterResult:
-        self.calls.append([record for record in records if isinstance(record, dict)])
+        self.calls.append(list(records))
         return self.result
 
 
@@ -154,8 +155,9 @@ class FmpSingleSymbolOrchestratorTests(unittest.TestCase):
         self.assertEqual(plan.writer_result["written_count"], 1)
         self.assertEqual(plan.writer_errors, ())
         self.assertEqual(len(writer.calls), 1)
-        self.assertEqual(writer.calls[0][0]["symbol"], "AAPL")
-        self.assertEqual(writer.calls[0][0]["source"], "fmp_historical_price_full")
+        self.assertIsInstance(writer.calls[0][0], NormalizedOHLCVRecord)
+        self.assertEqual(writer.calls[0][0].symbol, "AAPL")
+        self.assertEqual(writer.calls[0][0].source, "fmp_historical_price_full")
 
     def test_injected_writer_failure_is_captured_and_not_marked_successful(self) -> None:
         transport = Mock()

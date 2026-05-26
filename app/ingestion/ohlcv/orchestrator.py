@@ -242,7 +242,7 @@ def build_single_symbol_ohlcv_write_plan(
             if writer is None:
                 raise ValueError("writer execution was requested but no writer was provided")
             writer_execution_performed = True
-            result = writer.write(list(writer_payload_preview["records"]))  # type: ignore[call-arg]
+            result = writer.write(list(normalized_records))
             if not isinstance(result, WriterResult):
                 raise TypeError("writer did not return a WriterResult")
             writer_result = _writer_result_to_dict(result)

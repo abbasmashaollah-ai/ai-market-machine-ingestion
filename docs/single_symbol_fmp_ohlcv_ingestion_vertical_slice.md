@@ -89,6 +89,7 @@ The returned plan includes:
 ## Writer handoff contract
 
 The orchestrator now produces a writer-ready preview for `app/writers/ohlcv_writer.py` without invoking the writer.
+When writer execution is explicitly enabled, the orchestrator passes `list[NormalizedOHLCVRecord]` directly into `OhlcvWriter.write()`.
 
 The preview is only a contract artifact and includes:
 
