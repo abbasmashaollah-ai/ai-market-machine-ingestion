@@ -103,6 +103,7 @@ class SymbolMasterPreflightAndEvidenceTests(unittest.TestCase):
         import scripts.verify_manual_ingestion_commands as inventory
 
         self.assertIn("scripts.dry_run_polygon_symbol_master", inventory.MODULES)
+        self.assertIn("scripts.plan_polygon_symbol_master_population", inventory.MODULES)
 
     def test_polygon_preflight_docs_cover_command(self) -> None:
         text = Path("docs/symbol_master_preflight.md").read_text(encoding="utf-8").lower()

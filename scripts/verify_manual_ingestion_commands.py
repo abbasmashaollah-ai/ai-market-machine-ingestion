@@ -21,6 +21,7 @@ MODULES = (
     "scripts.plan_symbol_master_sources",
     "scripts.dry_run_polygon_symbol_master",
     "scripts.assess_symbol_master_coverage",
+    "scripts.plan_polygon_symbol_master_population",
     "scripts.plan_polygon_ohlcv_symbol_universe",
     "scripts.preflight_polygon_ohlcv_operations",
     "scripts.verify_polygon_preflight_recommendations",
