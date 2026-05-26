@@ -9,6 +9,7 @@ MODULES = (
     "scripts.dry_run_fred_macro_incremental",
     "scripts.dry_run_fred_macro_foundation",
     "scripts.preflight_fred_macro_operations",
+    "scripts.verify_fred_macro_evidence_chain",
     "scripts.persist_fred_macro_incremental",
     "scripts.dry_run_polygon_ohlcv_incremental",
     "scripts.persist_polygon_ohlcv_incremental",

@@ -9,6 +9,7 @@ The script imports these manual command modules:
 - `scripts.inspect_fred_macro_checkpoint`
 - `scripts.preview_fred_macro_incremental`
 - `scripts.dry_run_fred_macro_incremental`
+- `scripts.verify_fred_macro_evidence_chain`
 - `scripts.persist_fred_macro_incremental`
 - `scripts.dry_run_polygon_ohlcv_incremental`
 - `scripts.persist_polygon_ohlcv_incremental`
