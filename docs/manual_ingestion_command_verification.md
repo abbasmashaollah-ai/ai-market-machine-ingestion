@@ -12,6 +12,7 @@ The script imports these manual command modules:
 - `scripts.verify_fred_macro_evidence_chain`
 - `scripts.dry_run_event_calendar_foundation`
 - `scripts.plan_event_calendar_sources`
+- `scripts.preflight_event_calendar_operations`
 - `scripts.dry_run_volatility_index_foundation`
 - `scripts.dry_run_volatility_index_foundation --live-check`
 - `scripts.plan_volatility_index_sources`
@@ -111,6 +112,8 @@ The symbol master dry-run command is the current ingestion-side foundation for f
 The event calendar dry-run foundation is the current ingestion-side foundation for future event calendar work. It remains dry-run only and does not write to the database.
 
 The event calendar source plan command is a read-only planning helper. It documents candidate sources before any live vendor adapter is approved.
+
+The event calendar preflight command is a read-only readiness check. It confirms the foundation and source-plan docs exist and does not require `DATABASE_URL` or vendor keys yet.
 
 The volatility index dry-run foundation is the current ingestion-side foundation for future volatility work. It remains dry-run only and does not call vendors or write to the database.
 
