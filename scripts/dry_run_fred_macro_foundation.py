@@ -3,10 +3,11 @@ from __future__ import annotations
 import argparse
 import os
 
-from app.normalization.fred_macro import FredMacroSeriesDefinition, build_fred_macro_fixture_records, get_starter_fred_macro_series
+from app.normalization.fred_macro import build_fred_macro_fixture_records, get_starter_fred_macro_series
 from app.vendors.common.http import UrlLibHttpClient
 from app.vendors.fred.client import FredClientConfig, UnsupportedFredClient
 from app.vendors.fred_macro import fetch_fred_macro_series
+from app.writers.fred_macro_writer import FredMacroWriter
 
 
 def _load_local_env_if_available() -> bool:
@@ -30,6 +31,9 @@ def _emit(
     show_values: bool,
     show_invalid: bool,
     invalid_records: tuple[dict[str, object], ...],
+    rows_written: int = 0,
+    rows_skipped: int = 0,
+    write_confirmed: bool = False,
     normalized_records: tuple[object, ...] = (),
 ) -> None:
     print(f"series_count={len(get_starter_fred_macro_series())}")
@@ -38,6 +42,9 @@ def _emit(
     print(f"valid_count={valid_count}")
     print(f"invalid_count={invalid_count}")
     print(f"latest_observation_dates={latest_observation_dates}")
+    print(f"rows_written={rows_written}")
+    print(f"rows_skipped={rows_skipped}")
+    print(f"write_confirmed={write_confirmed}")
     print(f"starter_series={[series.series_id for series in get_starter_fred_macro_series()]}")
     print(f"no_vendor_calls={no_vendor_calls}")
     print(f"no_db_writes={no_db_writes}")
@@ -57,10 +64,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--series", action="append", help="Specific series to fetch; defaults to starter series.")
     parser.add_argument("--show-values", action="store_true", help="Show normalized record values.")
     parser.add_argument("--max-observations", type=int, default=None, help="Limit observations per series.")
+    parser.add_argument("--confirm-write", action="store_true", help="Write normalized live observations.")
     args = parser.parse_args(argv)
 
     starter_series = get_starter_fred_macro_series()
     requested_series = [series.upper() for series in args.series] if args.series else [series.series_id for series in starter_series]
+    if args.confirm_write and not args.live_check:
+        raise RuntimeError("--confirm-write requires --live-check")
+
+    if args.confirm_write and not os.getenv("DATABASE_URL"):
+        raise RuntimeError("DATABASE_URL is required when --confirm-write is used")
+
     if args.live_check:
         _load_local_env_if_available()
         api_key = os.getenv("FRED_API_KEY")
@@ -81,6 +95,13 @@ def main(argv: list[str] | None = None) -> int:
             normalized_records.extend(result.records)
             invalid_records.extend(result.invalid_rows)
             latest_observation_dates[series_id] = result.latest_observation_date
+        rows_written = 0
+        rows_skipped = 0
+        if args.confirm_write and normalized_records:
+            writer = FredMacroWriter()
+            writer_result = writer.write(list(normalized_records))
+            rows_written = writer_result.written_count
+            rows_skipped = writer_result.skipped_count
         _emit(
             requested_series=requested_series,
             normalized_count=len(normalized_records),
@@ -93,6 +114,9 @@ def main(argv: list[str] | None = None) -> int:
             show_values=args.show_values,
             show_invalid=args.show_invalid,
             invalid_records=tuple(invalid_records),
+            rows_written=rows_written,
+            rows_skipped=rows_skipped,
+            write_confirmed=bool(args.confirm_write),
             normalized_records=tuple(normalized_records),
         )
     else:
@@ -109,6 +133,9 @@ def main(argv: list[str] | None = None) -> int:
             show_values=args.show_values,
             show_invalid=args.show_invalid,
             invalid_records=(),
+            rows_written=0,
+            rows_skipped=0,
+            write_confirmed=False,
             normalized_records=records,
         )
     return 0

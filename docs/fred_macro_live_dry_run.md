@@ -8,6 +8,7 @@ Boundary:
 - no AI/trading/risk/signal/regime logic
 - API key is only required for `--live-check`
 - live dry-runs use the newest observations first when `--max-observations` is set
+- confirmed writes require `--live-check`, `--confirm-write`, `DATABASE_URL`, and `FredMacroWriter`
 
 Supported starter series:
 - DGS10

@@ -108,6 +108,46 @@ class FredMacroFoundationTests(unittest.TestCase):
         self.assertIn("requested_series=['DGS10']", printed)
         self.assertIn("latest_observation_dates={'DGS10': '2026-01-02'}", printed)
 
+    def test_confirm_write_handoff_uses_writer(self) -> None:
+        mod = self._module()
+        fake_result = type(
+            "FakeResult",
+            (),
+            {
+                "records": (
+                    type("Record", (), {"value": 1.0})(),
+                ),
+                "invalid_rows": (),
+                "latest_observation_date": "2026-01-02",
+            },
+        )()
+        captured = {}
+
+        class Writer:
+            def write(self, records):
+                captured["records"] = records
+                return type("Result", (), {"written_count": len(records), "skipped_count": 0})()
+
+        with patch.dict(os.environ, {"FRED_API_KEY": "secret", "DATABASE_URL": "postgresql://example/db"}, clear=True), patch.object(
+            mod, "_load_local_env_if_available", return_value=False
+        ), patch.object(mod, "fetch_fred_macro_series", return_value=fake_result) as fetch_mock, patch.object(
+            mod, "FredMacroWriter", return_value=Writer()
+        ) as writer_mock, patch("builtins.print") as print_mock:
+            mod.main(["--live-check", "--confirm-write", "--series", "DGS10"])
+        fetch_mock.assert_called_once()
+        writer_mock.assert_called_once()
+        self.assertTrue(all(record.__class__.__name__ == "Record" for record in captured["records"]))
+        printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
+        self.assertIn("rows_written=1", printed)
+        self.assertIn("rows_skipped=0", printed)
+        self.assertIn("write_confirmed=True", printed)
+
+    def test_confirm_write_requires_live_check_and_database_url(self) -> None:
+        mod = self._module()
+        with patch.dict(os.environ, {}, clear=True):
+            with self.assertRaises(RuntimeError):
+                mod.main(["--confirm-write"])
+
     def test_live_check_newest_observations_and_latest_date(self) -> None:
         from app.normalization.fred_macro import FredMacroSeriesDefinition
         from app.vendors.fred_macro import fetch_fred_macro_series
@@ -165,6 +205,12 @@ class FredMacroFoundationTests(unittest.TestCase):
         self.assertNotIn("alembic", vendor_text.lower())
         self.assertNotIn("requests", vendor_text.lower())
         self.assertNotIn("httpx", vendor_text.lower())
+        writer_text = Path("app/writers/fred_macro_writer.py").read_text(encoding="utf-8")
+        self.assertNotIn("FastAPI", writer_text)
+        self.assertNotIn("APIRouter", writer_text)
+        self.assertNotIn("alembic", writer_text.lower())
+        self.assertNotIn("requests", writer_text.lower())
+        self.assertNotIn("httpx", writer_text.lower())
 
     def test_docs_coverage(self) -> None:
         text = Path("docs/fred_macro_foundation.md").read_text(encoding="utf-8").lower()
@@ -179,6 +225,7 @@ class FredMacroFoundationTests(unittest.TestCase):
         self.assertIn("live dry-run", text)
         self.assertIn("no db writes", text)
         self.assertIn("api key is only required for `--live-check`", text)
+        self.assertIn("fredmacrowriter", text.replace(" ", "").lower())
 
     def test_preflight_pass(self) -> None:
         mod = self._preflight_module()
@@ -214,3 +261,18 @@ class FredMacroFoundationTests(unittest.TestCase):
         self.assertIn("latest observation date by series", evidence_doc)
         self.assertIn("no db reads yet", evidence_doc)
         self.assertIn("no db writes yet", evidence_doc)
+
+    def test_writer_doc_exists(self) -> None:
+        text = Path("docs/fred_macro_writer.md").read_text(encoding="utf-8").lower()
+        self.assertIn("fred macro writer", text)
+        self.assertIn("macro_rate_observations", text)
+        self.assertIn("deduplicates by `series_id + observation_date + source`", text)
+
+    def test_default_dry_run_no_writes(self) -> None:
+        mod = self._module()
+        with patch("builtins.print") as print_mock:
+            mod.main([])
+        printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
+        self.assertIn("rows_written=0", printed)
+        self.assertIn("rows_skipped=0", printed)
+        self.assertIn("write_confirmed=False", printed)

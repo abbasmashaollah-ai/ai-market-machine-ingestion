@@ -6,6 +6,7 @@ Boundary:
 - no vendor calls by default
 - no DB writes
 - no AI/trading/risk/signal/regime logic
+- confirmed writes, when enabled, must go through `FredMacroWriter`
 
 Starter series:
 - DGS10
