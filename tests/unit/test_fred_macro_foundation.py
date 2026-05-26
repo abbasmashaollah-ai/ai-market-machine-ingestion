@@ -19,6 +19,11 @@ class FredMacroFoundationTests(unittest.TestCase):
 
         return mod
 
+    def _preflight_module(self):
+        import scripts.preflight_fred_macro_operations as mod
+
+        return mod
+
     def test_normalization_behavior(self) -> None:
         from app.normalization.fred_macro import FredMacroSeriesDefinition, normalize_fred_macro_record
 
@@ -174,3 +179,38 @@ class FredMacroFoundationTests(unittest.TestCase):
         self.assertIn("live dry-run", text)
         self.assertIn("no db writes", text)
         self.assertIn("api key is only required for `--live-check`", text)
+
+    def test_preflight_pass(self) -> None:
+        mod = self._preflight_module()
+        with patch("builtins.print") as print_mock:
+            exit_code = mod.main([])
+        self.assertEqual(exit_code, 0)
+        printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
+        self.assertIn("dry_run_command_exists=True", printed)
+        self.assertIn("live_dry_run_doc_exists=True", printed)
+        self.assertIn("normalization_module_exists=True", printed)
+        self.assertIn("starter_series_configured=True", printed)
+        self.assertIn("forbidden_imports_absent=True", printed)
+
+    def test_preflight_live_check_requires_api_key(self) -> None:
+        mod = self._preflight_module()
+        with patch.dict(os.environ, {}, clear=True), patch.object(mod, "_load_local_env_if_available", return_value=False):
+            with self.assertRaises(RuntimeError):
+                mod.main(["--live-check"])
+
+    def test_preflight_no_database_url_requirement(self) -> None:
+        mod = self._preflight_module()
+        with patch.dict(os.environ, {}, clear=True), patch("builtins.print") as print_mock:
+            mod.main([])
+        printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
+        self.assertIn("no_database_url_required_yet=True", printed)
+
+    def test_preflight_docs_coverage(self) -> None:
+        preflight_doc = Path("docs/fred_macro_preflight.md").read_text(encoding="utf-8").lower()
+        evidence_doc = Path("docs/fred_macro_evidence_plan.md").read_text(encoding="utf-8").lower()
+        self.assertIn("dry-run foundation", preflight_doc)
+        self.assertIn("database_url is not required yet", preflight_doc)
+        self.assertIn("macro row counts by series", evidence_doc)
+        self.assertIn("latest observation date by series", evidence_doc)
+        self.assertIn("no db reads yet", evidence_doc)
+        self.assertIn("no db writes yet", evidence_doc)
