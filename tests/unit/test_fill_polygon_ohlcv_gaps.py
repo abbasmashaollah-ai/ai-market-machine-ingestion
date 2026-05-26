@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import unittest
 from datetime import date, datetime, timezone
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 
@@ -32,6 +33,25 @@ class FillPolygonOhlcvGapsTests(unittest.TestCase):
             "1d",
             *extra,
         ]
+
+    def test_invalid_date_range_fails_safely(self) -> None:
+        mod = self._module()
+        with patch.dict(os.environ, {"DATABASE_URL": "postgresql://example/db"}, clear=True), patch.object(
+            mod, "load_local_env_if_available", return_value=False
+        ), patch(
+            "sys.argv",
+            [
+                "fill_polygon_ohlcv_gaps.py",
+                "--symbol",
+                "SPY",
+                "--start-date",
+                "2025-01-10",
+                "--end-date",
+                "2025-01-02",
+            ],
+        ):
+            with self.assertRaises(RuntimeError):
+                mod.main()
 
     def test_detects_missing_weekdays_from_db_coverage(self) -> None:
         mod = self._module()
@@ -124,10 +144,20 @@ class FillPolygonOhlcvGapsTests(unittest.TestCase):
 
         writer.write.assert_called_once()
         written_records = writer.write.call_args.args[0]
+        self.assertEqual(type(written_records[0]).__name__, "NormalizedOHLCVRecord")
         self.assertEqual(len(written_records), 1)
         self.assertEqual(written_records[0].source, "polygon_aggregates")
         self.assertEqual(written_records[0].timeframe, "1d")
         self.assertTrue(written_records[0].adjusted)
+
+    def test_no_scheduler_api_or_migration_imports(self) -> None:
+        source = Path(__file__).resolve().parents[2] / "scripts" / "fill_polygon_ohlcv_gaps.py"
+        text = source.read_text(encoding="utf-8")
+        self.assertNotIn("FastAPI", text)
+        self.assertNotIn("APIRouter", text)
+        self.assertNotIn("alembic", text.lower())
+        self.assertNotIn("scheduler", text.lower())
+        self.assertNotIn("migration", text.lower())
 
     def test_polygon_key_required_only_when_gaps_require_fetch(self) -> None:
         mod = self._module()

@@ -22,7 +22,14 @@ class PolygonClientConfig:
 
 
 class PolygonClient(Protocol):
-    def fetch_aggregates_raw(self, ticker: str, from_date: str, to_date: str) -> list[dict[str, object]]:
+    def fetch_aggregates_raw(
+        self,
+        ticker: str,
+        from_date: str,
+        to_date: str,
+        *,
+        adjusted: bool = True,
+    ) -> list[dict[str, object]]:
         ...
 
     def fetch_tickers_raw(self) -> list[dict[str, object]]:
@@ -43,7 +50,14 @@ class UnsupportedPolygonClient:
         self.retry_policy = retry_policy or build_retry_policy()
         self.rate_limiter = rate_limiter
 
-    def fetch_aggregates_raw(self, ticker: str, from_date: str, to_date: str) -> list[dict[str, object]]:
+    def fetch_aggregates_raw(
+        self,
+        ticker: str,
+        from_date: str,
+        to_date: str,
+        *,
+        adjusted: bool = True,
+    ) -> list[dict[str, object]]:
         if self.http_client is None:
             raise NotImplementedError("Polygon client transport is not configured.")
         self._acquire_rate_limit()
@@ -51,7 +65,7 @@ class UnsupportedPolygonClient:
             method="GET",
             url=self._build_url(daily_aggregates_path(ticker, from_date, to_date)),
             timeout_seconds=self.config.timeout_seconds,
-            query_params=daily_aggregates_params(self.config.api_key),
+            query_params=daily_aggregates_params(self.config.api_key, adjusted=adjusted),
         )
         response = self.http_client.request(request_metadata)
         return self._extract_raw_list(response)

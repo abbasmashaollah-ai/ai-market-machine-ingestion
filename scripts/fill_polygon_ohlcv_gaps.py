@@ -15,6 +15,11 @@ def _parse_date(value: str) -> date:
     return date.fromisoformat(value)
 
 
+def _validate_date_range(start_date: date, end_date: date) -> None:
+    if start_date > end_date:
+        raise RuntimeError("start-date must be on or before end-date")
+
+
 def _use_cursor(connection: object) -> bool:
     return hasattr(connection, "cursor") and not hasattr(connection, "execute")
 
@@ -57,6 +62,10 @@ def _exclusive_end_date(end_date: date) -> date:
     return end_date + timedelta(days=1)
 
 
+def _filter_adjusted_rows(rows: list[dict[str, object]], adjusted: bool) -> list[dict[str, object]]:
+    return [row for row in rows if row.get("adjusted") is adjusted]
+
+
 def _expected_weekdays(start_date: date, end_date: date) -> list[date]:
     return expected_trading_days(start_date, end_date)
 
@@ -92,6 +101,7 @@ def _print_summary(
     timeframe: str,
     start_date: date,
     end_date: date,
+    adjusted: bool,
     source_filter: str | None,
     missing_dates: list[date],
     rows_fetched: int,
@@ -121,6 +131,7 @@ def _print_summary(
         f"timeframe={timeframe} "
         f"start_date={start_date.isoformat()} "
         f"end_date={end_date.isoformat()} "
+        f"adjusted={str(adjusted).lower()} "
         f"source_filter={source_filter if source_filter is not None else 'None'} "
         f"missing_dates_count={len(missing_dates)} "
         f"rows_fetched={rows_fetched} "
@@ -168,6 +179,12 @@ def main() -> int:
     parser.add_argument("--start-date", required=True, help="Start date in YYYY-MM-DD format.")
     parser.add_argument("--end-date", required=True, help="End date in YYYY-MM-DD format.")
     parser.add_argument("--timeframe", default="1d", help="Timeframe, default 1d.")
+    parser.add_argument(
+        "--adjusted",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Fetch and write adjusted Polygon rows by default; use --no-adjusted for unadjusted rows.",
+    )
     parser.add_argument("--source-filter", default="polygon_aggregates", help="Coverage source filter, default polygon_aggregates.")
     parser.add_argument("--confirm-write", action="store_true", help="Actually write valid rows.")
     args = parser.parse_args()
@@ -179,6 +196,7 @@ def main() -> int:
 
     start_date = _parse_date(args.start_date)
     end_date = _parse_date(args.end_date)
+    _validate_date_range(start_date, end_date)
     connection = None
     writer = None
     try:
@@ -188,6 +206,7 @@ def main() -> int:
         if args.source_filter is not None:
             params = params + (args.source_filter,)
         coverage_rows = _fetch_all(connection, coverage_query, params)
+        coverage_rows = _filter_adjusted_rows(coverage_rows, args.adjusted)
         coverage = calculate_coverage(rows=coverage_rows, start_date=start_date, end_date=end_date)
         missing_dates = list(coverage["missing_weekdays"])
         if not missing_dates:
@@ -196,6 +215,7 @@ def main() -> int:
                 timeframe=args.timeframe,
                 start_date=start_date,
                 end_date=end_date,
+                adjusted=args.adjusted,
                 source_filter=args.source_filter,
                 missing_dates=[],
                 rows_fetched=0,
@@ -212,7 +232,12 @@ def main() -> int:
             raise RuntimeError("POLYGON_API_KEY is required when gap fill needs vendor fetch")
 
         client = _build_polygon_client(polygon_api_key)
-        raw_records = client.fetch_aggregates_raw(args.symbol, start_date.isoformat(), end_date.isoformat())
+        raw_records = client.fetch_aggregates_raw(
+            args.symbol,
+            start_date.isoformat(),
+            end_date.isoformat(),
+            adjusted=args.adjusted,
+        )
         normalized, rows_invalid, validation_failures = _build_gap_filled_records(
             symbol=args.symbol,
             timeframe=args.timeframe,
@@ -251,6 +276,7 @@ def main() -> int:
             timeframe=args.timeframe,
             start_date=start_date,
             end_date=end_date,
+            adjusted=args.adjusted,
             source_filter=args.source_filter,
             missing_dates=missing_dates,
             rows_fetched=len(raw_records),
