@@ -149,6 +149,23 @@ class VolatilityIndexFoundationTests(unittest.TestCase):
             mod.main(["--live-check", "--symbol", "VIX", "--stop-on-rate-limit"])
         printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
         self.assertIn("rate_limit_detected=true", printed)
+        self.assertIn("entitlement_blocked=false", printed)
+
+    def test_entitlement_failure_401(self) -> None:
+        mod = self._module()
+
+        adapter = unittest.mock.Mock()
+        adapter.fetch_symbol_records.side_effect = RuntimeError("HTTP 401 unauthorized for polygon api key")
+        with patch.dict("os.environ", {"POLYGON_API_KEY": "polygon-secret"}, clear=True), patch.object(
+            mod, "PolygonVolatilityIndexAdapter", return_value=adapter
+        ), patch("builtins.print") as print_mock:
+            mod.main(["--live-check", "--symbol", "VIX", "--show-invalid"])
+        printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
+        self.assertIn("entitlement_blocked=true", printed)
+        self.assertIn("rate_limit_detected=false", printed)
+        self.assertIn("invalid_count=1", printed)
+        self.assertNotIn("polygon-secret", printed)
+        self.assertNotIn("POLYGON_API_KEY", printed)
 
     def test_sanitized_errors(self) -> None:
         mod = self._module()
@@ -162,6 +179,7 @@ class VolatilityIndexFoundationTests(unittest.TestCase):
         printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
         self.assertNotIn("secret", printed)
         self.assertNotIn("POLYGON_API_KEY", printed)
+        self.assertIn("no_db_writes=true", printed)
 
     def test_show_symbols_behavior(self) -> None:
         mod = self._module()
@@ -227,6 +245,7 @@ class VolatilityIndexFoundationTests(unittest.TestCase):
         printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
         self.assertIn("invalid_count=1", printed)
         self.assertIn("polygon returned no volatility observations", printed)
+        self.assertIn("no_db_writes=true", printed)
 
     def test_docs_coverage(self) -> None:
         text = Path("docs/volatility_index_foundation.md").read_text(encoding="utf-8").lower()

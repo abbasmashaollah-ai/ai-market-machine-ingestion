@@ -13,7 +13,11 @@ from app.normalization.volatility_index import (
     validate_volatility_index_record,
 )
 from app.vendors.common.errors import VendorRateLimitedError
-from app.vendors.polygon_volatility_index import PolygonVolatilityIndexAdapter, PolygonVolatilityIndexSourceConfig
+from app.vendors.polygon_volatility_index import (
+    PolygonVolatilityIndexAdapter,
+    PolygonVolatilityIndexSourceConfig,
+    is_entitlement_failure,
+)
 
 
 DEFAULT_SAMPLE_RECORDS: tuple[dict[str, object], ...] = (
@@ -31,6 +35,7 @@ class VolatilityDryRunResult:
     invalid_records: tuple[dict[str, object], ...]
     latest_observation_dates: dict[str, str | None]
     rate_limit_detected: bool
+    entitlement_blocked: bool
     no_vendor_calls: bool
     no_db_writes: bool
 
@@ -52,6 +57,7 @@ def _build_summary(source_records: tuple[dict[str, object], ...]) -> VolatilityD
         invalid_records=invalid_records,
         latest_observation_dates=latest_observation_dates,
         rate_limit_detected=False,
+        entitlement_blocked=False,
         no_vendor_calls=True,
         no_db_writes=True,
     )
@@ -72,11 +78,12 @@ def _normalize_live_records(
     stop_on_rate_limit: bool,
     max_rate_limit_failures: int,
     sleep_seconds_between_symbols: float,
-) -> tuple[tuple[NormalizedVolatilityIndexRecord, ...], dict[str, str | None], bool, list[dict[str, object]]]:
+) -> tuple[tuple[NormalizedVolatilityIndexRecord, ...], dict[str, str | None], bool, bool, list[dict[str, object]]]:
     normalized_records: list[NormalizedVolatilityIndexRecord] = []
     latest_observation_dates: dict[str, str | None] = {}
     invalid_records: list[dict[str, object]] = []
     rate_limit_detected = False
+    entitlement_blocked = False
     rate_limit_failures = 0
     for index, symbol in enumerate(requested_symbols):
         try:
@@ -90,8 +97,11 @@ def _normalize_live_records(
                 break
             continue
         except Exception as exc:
-            invalid_records.append({"symbol": symbol, "error": _sanitize_vendor_error(str(exc))})
+            sanitized = _sanitize_vendor_error(str(exc))
+            invalid_records.append({"symbol": symbol, "error": sanitized})
             latest_observation_dates[symbol] = None
+            if is_entitlement_failure(sanitized):
+                entitlement_blocked = True
             continue
         if not symbol_records:
             invalid_records.append({"symbol": symbol, "error": "polygon returned no valid volatility observations"})
@@ -104,7 +114,7 @@ def _normalize_live_records(
     normalized_records = tuple(
         sorted(normalized_records, key=lambda record: (record.symbol or "", record.observation_date or date.min))
     )
-    return normalized_records, latest_observation_dates, rate_limit_detected, invalid_records
+    return normalized_records, latest_observation_dates, rate_limit_detected, entitlement_blocked, invalid_records
 
 
 def _emit(
@@ -118,6 +128,7 @@ def _emit(
     show_invalid: bool,
     requested_symbols: list[str],
     rate_limit_detected: bool,
+    entitlement_blocked: bool,
     no_vendor_calls: bool,
 ) -> None:
     print(f"requested_symbols={requested_symbols}")
@@ -126,6 +137,7 @@ def _emit(
     print(f"invalid_count={invalid_count}")
     print(f"latest_observation_dates={summary.latest_observation_dates}")
     print(f"rate_limit_detected={str(rate_limit_detected).lower()}")
+    print(f"entitlement_blocked={str(entitlement_blocked).lower()}")
     print(f"starter_symbols={list(STARTER_VOLATILITY_INDEX_SYMBOLS)}")
     print(f"no_vendor_calls={str(no_vendor_calls).lower()}")
     print(f"no_db_writes={str(summary.no_db_writes).lower()}")
@@ -161,7 +173,7 @@ def main(argv: list[str] | None = None) -> int:
         if not api_key:
             raise RuntimeError("POLYGON_API_KEY is required when --live-check is used")
         adapter = PolygonVolatilityIndexAdapter(PolygonVolatilityIndexSourceConfig(api_key=api_key))
-        normalized_records, latest_observation_dates, rate_limit_detected, invalid_records = _normalize_live_records(
+        normalized_records, latest_observation_dates, rate_limit_detected, entitlement_blocked, invalid_records = _normalize_live_records(
             adapter=adapter,
             requested_symbols=requested_symbols,
             max_observations=args.max_observations,
@@ -175,6 +187,7 @@ def main(argv: list[str] | None = None) -> int:
             invalid_records=tuple(invalid_records),
             latest_observation_dates=latest_observation_dates,
             rate_limit_detected=rate_limit_detected,
+            entitlement_blocked=entitlement_blocked,
             no_vendor_calls=False,
             no_db_writes=True,
         )
@@ -188,6 +201,7 @@ def main(argv: list[str] | None = None) -> int:
             show_invalid=args.show_invalid,
             requested_symbols=requested_symbols,
             rate_limit_detected=rate_limit_detected,
+            entitlement_blocked=entitlement_blocked,
             no_vendor_calls=False,
         )
     else:
@@ -202,6 +216,7 @@ def main(argv: list[str] | None = None) -> int:
             show_invalid=args.show_invalid,
             requested_symbols=requested_symbols,
             rate_limit_detected=False,
+            entitlement_blocked=False,
             no_vendor_calls=True,
         )
     return 0

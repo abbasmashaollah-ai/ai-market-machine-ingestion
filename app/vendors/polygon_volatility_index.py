@@ -155,3 +155,8 @@ def _sanitize_error_message(message: str) -> str:
     for needle in ("POLYGON_API_KEY", "apiKey", "api key", "api-key"):
         sanitized = sanitized.replace(needle, "polygon api key")
     return sanitized
+
+
+def is_entitlement_failure(message: str) -> bool:
+    lowered = message.lower()
+    return "401" in lowered or "unauthorized" in lowered or "entitlement" in lowered or "forbidden" in lowered

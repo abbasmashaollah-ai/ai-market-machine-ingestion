@@ -10,7 +10,7 @@ This document describes the planned source candidates for volatility index cover
 
 ## Candidate notes
 
-Polygon is the leading planned source for broader coverage, but it remains unapproved here.
+Polygon is the leading planned source for broader coverage, but it is currently entitlement-blocked for live index observations under the current key.
 Cboe is a later approved-source candidate for Cboe-family volatility indexes.
 The manual fixture remains test-only and exists for deterministic planning coverage.
 

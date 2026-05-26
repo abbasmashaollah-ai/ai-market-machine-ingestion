@@ -8,6 +8,8 @@
 - `--live-check` fetches Polygon volatility observations when `POLYGON_API_KEY` is present
 - live-check normalizes into `NormalizedVolatilityIndexRecord`
 - `I:VIX`, `I:VVIX`, `I:VXN`, and `I:RVX` are normalized back to `VIX`, `VVIX`, `VXN`, and `RVX`
+- Polygon index symbols may require plan entitlement
+- current observed result: `I:VIX` and `I:VXN` returned `401` on the current key
 - `--symbol` can be repeated for starter symbols
 - `--max-observations` keeps the newest observations first
 - `--show-values` prints normalized values
@@ -27,10 +29,12 @@
 - `invalid_count`
 - `latest_observation_dates`
 - `rate_limit_detected`
+- `entitlement_blocked`
 - `invalid_records` include safe failure reasons when Polygon returns no usable payload
 - `no_db_writes=true`
 
 ## Boundary
 
 Polygon live-check usage requires `POLYGON_API_KEY`.
+Persistence remains blocked until a valid source is confirmed.
 The command does not own schema contracts.
