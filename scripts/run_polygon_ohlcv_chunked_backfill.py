@@ -33,6 +33,11 @@ def _parse_date(value: str) -> date:
     return date.fromisoformat(value)
 
 
+def _validate_date_range(start_date: date, end_date: date) -> None:
+    if start_date > end_date:
+        raise RuntimeError("start-date must be on or before end-date")
+
+
 def _print_symbol_summary(row, *, chunk_start_date: date, chunk_end_date: date) -> None:
     print(
         f"symbol={row.symbol} "
@@ -156,6 +161,11 @@ def main() -> int:
     parser.add_argument("--timeframe", default="1d", help="Timeframe, default 1d.")
     parser.add_argument("--chunk-days", type=int, default=30, help="Chunk size in days, default 30.")
     parser.add_argument("--confirm-write", action="store_true", help="Actually write valid rows through the approved writer.")
+    parser.add_argument(
+        "--resume-from-checkpoint",
+        action="store_true",
+        help="Load checkpoint state to resume from the last successful chunk when DATABASE_URL is available.",
+    )
     parser.add_argument("--max-symbols", type=int, default=DEFAULT_MAX_SYMBOLS, help="Safety cap for symbol count.")
     parser.add_argument("--max-chunks", type=int, default=DEFAULT_MAX_CHUNKS, help="Safety cap for chunk count.")
     parser.add_argument("--max-requests", type=int, default=DEFAULT_MAX_REQUESTS, help="Maximum safe manual request budget, default 25.")
@@ -195,6 +205,8 @@ def main() -> int:
     database_url = os.getenv("DATABASE_URL")
     if args.confirm_write and not database_url:
         raise RuntimeError("DATABASE_URL is required when --confirm-write is used")
+    if args.resume_from_checkpoint and not database_url:
+        raise RuntimeError("DATABASE_URL is required when --resume-from-checkpoint is used")
     if args.record_run and not database_url:
         raise RuntimeError("DATABASE_URL is required when --record-run is used")
     if args.record_quality and not database_url:
@@ -208,6 +220,7 @@ def main() -> int:
 
     start_date = _parse_date(args.start_date)
     end_date = _parse_date(args.end_date)
+    _validate_date_range(start_date, end_date)
     run_started_at = datetime.now(timezone.utc)
     chunks = split_date_range_into_chunks(start_date, end_date, max_days_per_chunk=args.chunk_days)
     expected_days = expected_trading_days(start_date, end_date)
@@ -258,21 +271,25 @@ def main() -> int:
     total_rows_written = 0
     rate_limit_failures = 0
     stopped_due_to_rate_limit = False
+    stopped_due_to_failure = False
     chunks_not_run = 0
     connection = None
     checkpoint_store = None
     writer = None
     try:
         if not blocked_over_budget:
-            if args.confirm_write:
+            if args.confirm_write or args.resume_from_checkpoint:
                 connection = _open_connection(database_url)  # type: ignore[arg-type]
                 checkpoint_store = ManualPolygonOHLCVCheckpointStore(connection)
+            if args.confirm_write:
                 writer = OhlcvWriter(connection)
 
             for symbol in symbols:
+                if stopped_due_to_rate_limit or stopped_due_to_failure:
+                    break
                 stop_symbol = False
                 for chunk in chunks:
-                    if stop_symbol or stopped_due_to_rate_limit:
+                    if stop_symbol or stopped_due_to_rate_limit or stopped_due_to_failure:
                         chunks_not_run += 1
                         continue
                     try:
@@ -285,7 +302,7 @@ def main() -> int:
                             writer=writer,
                             confirmed_write=args.confirm_write,
                             checkpoint_store=checkpoint_store,
-                            use_checkpoint=args.confirm_write,
+                            use_checkpoint=args.confirm_write or args.resume_from_checkpoint,
                             update_checkpoint=args.confirm_write,
                         )
                         row = summary.symbol_summaries[0] if summary.symbol_summaries else None
@@ -345,18 +362,21 @@ def main() -> int:
                                     },
                                 )
                             )
+                            if _is_rate_limit_failure(row.error_message):
+                                rate_limit_failures += 1
+                                if rate_limit_failures >= args.max_rate_limit_failures:
+                                    stopped_due_to_rate_limit = True
+                                if args.stop_on_rate_limit:
+                                    stop_symbol = True
+                                else:
+                                    stop_symbol = False
+                            else:
+                                stop_symbol = True
+                                stopped_due_to_failure = True
                         else:
                             chunks_completed += 1
                         total_rows_fetched += row.rows_fetched
                         total_rows_written += row.rows_written
-                        if row.status == "failed" and _is_rate_limit_failure(row.error_message):
-                            rate_limit_failures += 1
-                            if rate_limit_failures >= args.max_rate_limit_failures:
-                                stopped_due_to_rate_limit = True
-                            if args.stop_on_rate_limit:
-                                stop_symbol = True
-                            else:
-                                stop_symbol = False
                     except Exception as exc:
                         chunks_failed += 1
                         error_message = f"{exc.__class__.__name__}: {exc}"
@@ -377,6 +397,8 @@ def main() -> int:
                                 },
                             )
                         )
+                        stop_symbol = True
+                        stopped_due_to_failure = True
                         if _is_rate_limit_failure(error_message):
                             rate_limit_failures += 1
                             if rate_limit_failures >= args.max_rate_limit_failures:
@@ -465,6 +487,7 @@ def main() -> int:
     print(
         f"rate_limit_failures={rate_limit_failures} "
         f"stopped_due_to_rate_limit={str(stopped_due_to_rate_limit).lower()} "
+        f"stopped_due_to_failure={str(stopped_due_to_failure).lower()} "
         f"chunks_not_run={chunks_not_run}"
     )
     print(

@@ -161,6 +161,25 @@ class RunPolygonOhlcvChunkedBackfillTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 mod.main()
 
+    def test_invalid_date_range_fails_safely(self) -> None:
+        mod = self._module()
+        with patch.dict(os.environ, {"POLYGON_API_KEY": "polygon-secret"}, clear=True), patch.object(
+            mod, "load_local_env_if_available", return_value=False
+        ), patch(
+            "sys.argv",
+            [
+                "run_polygon_ohlcv_chunked_backfill.py",
+                "--symbol",
+                "SPY",
+                "--start-date",
+                "2025-02-01",
+                "--end-date",
+                "2025-01-02",
+            ],
+        ):
+            with self.assertRaises(RuntimeError):
+                mod.main()
+
     def test_dry_run_execution_summary(self) -> None:
         mod = self._module()
         with patch.dict(os.environ, {"POLYGON_API_KEY": "polygon-secret"}, clear=True), patch.object(
@@ -201,6 +220,66 @@ class RunPolygonOhlcvChunkedBackfillTests(unittest.TestCase):
         run_store_cls.assert_not_called()
         quality_store_cls.assert_not_called()
 
+    def test_resume_from_checkpoint_routes_through_existing_checkpoint_logic(self) -> None:
+        mod = self._module()
+        fake_connection = Mock()
+        fake_connection.execute.return_value.fetchall.return_value = []
+        with patch.dict(
+            os.environ,
+            {"POLYGON_API_KEY": "polygon-secret", "DATABASE_URL": "postgresql://user:pass@host/db"},
+            clear=True,
+        ), patch.object(mod, "load_local_env_if_available", return_value=False), patch.object(
+            mod, "_open_connection", return_value=fake_connection
+        ) as open_connection_mock, patch.object(mod, "ManualPolygonOHLCVCheckpointStore") as checkpoint_store_cls, patch.object(
+            mod, "OhlcvWriter"
+        ) as writer_cls, patch.object(mod, "build_manual_polygon_ohlcv_incremental", return_value=self._summary()) as build_mock, patch(
+            "builtins.print"
+        ), patch(
+            "sys.argv",
+            [
+                "run_polygon_ohlcv_chunked_backfill.py",
+                "--symbol",
+                "SPY",
+                "--start-date",
+                "2025-01-02",
+                "--end-date",
+                "2025-01-10",
+                "--chunk-days",
+                "3",
+                "--resume-from-checkpoint",
+            ],
+        ):
+            mod.main()
+
+        open_connection_mock.assert_called_once()
+        checkpoint_store_cls.assert_called_once_with(fake_connection)
+        writer_cls.assert_not_called()
+        self.assertTrue(build_mock.call_args.kwargs["use_checkpoint"])
+        self.assertFalse(build_mock.call_args.kwargs["confirmed_write"])
+        self.assertIs(build_mock.call_args.kwargs["checkpoint_store"], checkpoint_store_cls.return_value)
+
+    def test_resume_from_checkpoint_requires_database_url(self) -> None:
+        mod = self._module()
+        with patch.dict(os.environ, {"POLYGON_API_KEY": "polygon-secret"}, clear=True), patch.object(
+            mod, "load_local_env_if_available", return_value=False
+        ), patch(
+            "sys.argv",
+            [
+                "run_polygon_ohlcv_chunked_backfill.py",
+                "--symbol",
+                "SPY",
+                "--start-date",
+                "2025-01-02",
+                "--end-date",
+                "2025-01-10",
+                "--chunk-days",
+                "3",
+                "--resume-from-checkpoint",
+            ],
+        ):
+            with self.assertRaises(RuntimeError):
+                mod.main()
+
     def test_over_budget_blocks_before_execution(self) -> None:
         mod = self._module()
         with patch.dict(os.environ, {"POLYGON_API_KEY": "polygon-secret"}, clear=True), patch.object(
@@ -240,6 +319,55 @@ class RunPolygonOhlcvChunkedBackfillTests(unittest.TestCase):
         self.assertIn("status=blocked_over_budget", printed)
         self.assertIn("estimated_vendor_requests=8", printed)
         self.assertIn("max_requests=6", printed)
+
+    def test_generic_failed_chunk_stops_symbol_safely(self) -> None:
+        mod = self._module()
+        failure = self._summary(status="failed")
+        failure.symbol_summaries = (
+            SimpleNamespace(
+                symbol="SPY",
+                requested_start_date=date(2025, 1, 2),
+                effective_start_date=date(2025, 1, 2),
+                rows_fetched=0,
+                rows_valid=0,
+                rows_invalid=0,
+                rows_written=0,
+                validation_failures=0,
+                planned_start_date=date(2025, 1, 2),
+                planned_end_date=date(2025, 1, 10),
+                write_confirmed=False,
+                checkpoint_loaded=False,
+                status="failed",
+                error_message="RuntimeError: chunk planning failed",
+            ),
+        )
+        with patch.dict(os.environ, {"POLYGON_API_KEY": "polygon-secret"}, clear=True), patch.object(
+            mod, "load_local_env_if_available", return_value=False
+        ), patch.object(mod, "build_manual_polygon_ohlcv_incremental", side_effect=[failure, self._summary(), self._summary()]) as build_mock, patch(
+            "scripts.run_polygon_ohlcv_chunked_backfill.time.sleep"
+        ), patch(
+            "builtins.print"
+        ) as print_mock, patch(
+            "sys.argv",
+            [
+                "run_polygon_ohlcv_chunked_backfill.py",
+                "--symbol",
+                "SPY",
+                "--start-date",
+                "2025-01-02",
+                "--end-date",
+                "2025-01-10",
+                "--chunk-days",
+                "3",
+            ],
+        ):
+            mod.main()
+
+        printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
+        self.assertIn("chunks_failed=1", printed)
+        self.assertIn("chunks_not_run=2", printed)
+        self.assertIn("stopped_due_to_failure=true", printed)
+        self.assertEqual(build_mock.call_count, 1)
 
     def test_allow_over_budget_proceeds(self) -> None:
         mod = self._module()
