@@ -14,6 +14,18 @@ It may:
 - report candidate counts, found counts, missing counts, and group counts
 - support targeted live lookup through `scripts/fetch_polygon_symbol_master_by_symbols.py`
 
+## Index labels versus proxies
+
+Major index coverage is modeled as index labels with tradable ETF proxies:
+
+- SPX maps to SPY
+- NDX maps to QQQ
+- RUT maps to IWM
+- DJI maps to DIA
+
+The index label is tracked as planning context, while the proxy symbol is what the dry-run check expects in `public.symbol_master`.
+The major-index candidate records carry `index_symbol` for the label and `proxy_symbol` for the tradable ETF, with `active_required=false` on the label and `proxy_required=true` on the proxy.
+
 It does not:
 
 - call vendors by default

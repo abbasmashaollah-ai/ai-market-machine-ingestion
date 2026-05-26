@@ -51,6 +51,11 @@ class EtfIndexUniverseExpansionTests(unittest.TestCase):
         self.assertIn("sector_etf", groups)
         self.assertIn("major_index", groups)
         self.assertIn("industry_etf_placeholder", groups)
+        major_index = [candidate for candidate in candidates if candidate.universe_group == "major_index"]
+        self.assertEqual({candidate.index_symbol for candidate in major_index}, {"SPX", "NDX", "RUT", "DJI"})
+        self.assertEqual({candidate.proxy_symbol for candidate in major_index}, {"SPY", "QQQ", "IWM", "DIA"})
+        self.assertTrue(all(candidate.proxy_required for candidate in major_index))
+        self.assertTrue(all(candidate.active_required is False for candidate in major_index))
 
     def test_default_no_db_access(self) -> None:
         mod = self._module()
@@ -61,10 +66,13 @@ class EtfIndexUniverseExpansionTests(unittest.TestCase):
         self.assertIn("candidate_count=", printed)
         self.assertIn("found_count=0", printed)
         self.assertIn("missing_count=", printed)
+        self.assertIn("proxy_found_count=0", printed)
+        self.assertIn("proxy_missing_count=0", printed)
         self.assertIn("no_vendor_calls=True", printed)
         self.assertIn("no_db_writes=True", printed)
         self.assertNotIn("found_symbols=", printed)
         self.assertNotIn("missing_symbols=", printed)
+        self.assertNotIn("missing_proxy_symbols=", printed)
 
     def test_check_symbol_master_requires_database_url(self) -> None:
         mod = self._module()
@@ -76,7 +84,7 @@ class EtfIndexUniverseExpansionTests(unittest.TestCase):
 
     def test_symbol_master_check_found_and_missing_behavior(self) -> None:
         mod = self._module()
-        connection = _Connection([{"symbol": "SPY"}, {"symbol": "QQQ"}])
+        connection = _Connection([{"symbol": "SPY"}, {"symbol": "QQQ"}, {"symbol": "IWM"}, {"symbol": "DIA"}])
         with patch.dict(os.environ, {"DATABASE_URL": "postgresql://user:pass@host/db"}, clear=True), patch.object(
             mod, "load_local_env_if_available", return_value=False
         ), patch.object(mod, "_open_connection", return_value=connection), patch("builtins.print") as print_mock, patch(
@@ -86,8 +94,9 @@ class EtfIndexUniverseExpansionTests(unittest.TestCase):
             mod.main()
 
         printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
-        self.assertIn("found_count=2", printed)
-        self.assertIn("missing_count=", printed)
+        self.assertIn("found_count=8", printed)
+        self.assertIn("proxy_found_count=4", printed)
+        self.assertIn("proxy_missing_count=0", printed)
         self.assertTrue(connection.closed)
 
     def test_show_missing_output(self) -> None:
@@ -103,6 +112,7 @@ class EtfIndexUniverseExpansionTests(unittest.TestCase):
 
         printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
         self.assertIn("missing_symbols=", printed)
+        self.assertIn("missing_proxy_symbols=", printed)
 
     def test_show_found_output(self) -> None:
         mod = self._module()

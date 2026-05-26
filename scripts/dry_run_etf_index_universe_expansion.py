@@ -30,13 +30,14 @@ def _fetch_all(connection: object, sql: str, params: tuple[object, ...] = ()) ->
 
 
 def _emit(summary: dict[str, object]) -> None:
-    for key in ("candidate_count", "found_count", "missing_count", "no_vendor_calls", "no_db_writes"):
+    for key in ("candidate_count", "found_count", "missing_count", "proxy_found_count", "proxy_missing_count", "no_vendor_calls", "no_db_writes"):
         print(f"{key}={summary.get(key)}")
     print(f"group_counts={summary.get('group_counts')}")
     if summary.get("show_found"):
         print(f"found_symbols={summary.get('found_symbols')}")
     if summary.get("show_missing"):
         print(f"missing_symbols={summary.get('missing_symbols')}")
+        print(f"missing_proxy_symbols={summary.get('missing_proxy_symbols')}")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -52,6 +53,8 @@ def main(argv: list[str] | None = None) -> int:
         "candidate_count": len(candidates),
         "found_count": 0,
         "missing_count": len(candidates),
+        "proxy_found_count": 0,
+        "proxy_missing_count": 0,
         "group_counts": summarize_candidate_groups(candidates),
         "no_vendor_calls": True,
         "no_db_writes": True,
@@ -59,6 +62,7 @@ def main(argv: list[str] | None = None) -> int:
         "show_missing": args.show_missing,
         "found_symbols": [],
         "missing_symbols": [candidate.symbol for candidate in candidates],
+        "missing_proxy_symbols": [],
     }
 
     if args.check_symbol_master:
@@ -78,11 +82,33 @@ def main(argv: list[str] | None = None) -> int:
                 (args.vendor,),
             )
             found_symbols = {str(row.get("symbol")) for row in rows if row.get("symbol")}
-            found_count = sum(1 for candidate in candidates if candidate.symbol in found_symbols)
-            summary["found_symbols"] = [candidate.symbol for candidate in candidates if candidate.symbol in found_symbols]
-            summary["missing_symbols"] = [candidate.symbol for candidate in candidates if candidate.symbol not in found_symbols]
+            found_count = 0
+            proxy_found_count = 0
+            found_list: list[str] = []
+            missing_list: list[str] = []
+            missing_proxy_list: list[str] = []
+            for candidate in candidates:
+                if candidate.universe_group == "major_index":
+                    proxy_symbol = candidate.proxy_symbol or candidate.symbol
+                    if proxy_symbol in found_symbols:
+                        proxy_found_count += 1
+                        found_count += 1
+                        found_list.append(candidate.symbol)
+                    else:
+                        missing_proxy_list.append(proxy_symbol)
+                        missing_list.append(candidate.symbol)
+                elif candidate.symbol in found_symbols:
+                    found_count += 1
+                    found_list.append(candidate.symbol)
+                else:
+                    missing_list.append(candidate.symbol)
+            summary["found_symbols"] = found_list
+            summary["missing_symbols"] = missing_list
+            summary["missing_proxy_symbols"] = missing_proxy_list
             summary["found_count"] = found_count
             summary["missing_count"] = len(candidates) - found_count
+            summary["proxy_found_count"] = proxy_found_count
+            summary["proxy_missing_count"] = len(missing_proxy_list)
         finally:
             if hasattr(connection, "close"):
                 connection.close()
