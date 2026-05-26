@@ -8,8 +8,9 @@ Recommended order for future ingestion vertical slices:
    - verified with proxy-mapped index labels and ETF coverage checks
 3. Polygon flat-file OHLCV
 4. FRED macro
-   - planned next domain after ETF/index universe verification and Polygon flat-file OHLCV foundation
+   - verified through live population evidence
 5. volatility indexes
+   - planned next domain after FRED macro verification
 6. event calendars/earnings
 7. fundamentals
 8. news
