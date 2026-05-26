@@ -7,6 +7,7 @@ Boundary:
 - no scheduler
 - no AI/trading/risk/signal/regime logic
 - API key is only required for `--live-check`
+- live dry-runs use the newest observations first when `--max-observations` is set
 
 Supported starter series:
 - DGS10

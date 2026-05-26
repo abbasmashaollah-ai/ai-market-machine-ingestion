@@ -84,7 +84,10 @@ class FredMacroFoundationTests(unittest.TestCase):
             "FakeResult",
             (),
             {
-                "records": (),
+                "records": (
+                    type("Record", (), {"value": 1.0})(),
+                    type("Record", (), {"value": 2.0})(),
+                ),
                 "invalid_rows": (),
                 "latest_observation_date": "2026-01-02",
             },
@@ -100,6 +103,29 @@ class FredMacroFoundationTests(unittest.TestCase):
         self.assertIn("requested_series=['DGS10']", printed)
         self.assertIn("latest_observation_dates={'DGS10': '2026-01-02'}", printed)
 
+    def test_live_check_newest_observations_and_latest_date(self) -> None:
+        from app.normalization.fred_macro import FredMacroSeriesDefinition
+        from app.vendors.fred_macro import fetch_fred_macro_series
+
+        class FakeClient:
+            def fetch_series_observations_raw(self, series_id: str, *, observation_start: str | None = None, observation_end: str | None = None):
+                return {
+                    "observations": [
+                        {"series_id": series_id, "date": "2026-01-01", "value": "1.0"},
+                        {"series_id": series_id, "date": "2026-01-03", "value": "3.0"},
+                        {"series_id": series_id, "date": "2026-01-02", "value": "2.0"},
+                    ]
+                }
+
+        result = fetch_fred_macro_series(
+            FakeClient(),
+            FredMacroSeriesDefinition("DGS10", "percent", "daily", "10-year Treasury constant maturity rate"),
+            max_observations=2,
+        )
+        self.assertEqual([record.observation_date.isoformat() for record in result.records], ["2026-01-02", "2026-01-03"])
+        self.assertEqual(result.latest_observation_date, "2026-01-03")
+        self.assertEqual(result.requested_count, 2)
+
     def test_missing_invalid_series_handling(self) -> None:
         mod = self._module()
         with patch.dict(os.environ, {"FRED_API_KEY": "secret"}, clear=True), patch.object(
@@ -110,6 +136,16 @@ class FredMacroFoundationTests(unittest.TestCase):
         printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
         self.assertIn("invalid_count=1", printed)
         self.assertIn("missing_or_unsupported_series", printed)
+
+    def test_fixture_behavior_remains_deterministic(self) -> None:
+        mod = self._module()
+        with patch("builtins.print") as print_mock:
+            mod.main([])
+        first = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
+        with patch("builtins.print") as print_mock_again:
+            mod.main([])
+        second = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock_again.mock_calls)
+        self.assertEqual(first, second)
 
     def test_no_forbidden_imports(self) -> None:
         text = Path("scripts/dry_run_fred_macro_foundation.py").read_text(encoding="utf-8")

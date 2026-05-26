@@ -25,6 +25,15 @@ def _extract_observations(payload: dict[str, object]) -> list[dict[str, object]]
     return []
 
 
+def _observation_date_text(observation: dict[str, object]) -> str:
+    date_value = observation.get("date") or observation.get("observation_date")
+    return str(date_value or "")
+
+
+def _sort_observations_newest_first(observations: list[dict[str, object]]) -> list[dict[str, object]]:
+    return sorted(observations, key=_observation_date_text, reverse=True)
+
+
 def fetch_fred_macro_series(
     client: FredClient,
     series_definition: FredMacroSeriesDefinition,
@@ -33,20 +42,19 @@ def fetch_fred_macro_series(
 ) -> FredMacroFetchResult:
     payload = client.fetch_series_observations_raw(series_definition.series_id)
     observations = _extract_observations(payload)
+    observations = _sort_observations_newest_first(observations)
     if max_observations is not None:
         observations = observations[:max_observations]
     records: list[NormalizedFredMacroRecord] = []
     invalid_rows: list[dict[str, object]] = []
-    latest_observation_date: str | None = None
     for observation in observations:
         normalized = normalize_fred_macro_record(observation, series_definition)
         if normalized is None:
             invalid_rows.append(observation)
             continue
         records.append(normalized)
-        date_text = normalized.observation_date.isoformat()
-        if latest_observation_date is None or date_text > latest_observation_date:
-            latest_observation_date = date_text
+    records = sorted(records, key=lambda record: record.observation_date)
+    latest_observation_date = records[-1].observation_date.isoformat() if records else None
     return FredMacroFetchResult(
         series_id=series_definition.series_id,
         requested_count=len(observations),
@@ -57,4 +65,3 @@ def fetch_fred_macro_series(
         records=tuple(records),
         invalid_rows=tuple(invalid_rows),
     )
-
