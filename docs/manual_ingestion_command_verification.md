@@ -30,6 +30,7 @@ The script imports these manual command modules:
 - `scripts.dry_run_symbol_master_ingestion`
 - `scripts.preflight_symbol_master_operations`
 - `scripts.verify_symbol_master_evidence_chain`
+- `scripts.plan_symbol_master_sources`
 - `scripts.diagnose_ingestion_monitoring_readiness`
 - `scripts.diagnose_ingestion_retry_recovery_readiness`
 - `scripts.diagnose_ingestion_failure_recovery_runbook`
