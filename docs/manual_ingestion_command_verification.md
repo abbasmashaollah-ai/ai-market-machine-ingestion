@@ -27,6 +27,7 @@ The script imports these manual command modules:
 - `scripts.verify_fmp_ohlcv_evidence_chain`
 - `scripts.assess_ohlcv_scheduler_readiness`
 - `scripts.plan_ohlcv_scheduled_run`
+- `scripts.dry_run_symbol_master_ingestion`
 - `scripts.diagnose_ingestion_monitoring_readiness`
 - `scripts.diagnose_ingestion_retry_recovery_readiness`
 - `scripts.diagnose_ingestion_failure_recovery_runbook`
@@ -94,6 +95,8 @@ The scheduler readiness assessor is read-only. It checks that the manual OHLCV f
 The scheduler plan command is also read-only. It describes the intended scheduled FMP path, while keeping Polygon backfill manual-only until explicit activation is approved later.
 
 New ingestion domains should start from `docs/domain_vertical_slice_template.md` so the producer boundary, preflight, verifier, and evidence contracts stay consistent.
+
+The symbol master dry-run command is the current ingestion-side foundation for future symbol master work. It remains dry-run only and does not write to the database.
 
 This is an operator-run verification only.
 
