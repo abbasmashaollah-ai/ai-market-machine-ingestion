@@ -23,6 +23,7 @@ The script imports these manual command modules:
 - `scripts.run_polygon_ohlcv_scheduler_cycle`
 - `scripts.verify_polygon_scheduler_disabled`
 - `scripts.run_fmp_ohlcv_daily_update`
+- `scripts.preflight_fmp_ohlcv_operations`
 - `scripts.verify_fmp_ohlcv_evidence_chain`
 - `scripts.diagnose_ingestion_monitoring_readiness`
 - `scripts.diagnose_ingestion_retry_recovery_readiness`
@@ -70,6 +71,7 @@ The script imports these manual command modules:
 It verifies each module exposes a callable `main()` entrypoint and prints a safe inventory line for each.
 
 The FMP and Polygon evidence verifiers intentionally share common status helpers so their operator-facing PASS/WARN/FAIL semantics stay aligned.
+The preflight commands for Polygon and FMP are documented in `docs/manual_ohlcv_preflight.md`.
 
 ## Safety
 

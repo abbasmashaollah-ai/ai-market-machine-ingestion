@@ -21,6 +21,7 @@ MODULES = (
     "scripts.run_polygon_ohlcv_scheduler_cycle",
     "scripts.verify_polygon_scheduler_disabled",
     "scripts.run_fmp_ohlcv_daily_update",
+    "scripts.preflight_fmp_ohlcv_operations",
     "scripts.verify_fmp_ohlcv_evidence_chain",
     "scripts.diagnose_ingestion_monitoring_readiness",
     "scripts.diagnose_ingestion_retry_recovery_readiness",
