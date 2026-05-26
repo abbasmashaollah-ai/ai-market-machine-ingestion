@@ -11,6 +11,7 @@ The script imports these manual command modules:
 - `scripts.dry_run_fred_macro_incremental`
 - `scripts.verify_fred_macro_evidence_chain`
 - `scripts.dry_run_event_calendar_foundation`
+- `scripts.plan_event_calendar_sources`
 - `scripts.dry_run_volatility_index_foundation`
 - `scripts.dry_run_volatility_index_foundation --live-check`
 - `scripts.plan_volatility_index_sources`
@@ -108,6 +109,8 @@ New ingestion domains should start from `docs/domain_vertical_slice_template.md`
 The symbol master dry-run command is the current ingestion-side foundation for future symbol master work. It remains dry-run only and does not write to the database.
 
 The event calendar dry-run foundation is the current ingestion-side foundation for future event calendar work. It remains dry-run only and does not write to the database.
+
+The event calendar source plan command is a read-only planning helper. It documents candidate sources before any live vendor adapter is approved.
 
 The volatility index dry-run foundation is the current ingestion-side foundation for future volatility work. It remains dry-run only and does not call vendors or write to the database.
 

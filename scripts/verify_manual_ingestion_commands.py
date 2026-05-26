@@ -9,6 +9,7 @@ MODULES = (
     "scripts.dry_run_fred_macro_incremental",
     "scripts.dry_run_fred_macro_foundation",
     "scripts.dry_run_event_calendar_foundation",
+    "scripts.plan_event_calendar_sources",
     "scripts.dry_run_volatility_index_foundation",
     "scripts.plan_volatility_index_sources",
     "scripts.preflight_fred_macro_operations",
