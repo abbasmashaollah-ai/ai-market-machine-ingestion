@@ -3,7 +3,22 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-from app.models.normalized import NormalizedSymbolRecord
+
+@dataclass(frozen=True)
+class NormalizedSymbolMasterRecord:
+    symbol: str | None
+    active: bool | None
+    source: str | None = None
+    vendor: str | None = None
+    vendor_symbol: str | None = None
+    asset_type: str | None = None
+    exchange: str | None = None
+    name: str | None = None
+    currency: str | None = None
+    first_seen_at: datetime | None = None
+    last_seen_at: datetime | None = None
+    normalization_version: str | None = None
+    quality_status: str | None = None
 
 
 @dataclass(frozen=True)
@@ -35,16 +50,19 @@ def _normalize_datetime(value: datetime | None) -> datetime | None:
     return value.astimezone(timezone.utc)
 
 
-def normalize_symbol_record(source: SymbolMasterSourceRecord) -> NormalizedSymbolRecord:
-    return NormalizedSymbolRecord(
+def normalize_symbol_record(source: SymbolMasterSourceRecord) -> NormalizedSymbolMasterRecord:
+    return NormalizedSymbolMasterRecord(
         symbol=_normalize_text(source.symbol),
-        symbol_id=None,
+        source=_normalize_text(source.symbol),
         vendor=_normalize_text(source.vendor),
-        source=_normalize_text(source.vendor_symbol) or _normalize_text(source.vendor),
-        ingestion_run_id=None,
+        vendor_symbol=_normalize_text(source.vendor_symbol),
+        name=_normalize_text(source.name),
+        currency=_normalize_text(source.currency),
+        first_seen_at=_normalize_datetime(source.first_seen_at),
+        last_seen_at=_normalize_datetime(source.last_seen_at),
         normalization_version="symbol_master.v1",
         quality_status="pass" if source.active is True else "warn" if source.active is False else None,
-        asset_class=_normalize_text(source.asset_type),
+        asset_type=_normalize_text(source.asset_type),
         exchange=_normalize_text(source.exchange),
         active=source.active,
     )
@@ -69,7 +87,7 @@ def validate_source_record(source: SymbolMasterSourceRecord) -> list[str]:
     return errors
 
 
-def validate_symbol_record(record: NormalizedSymbolRecord) -> list[str]:
+def validate_symbol_record(record: NormalizedSymbolMasterRecord) -> list[str]:
     errors: list[str] = []
     if not record.symbol:
         errors.append("symbol is required")
@@ -77,9 +95,11 @@ def validate_symbol_record(record: NormalizedSymbolRecord) -> list[str]:
         errors.append("active is required")
     if record.vendor is not None and not record.vendor.strip():
         errors.append("vendor cannot be empty")
-    if record.source is not None and not record.source.strip():
-        errors.append("source cannot be empty")
-    if record.asset_class is not None and not record.asset_class.strip():
+    if record.vendor_symbol is not None and not record.vendor_symbol.strip():
+        errors.append("vendor_symbol cannot be empty")
+    if record.vendor_symbol and not record.vendor:
+        errors.append("vendor/vendor_symbol inconsistent")
+    if record.asset_type is not None and not record.asset_type.strip():
         errors.append("asset_type cannot be empty")
     if record.exchange is not None and not record.exchange.strip():
         errors.append("exchange cannot be empty")

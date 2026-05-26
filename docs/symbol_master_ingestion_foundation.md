@@ -10,7 +10,8 @@ It may:
 
 - normalize a small deterministic symbol fixture
 - validate required symbol-master fields
-- report input, normalized, valid, and invalid counts
+- report input, normalized, valid, invalid, rows-written, rows-skipped, and confirmation counts
+- write valid rows only when `--confirm-write` is explicitly requested through `app.writers.symbol_master_writer.SymbolMasterWriter`
 
 It does not:
 
@@ -24,7 +25,7 @@ It does not:
 
 ## Record shape
 
-The dry-run path uses `app.normalization.symbol_master.NormalizedSymbolRecord` as the normalized output shape.
+The dry-run path uses `app.normalization.symbol_master.NormalizedSymbolMasterRecord` as the normalized output shape.
 
 ## Validation
 
@@ -46,7 +47,16 @@ It prints:
 - `normalized_count`
 - `valid_count`
 - `invalid_count`
+- `rows_written`
+- `rows_skipped`
+- `write_confirmed`
 - `dry_run=true`
+
+When `--confirm-write` is used, the command requires `DATABASE_URL`, uses `app.writers.symbol_master_writer.SymbolMasterWriter`, and still does not assume any scheduler ownership.
+
+The confirmed-write path remains bounded to the approved writer/store boundary and does not create tables or run migrations.
+
+`--record-run`, `--record-quality`, and `--record-lineage` are intentionally deferred until a symbol-master-specific evidence store contract is approved.
 
 ## Boundary
 
