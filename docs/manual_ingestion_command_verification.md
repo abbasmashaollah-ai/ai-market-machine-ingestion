@@ -16,6 +16,7 @@ The script imports these manual command modules:
 - `scripts.dry_run_earnings_calendar`
 - `scripts.plan_event_calendar_sources`
 - `scripts.plan_macro_event_calendar_sources`
+- `scripts.plan_earnings_calendar_sources`
 - `scripts.preflight_event_calendar_operations`
 - `scripts.dry_run_volatility_index_foundation`
 - `scripts.dry_run_volatility_index_foundation --live-check`
@@ -122,6 +123,8 @@ The macro event calendar dry-run command is fixture-backed only. It covers CPI, 
 The macro event calendar source plan command is read-only. It documents BLS, Federal Reserve, and manual fixture candidates before any live vendor adapter is approved.
 
 The earnings calendar dry-run command is fixture-backed only. It covers earnings-date planning with no vendor calls, no DB reads, and no database writes.
+
+The earnings calendar source plan command is read-only. It documents FMP, Finnhub, Nasdaq, and manual fixture candidates before any live vendor adapter is approved.
 
 The event calendar source plan command is a read-only planning helper. It documents candidate sources before any live vendor adapter is approved.
 
