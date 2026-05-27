@@ -70,6 +70,27 @@ def test_dry_run_output_and_gating() -> None:
     assert "no_db_writes=True" in printed
 
 
+def test_show_events_prints_normalized_records() -> None:
+    mod = _module()
+    with patch("builtins.print") as print_mock:
+        mod.main(["--year", "2026", "--show-events"])
+    printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
+    assert "events=(" in printed
+    assert "OPEX-2026-01-16" in printed
+
+
+def test_show_invalid_prints_invalid_records_when_present() -> None:
+    mod = _module()
+    fake_invalid = ({"record": "bad", "errors": ("event_id is required",)},)
+    with patch("scripts.dry_run_opex_calendar.build_opex_validation_results", return_value=fake_invalid), patch(
+        "builtins.print"
+    ) as print_mock:
+        mod.main(["--year", "2026", "--show-invalid"])
+    printed = "\n".join(" ".join(str(arg) for arg in call.args) for call in print_mock.mock_calls)
+    assert "invalid_records=(" in printed
+    assert "event_id is required" in printed
+
+
 def test_no_vendor_calls_no_db_writes_and_forbidden_imports() -> None:
     mod = _module()
     with patch("builtins.print") as print_mock:
@@ -78,6 +99,15 @@ def test_no_vendor_calls_no_db_writes_and_forbidden_imports() -> None:
     text = Path("scripts/dry_run_opex_calendar.py").read_text(encoding="utf-8").lower()
     for needle in ["requests", "httpx", "fastapi", "alembic", "database_url"]:
         assert needle not in text
+
+
+def test_docs_and_cli_agree_on_optional_flags() -> None:
+    text = Path("docs/opex_calendar_foundation.md").read_text(encoding="utf-8").lower()
+    assert "--show-events" in text
+    assert "--show-invalid" in text
+    script_text = Path("scripts/dry_run_opex_calendar.py").read_text(encoding="utf-8").lower()
+    assert "--show-events" in script_text
+    assert "--show-invalid" in script_text
 
 
 def test_docs_coverage() -> None:
@@ -94,4 +124,3 @@ def test_docs_coverage() -> None:
         "persistence remains deferred",
     ]:
         assert needle in text
-

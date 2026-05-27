@@ -1,10 +1,20 @@
 from __future__ import annotations
 
+import argparse
+
 from app.normalization.event_calendar import NormalizedEventCalendarRecord
 from app.normalization.opex_calendar import build_opex_normalized_records, build_opex_validation_results, parse_args
 
 
-def _emit(*, year: int, month: int | None, normalized_records: tuple[NormalizedEventCalendarRecord, ...], invalid_records: tuple[dict[str, object], ...], show_events: bool, show_invalid: bool) -> None:
+def _emit(
+    *,
+    year: int,
+    month: int | None,
+    normalized_records: tuple[NormalizedEventCalendarRecord, ...],
+    invalid_records: tuple[dict[str, object], ...],
+    show_events: bool,
+    show_invalid: bool,
+) -> None:
     print(f"event_count={len(normalized_records) + len(invalid_records)}")
     print(f"normalized_count={len(normalized_records)}")
     print(f"valid_count={len(normalized_records) - len(invalid_records)}")
@@ -20,9 +30,12 @@ def _emit(*, year: int, month: int | None, normalized_records: tuple[NormalizedE
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser_args = parse_args(argv)
-    show_events = bool(argv and "--show-events" in argv)
-    show_invalid = bool(argv and "--show-invalid" in argv)
+    normalized_argv = [arg for arg in (argv or []) if arg not in {"--show-events", "--show-invalid"}]
+    parser_args = parse_args(normalized_argv)
+    flag_parser = argparse.ArgumentParser(add_help=False)
+    flag_parser.add_argument("--show-events", action="store_true")
+    flag_parser.add_argument("--show-invalid", action="store_true")
+    flag_args, _ = flag_parser.parse_known_args(argv)
     normalized_records = build_opex_normalized_records(parser_args.year, parser_args.month)
     invalid_records = build_opex_validation_results(parser_args.year, parser_args.month)
     _emit(
@@ -30,8 +43,8 @@ def main(argv: list[str] | None = None) -> int:
         month=parser_args.month,
         normalized_records=normalized_records,
         invalid_records=invalid_records,
-        show_events=show_events,
-        show_invalid=show_invalid,
+        show_events=flag_args.show_events,
+        show_invalid=flag_args.show_invalid,
     )
     return 0
 
