@@ -32,4 +32,5 @@ def test_event_calendar_readiness_summary_next_options() -> None:
     assert "bls live dry-run" in text
     assert "federal reserve fomc dry-run" in text
     assert "earnings calendar plan" in text
+    assert "earnings calendar vertical slice planning" in text
 

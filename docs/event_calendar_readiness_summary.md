@@ -16,16 +16,17 @@ It is documentation only.
 - The macro-event source plan exists.
 - Live BLS and Federal Reserve adapters are not built yet.
 - No DB writes are enabled.
+- The earnings calendar plan exists as the next event-calendar subdomain.
 
 ## Next Options
 
 - BLS live dry-run
 - Federal Reserve FOMC dry-run
 - earnings calendar plan
+- earnings calendar vertical slice planning
 
 ## Boundary
 
 No vendor calls are made by this summary.
 No DB writes are enabled.
 No scheduler, FastAPI route, migration, schema ownership, AI, trading, risk, signal, regime, or portfolio logic belongs here.
-
