@@ -7,6 +7,7 @@ It is planning and documentation only.
 
 - event calendar only
 - dry-run and normalization only
+- writer-readiness planning only
 - no vendor calls
 - no DB writes
 - no scheduler
@@ -38,6 +39,8 @@ The normalized event calendar record includes:
 - `importance`
 - `notes`
 
+The normalized field set is aligned to the canonical event calendar contract in `ai-market-machine-data`.
+
 ## Dry-Run Contract
 
 The dry-run command uses the deterministic sample fixture by default.
@@ -61,4 +64,5 @@ Optional flags:
 
 The ingestion repo owns producer-side normalization and planning only.
 The canonical storage contract belongs in `ai-market-machine-data`.
+The writer plan is documentation only and does not enable persistence.
 No AI/trading/risk/signal/regime/portfolio logic belongs in this foundation.

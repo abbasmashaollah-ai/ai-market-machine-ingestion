@@ -11,8 +11,10 @@ Planned checks after persistence exists:
 - missing source count
 - symbol coverage for earnings_date events
 - run/quality/lineage once persistence exists
+- writer-readiness planning remains documentation only
 
 Current boundary:
 - no DB reads yet
 - no DB writes yet
 - the persistence contract must be approved before evidence-store wiring is added
+- the writer plan is deferred and does not enable persistence
