@@ -11,6 +11,7 @@ The script imports these manual command modules:
 - `scripts.dry_run_fred_macro_incremental`
 - `scripts.verify_fred_macro_evidence_chain`
 - `scripts.dry_run_event_calendar_foundation`
+- `scripts.dry_run_opex_calendar`
 - `scripts.plan_event_calendar_sources`
 - `scripts.preflight_event_calendar_operations`
 - `scripts.dry_run_volatility_index_foundation`
@@ -110,6 +111,8 @@ New ingestion domains should start from `docs/domain_vertical_slice_template.md`
 The symbol master dry-run command is the current ingestion-side foundation for future symbol master work. It remains dry-run only and does not write to the database.
 
 The event calendar dry-run foundation is the current ingestion-side foundation for future event calendar work. It remains dry-run only and does not write to the database.
+
+The OPEX calendar dry-run command is the first source-specific event-calendar slice. It deterministically generates third-Friday candidates and remains dry-run only.
 
 The event calendar source plan command is a read-only planning helper. It documents candidate sources before any live vendor adapter is approved.
 
