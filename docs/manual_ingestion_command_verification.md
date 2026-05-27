@@ -13,6 +13,7 @@ The script imports these manual command modules:
 - `scripts.dry_run_event_calendar_foundation`
 - `scripts.dry_run_opex_calendar`
 - `scripts.dry_run_macro_event_calendar`
+- `scripts.dry_run_earnings_calendar`
 - `scripts.plan_event_calendar_sources`
 - `scripts.plan_macro_event_calendar_sources`
 - `scripts.preflight_event_calendar_operations`
@@ -119,6 +120,8 @@ The OPEX calendar dry-run command is the first source-specific event-calendar sl
 The macro event calendar dry-run command is fixture-backed only. It covers CPI, FOMC, and NFP planning with no vendor calls and no database writes.
 
 The macro event calendar source plan command is read-only. It documents BLS, Federal Reserve, and manual fixture candidates before any live vendor adapter is approved.
+
+The earnings calendar dry-run command is fixture-backed only. It covers earnings-date planning with no vendor calls, no DB reads, and no database writes.
 
 The event calendar source plan command is a read-only planning helper. It documents candidate sources before any live vendor adapter is approved.
 
