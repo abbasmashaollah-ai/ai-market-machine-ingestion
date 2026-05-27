@@ -15,6 +15,7 @@ Recommended order for future ingestion vertical slices:
    - OPEX deterministic slice verified
    - CPI/FOMC/NFP macro-event planning next
    - earnings calendar planning next
+   - earnings calendar readiness checkpoint before live adapters
 7. fundamentals
 8. news
 9. cross-asset OHLCV

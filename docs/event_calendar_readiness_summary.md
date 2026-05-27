@@ -17,6 +17,7 @@ It is documentation only.
 - Live BLS and Federal Reserve adapters are not built yet.
 - No DB writes are enabled.
 - The earnings calendar plan exists as the next event-calendar subdomain.
+- The earnings calendar readiness summary exists and confirms the pause before live vendor adapters.
 
 ## Next Options
 
@@ -24,9 +25,11 @@ It is documentation only.
 - Federal Reserve FOMC dry-run
 - earnings calendar plan
 - earnings calendar vertical slice planning
+- earnings calendar readiness summary
 
 ## Boundary
 
 No vendor calls are made by this summary.
 No DB writes are enabled.
 No scheduler, FastAPI route, migration, schema ownership, AI, trading, risk, signal, regime, or portfolio logic belongs here.
+Event-calendar work is paused cleanly before live vendor adapters.
