@@ -12,7 +12,8 @@ Recommended order for future ingestion vertical slices:
 5. volatility indexes
    - blocked pending source access and entitlement confirmation
 6. event calendars/earnings
-   - planned next domain after volatility index source access is resolved
+   - OPEX deterministic slice verified
+   - CPI/FOMC/NFP macro-event planning next
 7. fundamentals
 8. news
 9. cross-asset OHLCV

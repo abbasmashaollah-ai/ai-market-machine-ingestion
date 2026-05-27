@@ -166,3 +166,9 @@ def test_docs_coverage() -> None:
         "persistence remains deferred",
     ]:
         assert needle in text
+
+
+def test_future_domain_build_order_mentions_opex_verified_and_macro_planning_next() -> None:
+    text = Path("docs/future_domain_build_order.md").read_text(encoding="utf-8").lower()
+    assert "opex deterministic slice verified" in text
+    assert "cpi/fomc/nfp macro-event planning next" in text
