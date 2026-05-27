@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import subprocess
+import sys
 from pathlib import Path
 from unittest.mock import patch
 
@@ -108,6 +110,46 @@ def test_docs_and_cli_agree_on_optional_flags() -> None:
     script_text = Path("scripts/dry_run_opex_calendar.py").read_text(encoding="utf-8").lower()
     assert "--show-events" in script_text
     assert "--show-invalid" in script_text
+
+
+def test_cli_help_prints_without_requires_error() -> None:
+    result = subprocess.run(
+        [sys.executable, "-m", "scripts.dry_run_opex_calendar", "--help"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0
+    assert "--show-events" in result.stdout
+    assert "--show-invalid" in result.stdout
+    assert "--year YEAR" in result.stdout or "--year" in result.stdout
+    assert "required" not in result.stderr.lower()
+
+
+def test_cli_show_events_outputs_records() -> None:
+    result = subprocess.run(
+        [sys.executable, "-m", "scripts.dry_run_opex_calendar", "--year", "2026", "--show-events"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0
+    assert "event_count=12" in result.stdout
+    assert "events=(" in result.stdout
+    assert "OPEX-2026-01-16" in result.stdout
+
+
+def test_cli_month_and_show_events_outputs_single_month() -> None:
+    result = subprocess.run(
+        [sys.executable, "-m", "scripts.dry_run_opex_calendar", "--year", "2026", "--month", "6", "--show-events"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0
+    assert "event_count=1" in result.stdout
+    assert "month=6" in result.stdout
+    assert "OPEX-2026-06-19" in result.stdout
 
 
 def test_docs_coverage() -> None:

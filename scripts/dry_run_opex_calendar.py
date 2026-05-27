@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 
 from app.normalization.event_calendar import NormalizedEventCalendarRecord
-from app.normalization.opex_calendar import build_opex_normalized_records, build_opex_validation_results, parse_args
+from app.normalization.opex_calendar import build_opex_normalized_records, build_opex_validation_results
 
 
 def _emit(
@@ -29,22 +29,27 @@ def _emit(
         print(f"invalid_records={invalid_records}")
 
 
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Plan deterministic OPEX event-calendar candidates.")
+    parser.add_argument("--year", type=int, required=True, help="Year to generate OPEX candidates for.")
+    parser.add_argument("--month", type=int, choices=range(1, 13), help="Optional month to generate a single OPEX candidate.")
+    parser.add_argument("--show-events", action="store_true", help="Show normalized event records.")
+    parser.add_argument("--show-invalid", action="store_true", help="Show invalid records.")
+    return parser
+
+
 def main(argv: list[str] | None = None) -> int:
-    normalized_argv = [arg for arg in (argv or []) if arg not in {"--show-events", "--show-invalid"}]
-    parser_args = parse_args(normalized_argv)
-    flag_parser = argparse.ArgumentParser(add_help=False)
-    flag_parser.add_argument("--show-events", action="store_true")
-    flag_parser.add_argument("--show-invalid", action="store_true")
-    flag_args, _ = flag_parser.parse_known_args(argv)
-    normalized_records = build_opex_normalized_records(parser_args.year, parser_args.month)
-    invalid_records = build_opex_validation_results(parser_args.year, parser_args.month)
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    normalized_records = build_opex_normalized_records(args.year, args.month)
+    invalid_records = build_opex_validation_results(args.year, args.month)
     _emit(
-        year=parser_args.year,
-        month=parser_args.month,
+        year=args.year,
+        month=args.month,
         normalized_records=normalized_records,
         invalid_records=invalid_records,
-        show_events=flag_args.show_events,
-        show_invalid=flag_args.show_invalid,
+        show_events=args.show_events,
+        show_invalid=args.show_invalid,
     )
     return 0
 
