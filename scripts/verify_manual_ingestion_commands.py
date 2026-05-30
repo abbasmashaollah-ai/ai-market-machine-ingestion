@@ -10,6 +10,7 @@ MODULES = (
     "scripts.dry_run_fred_macro_foundation",
     "scripts.dry_run_event_calendar_foundation",
     "scripts.dry_run_fundamentals_filings",
+    "scripts.dry_run_news_sentiment",
     "scripts.preflight_fundamentals_filings_operations",
     "scripts.plan_news_sentiment_sources",
     "scripts.dry_run_opex_calendar",

@@ -12,6 +12,7 @@ The script imports these manual command modules:
 - `scripts.verify_fred_macro_evidence_chain`
 - `scripts.dry_run_event_calendar_foundation`
 - `scripts.dry_run_fundamentals_filings`
+- `scripts.dry_run_news_sentiment`
 - `scripts.preflight_fundamentals_filings_operations`
 - `scripts.dry_run_opex_calendar`
 - `scripts.dry_run_macro_event_calendar`
