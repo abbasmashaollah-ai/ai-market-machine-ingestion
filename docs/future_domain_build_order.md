@@ -18,8 +18,9 @@ Recommended order for future ingestion vertical slices:
    - event calendar paused cleanly pending the approved data-side contract
    - earnings calendar readiness checkpoint before live adapters
 7. fundamentals/filings
-   - current planned domain
-8. news
+   - paused at readiness checkpoint
+   - persistence deferred until the approved data-side contract exists
+8. news/sentiment planning
 9. cross-asset OHLCV
 10. breadth/participation
 11. options
