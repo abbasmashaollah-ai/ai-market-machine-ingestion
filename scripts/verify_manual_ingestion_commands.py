@@ -15,6 +15,7 @@ MODULES = (
     "scripts.plan_earnings_calendar_sources",
     "scripts.plan_macro_event_calendar_sources",
     "scripts.plan_event_calendar_sources",
+    "scripts.plan_fundamentals_filings_sources",
     "scripts.preflight_event_calendar_operations",
     "scripts.dry_run_volatility_index_foundation",
     "scripts.plan_volatility_index_sources",
