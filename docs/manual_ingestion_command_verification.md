@@ -23,6 +23,7 @@ The script imports these manual command modules:
 - `scripts.plan_earnings_calendar_sources`
 - `scripts.plan_fundamentals_filings_sources`
 - `scripts.plan_news_sentiment_sources`
+- `scripts.plan_cross_asset_ohlcv_sources`
 - `scripts.preflight_event_calendar_operations`
 - `scripts.dry_run_volatility_index_foundation`
 - `scripts.dry_run_volatility_index_foundation --live-check`

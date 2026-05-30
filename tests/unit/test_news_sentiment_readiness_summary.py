@@ -45,7 +45,7 @@ def test_future_build_order_pauses_news_sentiment_and_moves_cross_asset_next():
     assert "news/sentiment" in text
     assert "paused at readiness checkpoint" in text
     assert "persistence deferred until the approved data-side contract exists" in text
-    assert "cross-asset ohlcv planning" in text
+    assert "cross-asset ohlcv" in text
 
 
 def test_boundary_language_present():
