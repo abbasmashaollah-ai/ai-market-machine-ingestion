@@ -13,6 +13,7 @@ The script imports these manual command modules:
 - `scripts.dry_run_event_calendar_foundation`
 - `scripts.dry_run_fundamentals_filings`
 - `scripts.dry_run_news_sentiment`
+- `scripts.preflight_news_sentiment_operations`
 - `scripts.preflight_fundamentals_filings_operations`
 - `scripts.dry_run_opex_calendar`
 - `scripts.dry_run_macro_event_calendar`
