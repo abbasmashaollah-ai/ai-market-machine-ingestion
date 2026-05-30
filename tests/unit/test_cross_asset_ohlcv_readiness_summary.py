@@ -39,7 +39,7 @@ def test_future_build_order_pauses_cross_asset_and_moves_breadth_next():
     assert "cross-asset ohlcv" in text
     assert "paused at readiness checkpoint" in text
     assert "persistence deferred until the approved data-side asset-scope contract exists" in text
-    assert "breadth/participation planning" in text
+    assert "breadth/participation" in text
 
 
 def test_boundary_language_present():
