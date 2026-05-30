@@ -20,7 +20,8 @@ Recommended order for future ingestion vertical slices:
 7. fundamentals/filings
    - paused at readiness checkpoint
    - persistence deferred until the approved data-side contract exists
-8. news/sentiment planning
+8. news/sentiment
+   - current planned domain
 9. cross-asset OHLCV
 10. breadth/participation
 11. options

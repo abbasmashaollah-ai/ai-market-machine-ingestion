@@ -38,7 +38,7 @@ def test_future_build_order_pauses_fundamentals_filings_and_moves_news_next():
     assert "fundamentals/filings" in text
     assert "paused at readiness checkpoint" in text
     assert "persistence deferred until the approved data-side contract exists" in text
-    assert "news/sentiment planning" in text
+    assert "news/sentiment" in text
 
 
 def test_boundary_language_present():
