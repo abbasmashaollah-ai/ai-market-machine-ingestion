@@ -21,8 +21,9 @@ Recommended order for future ingestion vertical slices:
    - paused at readiness checkpoint
    - persistence deferred until the approved data-side contract exists
 8. news/sentiment
-   - current planned domain
-9. cross-asset OHLCV
+   - paused at readiness checkpoint
+   - persistence deferred until the approved data-side contract exists
+9. cross-asset OHLCV planning
 10. breadth/participation
 11. options
 12. flows/positioning
