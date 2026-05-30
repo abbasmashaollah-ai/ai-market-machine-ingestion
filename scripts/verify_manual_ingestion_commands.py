@@ -11,6 +11,7 @@ MODULES = (
     "scripts.dry_run_event_calendar_foundation",
     "scripts.dry_run_fundamentals_filings",
     "scripts.dry_run_news_sentiment",
+    "scripts.dry_run_cross_asset_ohlcv",
     "scripts.preflight_news_sentiment_operations",
     "scripts.preflight_fundamentals_filings_operations",
     "scripts.plan_news_sentiment_sources",
