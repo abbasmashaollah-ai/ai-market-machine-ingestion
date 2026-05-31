@@ -25,6 +25,7 @@ MODULES = (
     "scripts.preflight_options_operations",
     "scripts.plan_flows_positioning_sources",
     "scripts.dry_run_flows_positioning",
+    "scripts.preflight_flows_positioning_operations",
     "scripts.dry_run_opex_calendar",
     "scripts.dry_run_macro_event_calendar",
     "scripts.dry_run_earnings_calendar",

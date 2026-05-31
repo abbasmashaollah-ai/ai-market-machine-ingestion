@@ -21,6 +21,7 @@ The script imports these manual command modules:
 - `scripts.preflight_options_operations`
 - `scripts.plan_flows_positioning_sources`
 - `scripts.dry_run_flows_positioning`
+- `scripts.preflight_flows_positioning_operations`
 - `scripts.preflight_cross_asset_ohlcv_operations`
 - `scripts.preflight_news_sentiment_operations`
 - `scripts.preflight_fundamentals_filings_operations`
