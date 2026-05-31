@@ -41,7 +41,7 @@ def test_future_build_order_pauses_options_and_moves_flows_next():
     assert "options" in text
     assert "paused at readiness checkpoint" in text
     assert "persistence deferred until the approved data-side contract exists" in text
-    assert "flows/positioning planning" in text
+    assert "flows/positioning" in text
 
 
 def test_boundary_language_present():
