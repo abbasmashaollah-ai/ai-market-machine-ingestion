@@ -37,4 +37,12 @@ Recommended order for future ingestion vertical slices:
    - planning coverage complete
    - next phase: data-side contracts and live-adapter prioritization
 
+Planning sweep complete.
+Next phase: data-side contract prioritization.
+Recommended first contract/adapters:
+- event calendar if continuing the event domain
+- news/sentiment if product-facing feed is priority
+- fundamentals/filings if ticker analyzer depth is priority
+- cross-asset OHLCV if market regime coverage is priority
+
 This order prioritizes shared contracts and reusable producer foundations before higher-variance domains.
