@@ -30,7 +30,8 @@ Recommended order for future ingestion vertical slices:
    - paused at readiness checkpoint
    - persistence deferred until the approved data-side contract exists
 11. options
-   - current planned domain
-12. flows/positioning
+   - paused at readiness checkpoint
+   - persistence deferred until the approved data-side contract exists
+12. flows/positioning planning
 
 This order prioritizes shared contracts and reusable producer foundations before higher-variance domains.
