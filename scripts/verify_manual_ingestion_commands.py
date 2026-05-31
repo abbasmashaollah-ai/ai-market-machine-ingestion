@@ -21,6 +21,7 @@ MODULES = (
     "scripts.plan_cross_asset_ohlcv_sources",
     "scripts.plan_breadth_participation_sources",
     "scripts.plan_options_sources",
+    "scripts.dry_run_options",
     "scripts.dry_run_opex_calendar",
     "scripts.dry_run_macro_event_calendar",
     "scripts.dry_run_earnings_calendar",

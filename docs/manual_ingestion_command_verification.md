@@ -17,6 +17,7 @@ The script imports these manual command modules:
 - `scripts.dry_run_breadth_participation`
 - `scripts.preflight_breadth_participation_operations`
 - `scripts.plan_options_sources`
+- `scripts.dry_run_options`
 - `scripts.preflight_cross_asset_ohlcv_operations`
 - `scripts.preflight_news_sentiment_operations`
 - `scripts.preflight_fundamentals_filings_operations`
