@@ -37,7 +37,7 @@ Recommended order for future ingestion vertical slices:
    - planning coverage complete
    - next phase: data-side contracts and live-adapter prioritization
 
-Domain planning sweep complete.
+Planning sweep complete.
 Next phase: data-side contract prioritization.
 Recommended first contract/adapters:
 - event calendar if continuing the event domain
