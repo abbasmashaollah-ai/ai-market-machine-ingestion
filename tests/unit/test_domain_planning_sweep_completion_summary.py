@@ -46,7 +46,7 @@ def test_summary_doc_exists_and_mentions_required_items():
 
 def test_future_build_order_marks_sweep_complete_and_next_phase():
     text = Path("docs/future_domain_build_order.md").read_text(encoding="utf-8").lower()
-    assert "planning sweep complete" in text
+    assert "domain planning sweep complete" in text
     assert "next phase: data-side contract prioritization" in text
     assert "event calendar if continuing the event domain" in text
     assert "news/sentiment if product-facing feed is priority" in text
