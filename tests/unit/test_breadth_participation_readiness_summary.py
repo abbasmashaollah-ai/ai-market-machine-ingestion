@@ -40,7 +40,7 @@ def test_future_build_order_pauses_breadth_and_moves_options_next():
     assert "breadth/participation" in text
     assert "paused at readiness checkpoint" in text
     assert "persistence deferred until the approved data-side contract exists" in text
-    assert "options planning" in text
+    assert "options" in text
 
 
 def test_boundary_language_present():
