@@ -18,6 +18,7 @@ Data repo contract dependency:
 - the target data-side contract must exist before any writer/store integration is added
 - producer work stays limited to the ingestion-repo boundary until that contract is confirmed
 - the volatility observations producer contract must be approved before any backfill or writer handoff work starts
+- a mock writer handoff proof now exists in tests, but no real persistence is authorized yet
 
 Normalized record shape proposal:
 - symbol
@@ -45,6 +46,7 @@ Preflight/runner/evidence pattern:
 - provide a manual runner that can emit evidence without requiring scheduler activation
 - the volatility observations dry-run producer now exists and remains read-only
 - verify the slice with a read-only evidence command before considering persistence work
+- next step after this proof is an approved writer implementation or a live-source dry-run check, depending on readiness
 
 Boundary:
 - no AI/trading/risk/signal/regime/portfolio logic

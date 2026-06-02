@@ -158,6 +158,9 @@ The contract therefore requires explicit entitlement failure reporting and does 
 - treats source entitlement problems as warnings or explicit rejected records, not crashes
 - does not call vendor clients unless the caller injects source records
 - does not activate any scheduler path
+- a mock writer handoff proof exists in tests and uses the dry-run payloads as writer input
+- no real persistence is performed yet
+- the next implementation step is an approved writer boundary or a separate live-source dry-run review, depending on readiness
 
 ## Future Implementation Sequence
 
