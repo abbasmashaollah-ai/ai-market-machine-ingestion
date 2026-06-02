@@ -17,6 +17,7 @@ Likely source candidates:
 Data repo contract dependency:
 - the target data-side contract must exist before any writer/store integration is added
 - producer work stays limited to the ingestion-repo boundary until that contract is confirmed
+- the volatility observations producer contract must be approved before any backfill or writer handoff work starts
 
 Normalized record shape proposal:
 - symbol
@@ -52,3 +53,4 @@ Boundary:
 - no migrations
 - no schema ownership
 - no vendor calls in documentation or verification-only steps
+- no volatility observations producer activation until the data-side contract is approved
