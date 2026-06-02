@@ -43,6 +43,7 @@ Lineage expectations:
 Preflight/runner/evidence pattern:
 - provide a read-only preflight command before any write-capable path exists
 - provide a manual runner that can emit evidence without requiring scheduler activation
+- the volatility observations dry-run producer now exists and remains read-only
 - verify the slice with a read-only evidence command before considering persistence work
 
 Boundary:
@@ -54,3 +55,4 @@ Boundary:
 - no schema ownership
 - no vendor calls in documentation or verification-only steps
 - no volatility observations producer activation until the data-side contract is approved
+- no database writes from the dry-run producer path

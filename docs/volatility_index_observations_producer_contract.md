@@ -2,6 +2,7 @@
 
 This document defines the producer/backfill contract for populating `volatility_index_observations`.
 It is planning and implementation guidance for `ai-market-machine-ingestion` only.
+The dry-run producer implementation exists in `app/ingestion/volatility/observations_producer.py`.
 
 ## Purpose
 
@@ -146,6 +147,18 @@ The contract therefore requires explicit entitlement failure reporting and does 
 - no modification to AI Machine
 - no secrets exposure
 
+## Current Dry-Run Producer Behavior
+
+- accepts raw dict payloads or normalized volatility records
+- maps `I:VIX`, `I:VVIX`, `I:VXN`, and `I:RVX` to canonical symbols
+- emits validated payload dictionaries matching the target field contract
+- attaches lineage and evidence metadata
+- assigns deterministic `quality_status`, `certification_status`, and `freshness_status` values
+- returns accepted and rejected payloads without touching the database
+- treats source entitlement problems as warnings or explicit rejected records, not crashes
+- does not call vendor clients unless the caller injects source records
+- does not activate any scheduler path
+
 ## Future Implementation Sequence
 
 1. Lock the producer record shape and mapping helpers in `ai-market-machine-ingestion`.
@@ -154,5 +167,5 @@ The contract therefore requires explicit entitlement failure reporting and does 
 4. Add checkpointed backfill orchestration with idempotent resume behavior.
 5. Add the writer handoff payload that matches the `ai-market-machine-data` table contract.
 6. Add contract verification tests before enabling any scheduler or runtime activation.
-7. Only after the warehouse writer boundary is approved, wire persistence in the data repo and then later expose the data to AI Machine.
-
+7. Keep live-source dry-run verification separate from production backfill approval.
+8. Only after the warehouse writer boundary is approved, wire persistence in the data repo and then later expose the data to AI Machine.
