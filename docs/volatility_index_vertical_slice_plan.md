@@ -19,6 +19,7 @@ Data repo contract dependency:
 - producer work stays limited to the ingestion-repo boundary until that contract is confirmed
 - the volatility observations producer contract must be approved before any backfill or writer handoff work starts
 - a mock writer handoff proof now exists in tests, but no real persistence is authorized yet
+- a manual live-source dry-run command now exists for operator readiness checks, but it remains explicit-confirmation only
 
 Normalized record shape proposal:
 - symbol
@@ -47,6 +48,7 @@ Preflight/runner/evidence pattern:
 - the volatility observations dry-run producer now exists and remains read-only
 - verify the slice with a read-only evidence command before considering persistence work
 - next step after this proof is an approved writer implementation or a live-source dry-run check, depending on readiness
+- the live-source dry-run command does not persist data and must not run automatically in tests
 
 Boundary:
 - no AI/trading/risk/signal/regime/portfolio logic

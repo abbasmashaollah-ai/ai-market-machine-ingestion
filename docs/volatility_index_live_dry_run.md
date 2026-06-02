@@ -1,40 +1,41 @@
 # Volatility Index Live Dry Run
 
-`scripts/dry_run_volatility_index_foundation.py` is the manual operator command for the volatility index foundation.
+`scripts/volatility_live_source_dry_run.py` is the manual operator command for live-source readiness checks on VIX-family volatility observations.
 
 ## Behavior
 
-- default mode uses a deterministic fixture
-- `--live-check` fetches Polygon volatility observations when `POLYGON_API_KEY` is present
-- live-check normalizes into `NormalizedVolatilityIndexRecord`
-- `I:VIX`, `I:VVIX`, `I:VXN`, and `I:RVX` are normalized back to `VIX`, `VVIX`, `VXN`, and `RVX`
-- Polygon index symbols may require plan entitlement
-- current observed result: `I:VIX` and `I:VXN` returned `401` on the current key
-- `--symbol` can be repeated for starter symbols
-- `--max-observations` keeps the newest observations first
-- `--show-values` prints normalized values
-- `--sleep-seconds-between-symbols` controls live-request pacing
-- `--stop-on-rate-limit` and `--no-stop-on-rate-limit` control the rate-limit boundary
-- `--max-rate-limit-failures` caps repeated rate-limit failures
+- manual-only command
+- requires `--confirm-live` before any live Polygon call can happen
+- defaults to `VIX`, `VVIX`, `VXN`, and `RVX`
+- maps to `I:VIX`, `I:VVIX`, `I:VXN`, and `I:RVX`
+- fetches through the existing Polygon adapter only when explicitly confirmed
+- passes fetched records through the dry-run volatility observations producer
+- prints a safe summary with requested symbols, fetched count, accepted count, rejected count, warnings, and error categories
 - no DB writes
 - no scheduler activation
-- no FastAPI routes
+- no persistence
 - no AI/trading/risk/signal/regime/portfolio logic
 
 ## Output
 
 - `requested_symbols`
-- `normalized_count`
-- `valid_count`
-- `invalid_count`
-- `latest_observation_dates`
-- `rate_limit_detected`
-- `entitlement_blocked`
-- `invalid_records` include safe failure reasons when Polygon returns no usable payload
+- `fetched_count`
+- `accepted_count`
+- `rejected_count`
+- `warnings`
+- `error_categories`
 - `no_db_writes=true`
+- `no_scheduler_activation=true`
+- `no_persistence=true`
+
+## Entitlement Interpretation
+
+- `rate_limited` indicates the vendor path was throttled
+- `entitlement_failure` indicates the vendor path is blocked by access policy or plan limits
+- `vendor_error` indicates a non-entitlement vendor failure
+- the command must not print API keys or other secrets
 
 ## Boundary
 
-Polygon live-check usage requires `POLYGON_API_KEY`.
-Persistence remains blocked until a valid source is confirmed.
-The command does not own schema contracts.
+The command is a readiness check only.
+Persistence remains blocked until the live source can be confirmed and a writer boundary is approved.
