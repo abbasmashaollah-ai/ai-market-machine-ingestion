@@ -53,6 +53,10 @@ Candidate source options:
    - use only for an explicitly approved, testable backfill or seed flow
    - keep it separate from live entitlement validation and separate from automatic runtime activation
 
+Alternate source review:
+- see [Volatility Index Alternate Source Review](volatility_index_alternate_source_review.md) for the repo-level discovery result
+- the current review does not identify a ready non-Polygon source that covers all four starter symbols
+
 Source selection criteria:
 - coverage for `VIX`, `VVIX`, `VXN`, and `RVX`
 - historical availability

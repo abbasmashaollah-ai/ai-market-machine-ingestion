@@ -24,6 +24,7 @@ Data repo contract dependency:
 - a manual live-source dry-run command now exists for operator readiness checks, but it remains explicit-confirmation only
 - the most recent live dry run returned `403` for `VIX`, `VVIX`, `VXN`, and `RVX`
 - writer and persistence remain blocked until a valid source path is confirmed
+- see [Volatility Index Alternate Source Review](volatility_index_alternate_source_review.md) for the current repo-level source discovery result
 
 Normalized record shape proposal:
 - symbol
