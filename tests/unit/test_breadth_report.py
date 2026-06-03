@@ -17,6 +17,16 @@ def test_report_is_json_friendly_and_includes_writer_counts() -> None:
 
     assert report["accepted_count"] == 1
     assert report["rejected_count"] == 0
+    assert report["participation_label"] in {
+        "BROAD_STRENGTH",
+        "BROAD_WEAKNESS",
+        "MIXED_PARTICIPATION",
+        "NARROW_PARTICIPATION",
+        "INSUFFICIENT_DATA",
+    }
+    assert "advancer_decliner_ratio" in report
+    assert "advancing_volume_share" in report
+    assert "declining_volume_share" in report
     assert report["no_db_writes"] is True
     assert report["no_vendor_calls"] is True
     assert report["no_scheduler_activation"] is True
