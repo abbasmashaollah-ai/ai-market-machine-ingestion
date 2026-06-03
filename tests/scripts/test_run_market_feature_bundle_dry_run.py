@@ -2,6 +2,8 @@ import io
 import json
 from contextlib import redirect_stdout
 from pathlib import Path
+import subprocess
+import sys
 
 from scripts.run_market_feature_bundle_dry_run import main
 
@@ -75,3 +77,18 @@ def test_cli_summary_only_writes_compact_summary(tmp_path: Path) -> None:
     assert "prices" not in stdout_payload
     assert "liquidity_rates" not in stdout_payload
     assert "volatility" not in stdout_payload
+
+
+def test_cli_runs_as_subprocess_from_repo_root() -> None:
+    result = subprocess.run(
+        [sys.executable, "scripts/run_market_feature_bundle_dry_run.py", "--observation-date", "2026-06-03", "--summary-only"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    payload = json.loads(result.stdout)
+    assert payload["descriptive_market_evidence_state"]
+    assert payload["safety_flags"]["no_db_writes"] is True
+    assert payload["safety_flags"]["no_vendor_calls"] is True
+    assert payload["safety_flags"]["no_live_api_calls"] is True
+    assert payload["safety_flags"]["no_scheduler_activation"] is True

@@ -5,6 +5,10 @@ import json
 from pathlib import Path
 import sys
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
 from app.features.market_features.market_feature_bundle import run_market_feature_bundle_dry_run
 from app.features.market_features.market_feature_bundle_summary import build_market_feature_bundle_summary
 from app.features.market_features.market_feature_bundle_validator import validate_market_feature_bundle
