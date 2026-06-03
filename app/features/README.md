@@ -71,6 +71,7 @@ Feature calculators must not call vendors directly and must not write to the dat
 - `breadth` dry-run feature slice
 - `market_features` aggregate dry-run bundle layer for `prices`, `breadth`, `sector_rotation`, `cross_asset`, and `liquidity_rates`
 - `volatility` dry-run feature slice
+- `event_calendar` dry-run feature slice
 
 ## Local Dry-Run Artifacts
 
