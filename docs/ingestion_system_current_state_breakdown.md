@@ -175,6 +175,7 @@ Current status:
 - defensive/cyclical/risk-on grouping helpers now exist
 - sector dispersion and daily summary helpers now exist
 - warehouse-shaped observation builders now exist
+- deterministic payload validators now exist
 - runtime feature engines are not implemented yet
 - persistence/writer behavior is not implemented yet
 
