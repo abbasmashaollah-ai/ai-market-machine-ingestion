@@ -23,6 +23,7 @@ The following layers are implemented in the sector rotation package:
 - deterministic payload validators
 - mock writer handoff
 - dry-run orchestration over in-memory price histories
+- pure row-to-history transformation for certified OHLCV input is now planned/implemented as the next source-shaping step
 
 ## Complete Dry-Run Flow
 
@@ -97,4 +98,4 @@ The dry-run does not prove:
 
 ## Recommended Next Step
 
-Review the writer boundary and the data repo write contract before any real persistence work, then use the certified OHLCV reader plan to shape the source-reader integration.
+Review the writer boundary and the data repo write contract before any real persistence work, then use the certified OHLCV reader plan and the pure row-to-history transformer to shape the source-reader integration.

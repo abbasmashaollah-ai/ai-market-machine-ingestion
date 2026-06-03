@@ -112,6 +112,8 @@ This gate must stay source-side. It should not change the feature calculations.
 5. dry-run integration with reader output
 6. no real writer until approved
 
+The pure row-to-history transformer is now implemented. The API/client reader adapter is still not implemented.
+
 ## Approval Gates
 
 Before any runtime reader implementation is enabled, confirm:
@@ -133,3 +135,12 @@ This planning step does not include:
 - scheduler activation
 - `ai-market-machine-data` changes
 - `AI Machine` changes
+
+The real writer and persistence path remain blocked until the reader and write contract are approved.
+
+Current implementation status:
+
+- pure row-to-history transformer exists
+- fake certified OHLCV fixture coverage exists
+- API/client reader adapter is still pending
+- dry-run integration can already consume the transformed history map

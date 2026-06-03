@@ -113,3 +113,5 @@ The dry-run job uses in-memory price histories, proves the full feature flow thr
 The dry-run vertical slice is a completion checkpoint, not a production persistence contract. Real writer implementation remains separate work.
 
 The next planning step is the certified OHLCV reader contract, which should shape approved OHLCV rows into the existing `price_history_by_symbol` dry-run input without changing the feature pipeline.
+
+The pure row-to-history transformer now exists. The API/client reader adapter is still not implemented.
