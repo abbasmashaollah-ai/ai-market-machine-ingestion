@@ -49,4 +49,6 @@ See `docs/ingestion_system_current_state_breakdown.md` for the current-state ing
 
 `app/features/` skeleton and the sector rotation package contract docs now exist, but runtime feature engines and persistence are still pending.
 
+The sector rotation dry-run vertical slice checkpoint is complete. Real writer/persistence work is still pending, and scheduler activation must remain last.
+
 This order prioritizes shared contracts and reusable producer foundations before higher-variance domains.

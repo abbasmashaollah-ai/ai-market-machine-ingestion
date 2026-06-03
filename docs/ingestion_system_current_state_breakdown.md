@@ -178,6 +178,7 @@ Current status:
 - deterministic payload validators now exist
 - mock writer handoff now exists
 - dry-run orchestration job now exists
+- sector rotation dry-run vertical slice checkpoint is complete
 - runtime feature engines are not implemented yet
 - real persistence/writer behavior is not implemented yet
 
