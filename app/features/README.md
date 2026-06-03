@@ -68,3 +68,4 @@ Feature calculators must not call vendors directly and must not write to the dat
 ## Started Domains
 
 - `prices` dry-run feature slice
+- `breadth` dry-run feature slice
