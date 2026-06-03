@@ -144,3 +144,5 @@ Current implementation status:
 - fake certified OHLCV fixture coverage exists
 - API/client reader adapter is still pending
 - dry-run integration can already consume the transformed history map
+
+The runtime adapter review is documented in `docs/sector_rotation_certified_ohlcv_adapter_review.md`. That review currently blocks runtime adapter work until an approved data-read client contract exists.

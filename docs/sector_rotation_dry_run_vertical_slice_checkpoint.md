@@ -99,3 +99,5 @@ The dry-run does not prove:
 ## Recommended Next Step
 
 Review the writer boundary and the data repo write contract before any real persistence work, then use the certified OHLCV reader plan and the pure row-to-history transformer to shape the source-reader integration.
+
+If a runtime adapter is desired next, review `docs/sector_rotation_certified_ohlcv_adapter_review.md` first; it currently blocks implementation until a data-read client contract exists.
