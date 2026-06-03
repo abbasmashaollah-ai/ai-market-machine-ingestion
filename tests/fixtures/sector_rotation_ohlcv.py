@@ -36,7 +36,7 @@ def _symbol_offset(symbol: str) -> int:
     return sum(ord(char) for char in symbol) % 17
 
 
-def _build_history_rows(symbol: str, rows: int = 65) -> list[dict[str, object]]:
+def _build_history_rows(symbol: str, rows: int = 90) -> list[dict[str, object]]:
     base = 100.0 + _symbol_offset(symbol)
     slope = 0.12 + (_symbol_offset(symbol) % 5) * 0.03
     start = datetime(2024, 1, 2, tzinfo=timezone.utc)

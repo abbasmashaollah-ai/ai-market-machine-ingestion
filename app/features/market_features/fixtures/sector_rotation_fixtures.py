@@ -34,7 +34,7 @@ def _symbol_offset(symbol: str) -> int:
     return sum(ord(char) for char in symbol) % 17
 
 
-def _build_history_rows(symbol: str, rows: int = 65) -> list[dict[str, object]]:
+def _build_history_rows(symbol: str, rows: int = 90) -> list[dict[str, object]]:
     base = 100.0 + _symbol_offset(symbol)
     slope = 0.12 + (_symbol_offset(symbol) % 5) * 0.03
     start = datetime(2024, 1, 2, tzinfo=timezone.utc)
@@ -97,4 +97,3 @@ def build_all_sector_rotation_ohlcv_payloads() -> dict[str, dict[str, object]]:
 
 def build_fake_data_read_client_for_sector_rotation() -> FakeSectorRotationDataReadClient:
     return FakeSectorRotationDataReadClient(payload_by_symbol=build_all_sector_rotation_ohlcv_payloads())
-

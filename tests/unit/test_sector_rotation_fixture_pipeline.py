@@ -38,7 +38,7 @@ def test_fixture_payloads_are_production_shaped_and_complete() -> None:
     assert payload["coverage_status"] == "COMPLETE"
     assert payload["quality_status"] == "PASS"
     assert payload["certification_status"] == "CERTIFIED"
-    assert len(payload["historical_ohlcv"]) >= 65
+    assert len(payload["historical_ohlcv"]) >= 90
     first_row = payload["historical_ohlcv"][0]
     assert first_row["symbol"] == "XLK"
     assert first_row["source"] == "FIXTURE"
@@ -49,7 +49,7 @@ def test_fixture_payloads_are_production_shaped_and_complete() -> None:
 def test_fixture_payloads_cover_all_required_symbols() -> None:
     payloads = build_all_sector_rotation_ohlcv_payloads()
     assert set(payloads) == set(get_sector_symbols()) | {"SPY"}
-    assert all(len(payload["historical_ohlcv"]) >= 65 for payload in payloads.values())
+    assert all(len(payload["historical_ohlcv"]) >= 90 for payload in payloads.values())
 
 
 def test_missing_sector_payload_surfaces_clean_warning() -> None:
