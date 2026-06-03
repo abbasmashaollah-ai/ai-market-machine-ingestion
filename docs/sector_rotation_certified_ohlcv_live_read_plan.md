@@ -11,7 +11,7 @@ The adapter already exists in mocked/test-only form. This document describes the
 - the sector rotation adapter exists in `app/features/sector_rotation/sector_rotation_reader.py`
 - it uses `DataReadClient`
 - it is covered by mocked unit tests only
-- live endpoint verification has not been done
+- the live single-symbol OHLCV history route has been confirmed manually
 
 ## Required Sector Symbols
 
@@ -38,7 +38,7 @@ Practical minimum: at least 61 trading rows per required symbol.
 
 1. verify the OpenAPI route exists
 2. call the certified OHLCV read endpoint once per required symbol
-3. confirm response rows contain `symbol`, `date` or `timestamp`, and `close`
+3. confirm response rows contain `symbol`, `timestamp`, and `close`
 4. pass the combined `historical_ohlcv` rows to `build_price_history_by_symbol(...)`
 5. run `run_sector_rotation_certified_ohlcv_dry_run(...)` in read-only mode
 6. confirm 11 observation rows and 1 summary row
@@ -53,6 +53,10 @@ The live path may warn on:
 - uncertified rows
 
 The live response shape should use `historical_ohlcv` for each symbol response.
+
+The live single-symbol route confirmed in manual verification is:
+
+- `GET /internal/read/symbol/{symbol}/ohlcv/history`
 
 ## Safety Boundaries
 

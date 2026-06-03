@@ -23,7 +23,7 @@ The following layers are implemented in the sector rotation package:
 - deterministic payload validators
 - mock writer handoff
 - dry-run orchestration over in-memory price histories
-- pure row-to-history transformation for certified OHLCV input is now planned/implemented as the next source-shaping step
+- pure row-to-history transformation for certified OHLCV input now exists as the next source-shaping step
 
 ## Complete Dry-Run Flow
 
@@ -104,9 +104,9 @@ If a runtime adapter is desired next, review `docs/sector_rotation_certified_ohl
 
 The shared read contract is now documented in `docs/data_read_client_contract.md`.
 
-The mocked `DataReadClient` implementation exists, but sector rotation runtime adapter activation remains blocked until the live read endpoint and response shape are confirmed.
+The mocked `DataReadClient` implementation exists, and the sector rotation runtime adapter combines single-symbol `historical_ohlcv` rows before the dry-run pipeline. Runtime activation remains blocked until the read contract is approved for use.
 
-The sector rotation certified OHLCV adapter exists in mocked/test-only form; live endpoint verification is still pending.
+The sector rotation certified OHLCV adapter exists in mocked/test-only form, and the live endpoint has now been confirmed manually.
 
 The live sector rotation read plan is documented in `docs/sector_rotation_certified_ohlcv_live_read_plan.md`.
 

@@ -49,8 +49,8 @@ class DataReadTransport(Protocol):
 class DataReadClient:
     """Read-only GET client for certified warehouse evidence.
 
-    The endpoint path is intentionally conservative and repository-local:
-    /private-read/canonical_ohlcv/certified-history
+    The live OHLCV history route confirmed for this client is:
+    /internal/read/symbol/{symbol}/ohlcv/history
     """
 
     def __init__(self, config: DataReadClientConfig, http_client: DataReadTransport | None = None) -> None:
@@ -68,6 +68,8 @@ class DataReadClient:
         limit: int | None = None,
         order: str = "asc",
     ) -> dict[str, object]:
+        """Fetch certified OHLCV history for one symbol from the live private-read route."""
+
         normalized_symbol = self._normalize_symbol(symbol)
         if not normalized_symbol:
             raise DataReadClientResponseError("symbol is required")
@@ -97,6 +99,8 @@ class DataReadClient:
         end_date: str | None = None,
         lookback_days: int | None = None,
     ) -> list[dict[str, object]]:
+        """Convenience wrapper that combines single-symbol OHLCV history rows."""
+
         if not symbols:
             raise DataReadClientResponseError("symbols are required")
 

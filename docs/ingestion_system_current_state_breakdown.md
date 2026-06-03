@@ -181,8 +181,8 @@ Current status:
 - sector rotation dry-run vertical slice checkpoint is complete
 - next planning step is the certified OHLCV reader contract for sector rotation
 - ingestion-side data-read client contract now exists
-- mocked `DataReadClient` implementation now exists, but live endpoint verification is still pending
-- sector rotation certified OHLCV adapter now exists in mocked/test-only form
+- mocked `DataReadClient` implementation now exists and matches the confirmed live single-symbol route
+- sector rotation certified OHLCV adapter now exists in mocked/test-only form and fans out per required symbol
 - live verification plans for `DataReadClient` and the sector rotation adapter now exist
 - live single-symbol OHLCV history route has been confirmed for read-only use
 - runtime feature engines are not implemented yet

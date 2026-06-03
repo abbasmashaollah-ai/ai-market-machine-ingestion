@@ -19,6 +19,8 @@ price_history_by_symbol = {
 
 The reader should populate that shape from certified OHLCV rows while preserving the existing calculation flow.
 
+The live single-symbol route now feeds this transformer through the sector rotation adapter.
+
 ## Target Certified OHLCV Input Source
 
 The future reader should consume certified OHLCV rows from the approved ingestion/data boundary, not from vendor APIs.
@@ -64,6 +66,8 @@ The sector rotation reader should:
 - emit warnings for missing symbols
 - emit warnings for insufficient history
 - respect quality and certification gates before producing the history map
+
+The live certified OHLCV response shape now confirmed by manual verification includes `historical_ohlcv` rows per symbol, which the adapter combines before calling this transformer.
 
 The reader should not:
 
@@ -155,4 +159,4 @@ The sector rotation certified OHLCV adapter now exists as mocked/test-only code 
 
 The live read plan is documented in `docs/sector_rotation_certified_ohlcv_live_read_plan.md`.
 
-The live route is confirmed as `GET /internal/read/symbol/{symbol}/ohlcv/history`, and the adapter should combine single-symbol `historical_ohlcv` rows before feeding the dry-run pipeline.
+The live route is confirmed as `GET /internal/read/symbol/{symbol}/ohlcv/history`, and the adapter combines single-symbol `historical_ohlcv` rows before feeding the dry-run pipeline.

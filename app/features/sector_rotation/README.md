@@ -4,7 +4,7 @@ This package is the first deterministic evidence vertical slice under `app/featu
 
 It exists to calculate sector rotation evidence from a fixed ETF universe without introducing vendor access, persistence, or AI decision logic.
 
-The sector universe definitions, return calculations, and relative-strength calculations now exist. Writer behavior, persistence, job orchestration, and scheduler activation are still deferred.
+The sector universe definitions, return calculations, and relative-strength calculations now exist. The certified OHLCV row-to-history transformer, live single-symbol read adapter, mock writer handoff, and dry-run orchestration job now exist as well. Writer behavior, persistence, job orchestration, and scheduler activation are still deferred.
 The sector leadership ranking, leadership flag, deterioration flag, and momentum score helper now also exist. Defensive, cyclical, and risk-on grouping scores now exist as well. Sector dispersion, daily summary evidence, warehouse-shaped observation builders, deterministic validators, a mock writer handoff, and a dry-run orchestration job now exist too. The dry-run vertical slice is complete in memory and proves the full feature flow without persistence. Writer behavior, persistence, job orchestration, and scheduler activation are still deferred.
 
 ## Purpose
@@ -120,4 +120,4 @@ The adapter review is documented separately and currently blocks runtime adapter
 
 The live verification plan for the client and adapter is documented, but no live read has been executed.
 
-The live route has since been confirmed as single-symbol; the adapter should call the client once per required symbol and combine `historical_ohlcv` rows before the dry-run pipeline.
+The live route has since been confirmed as single-symbol; the adapter calls the client once per required symbol and combines `historical_ohlcv` rows before the dry-run pipeline.

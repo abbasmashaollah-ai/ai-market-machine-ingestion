@@ -220,7 +220,7 @@ def fetch_sector_rotation_price_history(
     lookback_days: int = 90,
     required_symbols: Sequence[str] | None = None,
 ) -> SectorRotationCertifiedOHLCVAdapterResult:
-    """Fetch certified OHLCV rows and shape them into the sector rotation dry-run input."""
+    """Fetch certified OHLCV rows one symbol at a time and shape them into the dry-run input."""
 
     required_symbols = tuple(required_symbols or get_required_symbols(include_benchmark=True))
     warnings: list[str] = []

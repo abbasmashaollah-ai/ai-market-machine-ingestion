@@ -10,7 +10,7 @@ The code path is mocked and unit-tested today. This plan describes the safe, hum
 
 - `DataReadClient` exists in `app/clients/data_read_client.py`
 - it is covered by mocked unit tests only
-- no live endpoint verification has been done
+- the live single-symbol OHLCV history route has now been verified manually
 - no write path is involved
 
 ## Required Environment Variables
@@ -42,7 +42,9 @@ The live route confirmed in manual verification is:
 
 The verification step should identify the certified OHLCV private-read endpoint exposed by `ai-market-machine-data`.
 
-The confirmed live route is single-symbol and returns certified OHLCV history for the requested symbol.
+The confirmed live route is single-symbol and returns certified OHLCV history for the requested symbol:
+
+- `GET /internal/read/symbol/{symbol}/ohlcv/history`
 
 ## Read-Only Command Examples
 
@@ -53,6 +55,8 @@ python -m scripts.example_data_read_client_check --base-url "$AI_MARKET_MACHINE_
 ```
 
 Any live verification command must remain read-only and must not write to the database.
+
+The manual read-only check already confirmed `SPY` returns `200` with `limit=65&order=asc`.
 
 ## Expected Successful Response Shapes
 
@@ -65,6 +69,8 @@ The live client should accept any of the following response envelopes:
 - `{"historical": [...]}`
 - `{"results": [...]}`
 - `{"historical_ohlcv": [...]}`
+
+The live response envelope also includes metadata such as `symbol`, `symbol_metadata`, `ohlcv_coverage`, `freshness_status`, `coverage_status`, `quality_status`, `certification_status`, and `warnings`.
 
 ## Failure Handling
 

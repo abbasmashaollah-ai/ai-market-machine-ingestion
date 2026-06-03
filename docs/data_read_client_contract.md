@@ -25,11 +25,11 @@ The boundary remains:
 
 The client defined here belongs to ingestion, but it only reads certified data owned and served by `ai-market-machine-data`.
 
-## Current Blocker
+## Current Status
 
-No approved `DataReadClient` / private-read client exists in this repository yet.
+`DataReadClient` now exists in `app/clients/data_read_client.py` and is test-proven with mocked transport only.
 
-That is why runtime adapter work for sector rotation remains blocked.
+The live private-read endpoint has now been confirmed separately, but the client remains a read-only ingestion-side contract and still must not fall back to vendor access.
 
 ## Proposed Client Name
 
@@ -72,6 +72,10 @@ get_symbol_ohlcv_history(symbol, start_date=None, end_date=None, limit=None, ord
 
 This method should read certified OHLCV history for a single symbol and date bounds.
 
+The live route confirmed for this method is:
+
+- `GET /internal/read/symbol/{symbol}/ohlcv/history`
+
 ## Convenience Method
 
 A convenience method may also exist:
@@ -81,6 +85,8 @@ get_certified_ohlcv_history(symbols, start_date=None, end_date=None, lookback_da
 ```
 
 This method should loop over symbols and combine the single-symbol history rows for consumers such as `sector_rotation`.
+
+That convenience method exists today and delegates to the single-symbol route per required symbol.
 
 ## Expected Return Shape
 
@@ -170,6 +176,8 @@ Before any runtime implementation is enabled, confirm:
 - the response shape is confirmed
 - secrets handling is defined
 - vendor fallback is not needed
+
+The live single-symbol OHLCV history route is confirmed, but the adapter remains mock/test-only until the surrounding read flow is fully verified and approved for runtime use.
 
 ## Non-Goals
 
