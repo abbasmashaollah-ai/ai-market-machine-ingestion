@@ -48,3 +48,23 @@ def test_cli_uses_defaults_when_arguments_omitted() -> None:
     assert exit_code == 0
     payload = json.loads(buffer.getvalue())
     assert payload["observation_date"] == "2026-01-15"
+
+
+def test_cli_summary_only_writes_compact_summary(tmp_path: Path) -> None:
+    output_file = tmp_path / "summary" / "bundle-summary.json"
+    buffer = io.StringIO()
+    with redirect_stdout(buffer):
+        exit_code = main(["--observation-date", "2026-01-15", "--summary-only", "--output-file", str(output_file)])
+
+    assert exit_code == 0
+    stdout_payload = json.loads(buffer.getvalue())
+    file_payload = json.loads(output_file.read_text(encoding="utf-8"))
+    assert stdout_payload == file_payload
+    assert stdout_payload["price_states_by_symbol"]["SPY"]
+    assert stdout_payload["breadth_participation_label"]
+    assert stdout_payload["sector_rotation_state"]
+    assert stdout_payload["cross_asset_state"]
+    assert stdout_payload["safety_flags"]["no_db_writes"] is True
+    assert stdout_payload["safety_flags"]["no_vendor_calls"] is True
+    assert stdout_payload["safety_flags"]["no_live_api_calls"] is True
+    assert stdout_payload["safety_flags"]["no_scheduler_activation"] is True
