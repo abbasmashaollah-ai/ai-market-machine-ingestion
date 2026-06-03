@@ -65,3 +65,6 @@ Feature calculators must not call vendors directly and must not write to the dat
 - `event_calendar`
 - `cross_asset`
 
+## Started Domains
+
+- `prices` dry-run feature slice
