@@ -111,3 +111,5 @@ The sector rotation certified OHLCV adapter exists in mocked/test-only form, and
 The live sector rotation read plan is documented in `docs/sector_rotation_certified_ohlcv_live_read_plan.md`.
 
 The live route is confirmed as single-symbol and the adapter combines `historical_ohlcv` rows before the dry-run pipeline.
+
+Live warehouse coverage for the 11 sector ETFs is still missing; the blocker is documented in `docs/sector_rotation_live_coverage_blocker.md`.

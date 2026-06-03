@@ -185,6 +185,7 @@ Current status:
 - sector rotation certified OHLCV adapter now exists in mocked/test-only form and fans out per required symbol
 - live verification plans for `DataReadClient` and the sector rotation adapter now exist
 - live single-symbol OHLCV history route has been confirmed for read-only use
+- live warehouse coverage for the 11 sector ETFs is currently missing, blocking production sector rotation
 - runtime feature engines are not implemented yet
 - real persistence/writer behavior is not implemented yet
 

@@ -42,6 +42,8 @@ That implementation is test-proven only. The live endpoint has now been confirme
 
 The adapter should call `get_symbol_ohlcv_history(...)` once per required symbol and combine the `historical_ohlcv` rows.
 
+The live coverage blocker is documented in `docs/sector_rotation_live_coverage_blocker.md`; the adapter remains mock/test-only until the 11 sector ETFs have certified warehouse coverage.
+
 ## What Exists Instead
 
 The repo currently has:

@@ -54,6 +54,8 @@ The live path may warn on:
 
 The live response shape should use `historical_ohlcv` for each symbol response.
 
+The live coverage check shows `SPY` is populated, but the 11 sector ETFs are still missing from the warehouse read.
+
 The live single-symbol route confirmed in manual verification is:
 
 - `GET /internal/read/symbol/{symbol}/ohlcv/history`
@@ -78,3 +80,7 @@ Human approval must happen before any live sector rotation verification step is 
 human approval
 
 The manual SPY live read returned `200`, confirming the route shape and read-only access, but this plan still requires human approval before any additional live calls.
+
+The live coverage blocker is documented in `docs/sector_rotation_live_coverage_blocker.md`.
+
+Production sector rotation remains blocked until certified OHLCV warehouse coverage exists for the 11 sector ETFs.

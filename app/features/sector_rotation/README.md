@@ -121,3 +121,4 @@ The adapter review is documented separately and currently blocks runtime adapter
 The live verification plan for the client and adapter is documented, but no live read has been executed.
 
 The live route has since been confirmed as single-symbol; the adapter calls the client once per required symbol and combines `historical_ohlcv` rows before the dry-run pipeline.
+Live warehouse coverage for the 11 sector ETFs is currently missing, so production sector rotation remains blocked until certified OHLCV is populated for that universe.
