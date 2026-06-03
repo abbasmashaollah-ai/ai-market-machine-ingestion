@@ -176,8 +176,9 @@ Current status:
 - sector dispersion and daily summary helpers now exist
 - warehouse-shaped observation builders now exist
 - deterministic payload validators now exist
+- mock writer handoff now exists
 - runtime feature engines are not implemented yet
-- persistence/writer behavior is not implemented yet
+- real persistence/writer behavior is not implemented yet
 
 ## G. What Belongs Where
 
