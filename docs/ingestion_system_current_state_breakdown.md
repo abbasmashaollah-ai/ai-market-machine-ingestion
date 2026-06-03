@@ -181,6 +181,7 @@ Current status:
 - sector rotation dry-run vertical slice checkpoint is complete
 - next planning step is the certified OHLCV reader contract for sector rotation
 - ingestion-side data-read client contract now exists
+- mocked `DataReadClient` implementation now exists, but live endpoint verification is still pending
 - runtime feature engines are not implemented yet
 - real persistence/writer behavior is not implemented yet
 

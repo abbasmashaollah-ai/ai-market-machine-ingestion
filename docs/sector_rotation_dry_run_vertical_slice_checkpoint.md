@@ -103,3 +103,5 @@ Review the writer boundary and the data repo write contract before any real pers
 If a runtime adapter is desired next, review `docs/sector_rotation_certified_ohlcv_adapter_review.md` first; it currently blocks implementation until a data-read client contract exists.
 
 The shared read contract is now documented in `docs/data_read_client_contract.md`.
+
+The mocked `DataReadClient` implementation exists, but sector rotation runtime adapter activation remains blocked until the live read endpoint and response shape are confirmed.

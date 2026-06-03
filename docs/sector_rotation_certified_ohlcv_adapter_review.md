@@ -33,11 +33,9 @@ No approved `DataReadClient` or dedicated private-read client implementation was
 
 ## Approved DataReadClient / Private-Read Path
 
-No approved `DataReadClient` or private-read client path is currently present in `ai-market-machine-ingestion`.
+The shared read contract is documented in `docs/data_read_client_contract.md`, and a first mocked `DataReadClient` implementation now exists in `app/clients/data_read_client.py`.
 
-That means the sector rotation runtime adapter cannot proceed yet as a concrete runtime implementation.
-
-The shared read contract is now documented in `docs/data_read_client_contract.md`, but the runtime client implementation is still pending.
+That implementation is test-proven only. Live endpoint verification has not been done yet, so the sector rotation runtime adapter remains blocked until the private-read endpoint, auth, and response shape are confirmed.
 
 ## What Exists Instead
 
@@ -98,4 +96,4 @@ This review does not include:
 
 ## Recommended Next Step
 
-Create the `DataReadClient` runtime only after the shared contract exists and the data endpoint/auth/response shape are confirmed.
+Confirm the live private-read endpoint, auth header, response shape, and secret handling before enabling any sector rotation runtime adapter.

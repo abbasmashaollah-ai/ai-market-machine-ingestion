@@ -140,6 +140,13 @@ Errors should be deterministic and safe to handle without falling back to vendor
 5. sector rotation adapter using `DataReadClient`
 6. no real writer until the read path is proven
 
+Current implementation status:
+
+- `DataReadClient` implementation exists in `app/clients/data_read_client.py`
+- tests are mocked only
+- live endpoint verification has not been done
+- sector rotation adapter remains blocked until the runtime endpoint and response shape are verified
+
 ## Approval Gates Before Runtime
 
 Before any runtime implementation is enabled, confirm:
