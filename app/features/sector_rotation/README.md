@@ -124,3 +124,5 @@ The live route has since been confirmed as single-symbol; the adapter calls the 
 Live warehouse coverage for the 11 sector ETFs is currently missing, so production sector rotation remains blocked until certified OHLCV is populated for that universe.
 
 The vendor-deferred development plan documents the fixture-first path that can continue without paid vendor activation.
+
+Fixture-based production-shaped sector rotation dry-run proof exists; real writer and vendor backfill remain blocked until certified OHLCV coverage exists for the sector universe.
