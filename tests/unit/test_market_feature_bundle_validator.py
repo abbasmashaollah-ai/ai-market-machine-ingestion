@@ -35,6 +35,14 @@ def test_missing_feature_section_fails() -> None:
     assert any(error.field_name == "breadth" for error in result.errors)
 
 
+def test_missing_liquidity_rates_section_fails() -> None:
+    bundle = dict(run_market_feature_bundle_dry_run("2026-01-15"))
+    bundle.pop("liquidity_rates")
+    result = validate_market_feature_bundle(bundle)
+    assert result.is_valid is False
+    assert any(error.field_name == "liquidity_rates" for error in result.errors)
+
+
 def test_validator_does_not_mutate_input() -> None:
     bundle = run_market_feature_bundle_dry_run("2026-01-15")
     snapshot = deepcopy(bundle)
@@ -46,10 +54,12 @@ def test_errors_are_deterministic() -> None:
     bundle = dict(run_market_feature_bundle_dry_run("2026-01-15"))
     bundle.pop("prices")
     bundle["no_scheduler_activation"] = False
+    bundle["liquidity_rates"] = {}
     result = validate_market_feature_bundle(bundle)
     messages = [(error.field_name, error.message) for error in result.errors]
     assert messages == [
         ("prices", "field is required"),
         ("no_scheduler_activation", "field must be True"),
         ("prices", "field must be an object"),
+        ("liquidity_rates", "liquidity_rates must include liquidity_regime_label or report"),
     ]

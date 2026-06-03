@@ -33,6 +33,7 @@ def build_market_feature_bundle_summary(bundle):
     breadth = payload.get("breadth") if isinstance(payload.get("breadth"), Mapping) else {}
     sector_rotation = payload.get("sector_rotation") if isinstance(payload.get("sector_rotation"), Mapping) else {}
     cross_asset = payload.get("cross_asset") if isinstance(payload.get("cross_asset"), Mapping) else {}
+    liquidity_rates = payload.get("liquidity_rates") if isinstance(payload.get("liquidity_rates"), Mapping) else {}
 
     breadth_label = breadth.get("participation_label") or (breadth.get("report") or {}).get("participation_label") if isinstance(breadth.get("report"), Mapping) else breadth.get("participation_label")
     if isinstance(breadth_label, Mapping):
@@ -43,12 +44,16 @@ def build_market_feature_bundle_summary(bundle):
     cross_state = cross_asset.get("descriptive_intermarket_state") or (cross_asset.get("report") or {}).get("descriptive_intermarket_state") if isinstance(cross_asset.get("report"), Mapping) else cross_asset.get("descriptive_intermarket_state")
     if isinstance(cross_state, Mapping):
         cross_state = None
+    liquidity_state = liquidity_rates.get("liquidity_regime_label") or (liquidity_rates.get("report") or {}).get("liquidity_regime_label") if isinstance(liquidity_rates.get("report"), Mapping) else liquidity_rates.get("liquidity_regime_label")
+    if isinstance(liquidity_state, Mapping):
+        liquidity_state = None
 
     feature_sections_present = {
         "prices": isinstance(prices, Mapping),
         "breadth": isinstance(breadth, Mapping),
         "sector_rotation": isinstance(sector_rotation, Mapping),
         "cross_asset": isinstance(cross_asset, Mapping),
+        "liquidity_rates": isinstance(liquidity_rates, Mapping),
     }
 
     accepted_counts_by_section = {
@@ -61,6 +66,7 @@ def build_market_feature_bundle_summary(bundle):
             "rejected_summary": _as_int(sector_rotation.get("rejected_summary_count")),
         },
         "cross_asset": _section_counts(cross_asset, "accepted_count", "rejected_count"),
+        "liquidity_rates": _section_counts(liquidity_rates, "accepted_count", "rejected_count"),
     }
 
     total_warnings = 0
@@ -79,6 +85,7 @@ def build_market_feature_bundle_summary(bundle):
         "breadth_participation_label": breadth_label,
         "sector_rotation_state": sector_state,
         "cross_asset_state": cross_state,
+        "liquidity_rates_state": liquidity_state,
         "total_warnings": total_warnings,
         "feature_sections_present": feature_sections_present,
         "accepted_counts_by_section": accepted_counts_by_section,
@@ -100,9 +107,14 @@ def build_market_feature_bundle_summary(bundle):
         str(summary["breadth_participation_label"] or ""),
         str(summary["sector_rotation_state"] or ""),
         str(summary["cross_asset_state"] or ""),
+        str(summary["liquidity_rates_state"] or ""),
     ]
     if all(state for state in states):
-        if any("RISK_OFF" in state for state in states):
+        if any("TIGHT" in state for state in states):
+            summary["descriptive_market_evidence_state"] = "RISK_OFF_EVIDENCE"
+        elif any("EASY" in state for state in states):
+            summary["descriptive_market_evidence_state"] = "RISK_ON_EVIDENCE"
+        elif any("RISK_OFF" in state for state in states):
             summary["descriptive_market_evidence_state"] = "RISK_OFF_EVIDENCE"
         elif any("RISK_ON" in state for state in states):
             summary["descriptive_market_evidence_state"] = "RISK_ON_EVIDENCE"

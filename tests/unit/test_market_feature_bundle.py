@@ -14,11 +14,12 @@ def test_bundle_contains_all_sections_and_is_json_friendly() -> None:
     assert bundle["no_vendor_calls"] is True
     assert bundle["no_live_api_calls"] is True
     assert bundle["no_scheduler_activation"] is True
-    assert set(bundle) >= {"observation_date", "timestamp", "prices", "breadth", "sector_rotation", "cross_asset", "warnings"}
+    assert set(bundle) >= {"observation_date", "timestamp", "prices", "breadth", "sector_rotation", "cross_asset", "liquidity_rates", "warnings"}
     assert "SPY" in bundle["prices"]["reports_by_symbol"]
     assert bundle["breadth"]["report"]["participation_label"]
     assert bundle["sector_rotation"]["descriptive_rotation_state"]
     assert bundle["cross_asset"]["descriptive_intermarket_state"]
+    assert bundle["liquidity_rates"]["liquidity_regime_label"]
     json.dumps(bundle)
 
 
@@ -28,6 +29,7 @@ def test_bundle_uses_fixture_dry_run_inputs_only() -> None:
     assert bundle["breadth"]["accepted_count"] == 1
     assert bundle["sector_rotation"]["accepted_observation_count"] == 11
     assert bundle["cross_asset"]["accepted_count"] == 1
+    assert bundle["liquidity_rates"]["accepted_count"] == 1
     assert bundle["prices"]["no_db_writes"] is True
     assert bundle["breadth"]["no_vendor_calls"] is True
     assert bundle["sector_rotation"]["no_live_api_calls"] is True

@@ -8,11 +8,13 @@ from datetime import date, datetime, timezone
 
 from app.features.breadth.breadth_job import run_breadth_dry_run
 from app.features.cross_asset.cross_asset_job import run_cross_asset_dry_run
+from app.features.liquidity_rates.liquidity_rates_job import run_liquidity_rates_dry_run
 from app.features.prices.price_feature_job import run_price_feature_dry_run
 from app.features.sector_rotation.sector_rotation_reader import run_sector_rotation_certified_ohlcv_dry_run
 from app.features.sector_rotation.sector_rotation_report import build_sector_rotation_dry_run_report
 from tests.fixtures.breadth_ohlcv import build_breadth_fixture_histories_scenario
 from tests.fixtures.cross_asset_ohlcv import build_cross_asset_fixture_histories_scenario
+from tests.fixtures.liquidity_rates_series import build_liquidity_rates_series_scenario
 from tests.fixtures.price_ohlcv import build_price_ohlcv_fixtures
 from tests.fixtures.sector_rotation_ohlcv import build_fake_data_read_client_for_sector_rotation
 
@@ -114,6 +116,25 @@ def run_market_feature_bundle_dry_run(observation_date, timestamp=None):
         "no_scheduler_activation": True,
     }
 
+    liquidity_histories = build_liquidity_rates_series_scenario("liquidity_tailwind")
+    liquidity_result = run_liquidity_rates_dry_run(
+        liquidity_histories,
+        observation_date=observation_date,
+        timestamp=normalized_timestamp,
+    )
+    liquidity_report = dict(liquidity_result.reports[0]) if liquidity_result.reports else {}
+    liquidity_section = {
+        "report": liquidity_report,
+        "accepted_count": liquidity_result.accepted_count,
+        "rejected_count": liquidity_result.rejected_count,
+        "liquidity_regime_label": liquidity_report.get("liquidity_regime_label"),
+        "warnings": list(liquidity_result.warnings),
+        "no_db_writes": True,
+        "no_vendor_calls": True,
+        "no_live_api_calls": True,
+        "no_scheduler_activation": True,
+    }
+
     return {
         "observation_date": str(observation_date),
         "timestamp": normalized_timestamp,
@@ -121,7 +142,8 @@ def run_market_feature_bundle_dry_run(observation_date, timestamp=None):
         "breadth": breadth_section,
         "sector_rotation": sector_section,
         "cross_asset": cross_section,
-        "warnings": [],
+        "liquidity_rates": liquidity_section,
+        "warnings": list(price_result.warnings) + list(breadth_result.warnings) + list(sector_result.warnings) + list(cross_result.warnings) + list(liquidity_result.warnings),
         "no_db_writes": True,
         "no_vendor_calls": True,
         "no_live_api_calls": True,

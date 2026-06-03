@@ -21,6 +21,7 @@ def test_cli_prints_bundle_json_and_safety_flags() -> None:
     assert payload["breadth"]["report"]["participation_label"]
     assert payload["sector_rotation"]["descriptive_rotation_state"]
     assert payload["cross_asset"]["descriptive_intermarket_state"]
+    assert payload["liquidity_rates"]["liquidity_regime_label"]
 
 
 def test_cli_writes_output_file_and_matches_stdout(tmp_path: Path) -> None:
@@ -64,8 +65,10 @@ def test_cli_summary_only_writes_compact_summary(tmp_path: Path) -> None:
     assert stdout_payload["breadth_participation_label"]
     assert stdout_payload["sector_rotation_state"]
     assert stdout_payload["cross_asset_state"]
+    assert stdout_payload["liquidity_rates_state"]
     assert stdout_payload["safety_flags"]["no_db_writes"] is True
     assert stdout_payload["safety_flags"]["no_vendor_calls"] is True
     assert stdout_payload["safety_flags"]["no_live_api_calls"] is True
     assert stdout_payload["safety_flags"]["no_scheduler_activation"] is True
     assert "prices" not in stdout_payload
+    assert "liquidity_rates" not in stdout_payload
