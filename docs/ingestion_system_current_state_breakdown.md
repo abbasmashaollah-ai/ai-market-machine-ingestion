@@ -166,6 +166,13 @@ Standard pattern inside each domain folder:
 
 This pattern keeps deterministic evidence logic isolated from source planning and raw payload normalization.
 
+Current status:
+
+- `app/features/` skeleton now exists
+- sector rotation package contract docs now exist
+- runtime feature engines are not implemented yet
+- persistence/writer behavior is not implemented yet
+
 ## G. What Belongs Where
 
 - `app/vendors/` = vendor clients, HTTP adapters, vendor mappers, and transport helpers

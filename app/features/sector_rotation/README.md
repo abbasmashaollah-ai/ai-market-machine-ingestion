@@ -1,0 +1,91 @@
+# Sector Rotation
+
+This package is the first deterministic evidence vertical slice under `app/features/`.
+
+It exists to calculate sector rotation evidence from a fixed ETF universe without introducing vendor access, persistence, or AI decision logic.
+
+## Purpose
+
+Sector rotation is a narrow, deterministic market evidence slice. It should compute relative performance and leadership evidence for the SPDR sector ETF universe and hand that evidence off to the warehouse boundary later.
+
+## First Vertical Slice Rationale
+
+This is the recommended first feature slice because it is:
+
+- deterministic
+- narrow enough to keep the boundary clean
+- aligned to existing `sector_rotation_observations` and `sector_rotation_daily_summary` tables in the data repo
+- based on a fixed universe instead of an open-ended source expansion problem
+
+## Sector ETF Universe
+
+- `SPY`
+- `XLC`
+- `XLY`
+- `XLP`
+- `XLE`
+- `XLF`
+- `XLV`
+- `XLI`
+- `XLB`
+- `XLRE`
+- `XLK`
+- `XLU`
+
+## Target Data Repo Tables
+
+- `sector_rotation_observations`
+- `sector_rotation_daily_summary`
+
+## Target Output Fields
+
+- `return_1d`
+- `return_5d`
+- `return_20d`
+- `return_60d`
+- `relative_strength_5d_vs_spy`
+- `relative_strength_20d_vs_spy`
+- `relative_strength_60d_vs_spy`
+- `rank_5d`
+- `rank_20d`
+- `rank_60d`
+- `rank_change_5d`
+- `rank_change_20d`
+- `momentum_score`
+- `leadership_flag`
+- `deterioration_flag`
+- `risk_on_leadership_score`
+- `defensive_leadership_score`
+- `leadership_concentration_score`
+- `sector_dispersion_score`
+- `broad_rotation_flag`
+- `narrow_rotation_flag`
+- `improving_rotation_flag`
+- `deteriorating_rotation_flag`
+
+## Planned Implementation Stages
+
+1. sector universe + dataclasses
+2. returns and relative strength pure engines
+3. rank and leadership pure engines
+4. defensive/cyclical grouping engines
+5. daily summary engine
+6. observation builders
+7. validators
+8. mock writer handoff
+9. real writer/persistence only after approval
+10. job/orchestration only after dry-run proof
+11. scheduler activation last
+
+## Explicit Non-Goals
+
+- no vendor calls
+- no DB writes
+- no scheduler activation
+- no AI regime logic
+- no judge posture
+- no trading logic
+- no capital logic
+- no portfolio logic
+- no AI confidence logic
+

@@ -47,4 +47,6 @@ Recommended first contract/adapters:
 
 See `docs/ingestion_system_current_state_breakdown.md` for the current-state ingestion boundary and the recommended `app/features/` implementation map.
 
+`app/features/` skeleton and the sector rotation package contract docs now exist, but runtime feature engines and persistence are still pending.
+
 This order prioritizes shared contracts and reusable producer foundations before higher-variance domains.
