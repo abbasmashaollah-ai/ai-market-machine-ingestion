@@ -117,3 +117,5 @@ The next planning step is the certified OHLCV reader contract, which should shap
 The pure row-to-history transformer now exists. The API/client reader adapter is still not implemented.
 
 The adapter review is documented separately and currently blocks runtime adapter implementation until an approved data-read client contract exists.
+
+The live verification plan for the client and adapter is documented, but no live read has been executed.

@@ -148,6 +148,8 @@ Current implementation status:
 - sector rotation adapter remains blocked until the runtime endpoint and response shape are verified
 - sector rotation adapter code now exists but remains test-only until the live read endpoint is verified
 
+The live verification plan is documented in `docs/data_read_client_live_verification_plan.md`.
+
 ## Approval Gates Before Runtime
 
 Before any runtime implementation is enabled, confirm:

@@ -152,3 +152,5 @@ The shared data-read client contract is documented in `docs/data_read_client_con
 The mocked `DataReadClient` implementation exists, but live endpoint verification is still pending and the sector rotation runtime adapter remains blocked until that boundary is confirmed.
 
 The sector rotation certified OHLCV adapter now exists as mocked/test-only code and still requires live endpoint verification before any runtime enablement.
+
+The live read plan is documented in `docs/sector_rotation_certified_ohlcv_live_read_plan.md`.

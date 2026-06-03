@@ -98,3 +98,5 @@ This review does not include:
 ## Recommended Next Step
 
 Confirm the live private-read endpoint, auth header, response shape, and secret handling before enabling any sector rotation runtime adapter beyond mocked tests.
+
+The live verification plan is documented in `docs/sector_rotation_certified_ohlcv_live_read_plan.md`.
