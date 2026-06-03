@@ -179,6 +179,7 @@ Current status:
 - mock writer handoff now exists
 - dry-run orchestration job now exists
 - sector rotation dry-run vertical slice checkpoint is complete
+- next planning step is the certified OHLCV reader contract for sector rotation
 - runtime feature engines are not implemented yet
 - real persistence/writer behavior is not implemented yet
 

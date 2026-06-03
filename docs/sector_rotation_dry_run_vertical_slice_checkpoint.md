@@ -97,4 +97,4 @@ The dry-run does not prove:
 
 ## Recommended Next Step
 
-Review the writer boundary and the data repo write contract before any real persistence work.
+Review the writer boundary and the data repo write contract before any real persistence work, then use the certified OHLCV reader plan to shape the source-reader integration.

@@ -111,3 +111,5 @@ Group scores, descriptive summary states, observation payloads, validators, and 
 The dry-run job uses in-memory price histories, proves the full feature flow through the mock writer, and does not touch the database. Real persistence requires separate approval.
 
 The dry-run vertical slice is a completion checkpoint, not a production persistence contract. Real writer implementation remains separate work.
+
+The next planning step is the certified OHLCV reader contract, which should shape approved OHLCV rows into the existing `price_history_by_symbol` dry-run input without changing the feature pipeline.
