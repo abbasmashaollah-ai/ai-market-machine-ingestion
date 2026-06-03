@@ -4,6 +4,8 @@ This package is the first deterministic evidence vertical slice under `app/featu
 
 It exists to calculate sector rotation evidence from a fixed ETF universe without introducing vendor access, persistence, or AI decision logic.
 
+The sector universe definitions, return calculations, and relative-strength calculations now exist. Writer behavior, persistence, job orchestration, and scheduler activation are still deferred.
+
 ## Purpose
 
 Sector rotation is a narrow, deterministic market evidence slice. It should compute relative performance and leadership evidence for the SPDR sector ETF universe and hand that evidence off to the warehouse boundary later.
@@ -89,3 +91,9 @@ This is the recommended first feature slice because it is:
 - no portfolio logic
 - no AI confidence logic
 
+Current implementation status:
+
+- sector universe implementation exists
+- pure return engine exists
+- pure relative-strength engine exists
+- writer/persistence/job/scheduler stages are not implemented yet
