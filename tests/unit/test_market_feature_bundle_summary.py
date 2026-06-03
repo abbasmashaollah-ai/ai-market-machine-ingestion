@@ -1,9 +1,9 @@
 import json
 from datetime import datetime, timezone
 
-from app.features.market_feature_bundle import run_market_feature_bundle_dry_run
-from app.features.market_feature_bundle_summary import build_market_feature_bundle_summary
-from app.features.market_feature_bundle_validator import validate_market_feature_bundle
+from app.features.market_features.market_feature_bundle import run_market_feature_bundle_dry_run
+from app.features.market_features.market_feature_bundle_summary import build_market_feature_bundle_summary
+from app.features.market_features.market_feature_bundle_validator import validate_market_feature_bundle
 
 
 def test_summary_contains_required_fields_and_states() -> None:

@@ -5,9 +5,9 @@ import json
 from pathlib import Path
 import sys
 
-from app.features.market_feature_bundle import run_market_feature_bundle_dry_run
-from app.features.market_feature_bundle_summary import build_market_feature_bundle_summary
-from app.features.market_feature_bundle_validator import validate_market_feature_bundle
+from app.features.market_features.market_feature_bundle import run_market_feature_bundle_dry_run
+from app.features.market_features.market_feature_bundle_summary import build_market_feature_bundle_summary
+from app.features.market_features.market_feature_bundle_validator import validate_market_feature_bundle
 
 
 def _build_parser() -> argparse.ArgumentParser:

@@ -1,7 +1,7 @@
 from copy import deepcopy
 
-from app.features.market_feature_bundle import run_market_feature_bundle_dry_run
-from app.features.market_feature_bundle_validator import validate_market_feature_bundle
+from app.features.market_features.market_feature_bundle import run_market_feature_bundle_dry_run
+from app.features.market_features.market_feature_bundle_validator import validate_market_feature_bundle
 
 
 def test_valid_bundle_passes() -> None:
