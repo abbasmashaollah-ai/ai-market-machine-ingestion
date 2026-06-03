@@ -174,6 +174,7 @@ Current status:
 - sector leadership ranking and momentum helpers now exist
 - defensive/cyclical/risk-on grouping helpers now exist
 - sector dispersion and daily summary helpers now exist
+- warehouse-shaped observation builders now exist
 - runtime feature engines are not implemented yet
 - persistence/writer behavior is not implemented yet
 
