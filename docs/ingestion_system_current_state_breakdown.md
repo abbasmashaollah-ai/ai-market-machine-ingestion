@@ -173,6 +173,7 @@ Current status:
 - sector universe and relative strength calculation code now exist
 - sector leadership ranking and momentum helpers now exist
 - defensive/cyclical/risk-on grouping helpers now exist
+- sector dispersion and daily summary helpers now exist
 - runtime feature engines are not implemented yet
 - persistence/writer behavior is not implemented yet
 
