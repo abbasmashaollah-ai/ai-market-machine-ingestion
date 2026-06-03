@@ -8,6 +8,7 @@ def test_sector_rotation_certified_ohlcv_live_read_plan_covers_live_flow_and_bou
         "XLC",
         "XLK",
         "XLU",
+        "historical_ohlcv",
         "build_price_history_by_symbol",
         "run_sector_rotation_certified_ohlcv_dry_run",
         "certified OHLCV",
@@ -23,4 +24,3 @@ def test_sector_rotation_certified_ohlcv_live_read_plan_covers_live_flow_and_bou
 
     missing = [phrase for phrase in required_phrases if phrase not in text]
     assert not missing, f"Missing required phrases: {missing}"
-

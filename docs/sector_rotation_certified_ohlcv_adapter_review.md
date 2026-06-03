@@ -10,6 +10,7 @@ The result of this review determines whether a runtime adapter can proceed now o
 
 The sector rotation reader now has a pure certified OHLCV row-to-history transformer.
 The sector rotation certified OHLCV adapter now exists as mocked/test-only runtime code that uses `DataReadClient`, but live endpoint verification has not been done.
+The live route is now confirmed as single-symbol: `GET /internal/read/symbol/{symbol}/ohlcv/history`.
 
 It already shapes certified OHLCV rows into the existing dry-run input:
 
@@ -37,6 +38,8 @@ No approved `DataReadClient` or dedicated private-read client implementation was
 The shared read contract is documented in `docs/data_read_client_contract.md`, and a first mocked `DataReadClient` implementation now exists in `app/clients/data_read_client.py`.
 
 That implementation is test-proven only. Live endpoint verification has not been done yet, so the sector rotation runtime adapter remains blocked until the private-read endpoint, auth, and response shape are confirmed.
+
+The adapter should call `get_symbol_ohlcv_history(...)` once per required symbol and combine the `historical_ohlcv` rows.
 
 ## What Exists Instead
 

@@ -67,10 +67,20 @@ The token must never be logged or echoed in diagnostics.
 The first required method should be:
 
 ```python
+get_symbol_ohlcv_history(symbol, start_date=None, end_date=None, limit=None, order="asc")
+```
+
+This method should read certified OHLCV history for a single symbol and date bounds.
+
+## Convenience Method
+
+A convenience method may also exist:
+
+```python
 get_certified_ohlcv_history(symbols, start_date=None, end_date=None, lookback_days=None)
 ```
 
-This method should read certified OHLCV history for the requested symbols and date bounds.
+This method should loop over symbols and combine the single-symbol history rows for consumers such as `sector_rotation`.
 
 ## Expected Return Shape
 
@@ -147,6 +157,7 @@ Current implementation status:
 - live endpoint verification has not been done
 - sector rotation adapter remains blocked until the runtime endpoint and response shape are verified
 - sector rotation adapter code now exists but remains test-only until the live read endpoint is verified
+- `get_symbol_ohlcv_history(...)` exists and is the preferred live-route method
 
 The live verification plan is documented in `docs/data_read_client_live_verification_plan.md`.
 

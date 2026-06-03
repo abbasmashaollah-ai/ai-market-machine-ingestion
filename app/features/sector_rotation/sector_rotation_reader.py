@@ -206,7 +206,7 @@ def _extract_rows_from_payload(payload: object) -> list[dict[str, object]]:
     if isinstance(payload, list):
         return [row for row in payload if isinstance(row, dict)]
     if isinstance(payload, dict):
-        for key in ("rows", "data", "ohlcv", "historical", "results"):
+        for key in ("historical_ohlcv", "rows", "data", "ohlcv", "historical", "results"):
             rows = payload.get(key)
             if isinstance(rows, list):
                 return [row for row in rows if isinstance(row, dict)]
@@ -225,22 +225,48 @@ def fetch_sector_rotation_price_history(
     required_symbols = tuple(required_symbols or get_required_symbols(include_benchmark=True))
     warnings: list[str] = []
 
+    combined_rows: list[dict[str, object]] = []
+    top_level_warnings: list[str] = []
+
     try:
-        response = data_read_client.get_certified_ohlcv_history(
-            list(required_symbols),
-            start_date=start_date,
-            end_date=end_date,
-            lookback_days=lookback_days,
-        )
+        if hasattr(data_read_client, "get_symbol_ohlcv_history"):
+            for symbol in required_symbols:
+                response = data_read_client.get_symbol_ohlcv_history(
+                    symbol,
+                    start_date=start_date,
+                    end_date=end_date,
+                    limit=lookback_days,
+                    order="asc",
+                )
+                rows = _extract_rows_from_payload(response)
+                combined_rows.extend(rows)
+                if isinstance(response, dict):
+                    coverage = response.get("ohlcv_coverage")
+                    if isinstance(coverage, dict):
+                        coverage_warnings = coverage.get("warnings")
+                        if isinstance(coverage_warnings, list):
+                            top_level_warnings.extend(str(warning) for warning in coverage_warnings)
+                    response_warnings = response.get("warnings")
+                    if isinstance(response_warnings, list):
+                        top_level_warnings.extend(str(warning) for warning in response_warnings)
+        else:
+            response = data_read_client.get_certified_ohlcv_history(
+                list(required_symbols),
+                start_date=start_date,
+                end_date=end_date,
+                lookback_days=lookback_days,
+            )
+            combined_rows.extend(_extract_rows_from_payload(response))
     except DataReadClientError as exc:
         raise RuntimeError(f"sector rotation data read failed: {exc}") from exc
 
-    rows = _extract_rows_from_payload(response)
+    rows = combined_rows
     reader_result = build_price_history_by_symbol(
         rows,
         required_symbols=required_symbols,
         min_history_length=lookback_days if lookback_days is not None else None,
     )
+    warnings.extend(top_level_warnings)
     warnings.extend(reader_result.warnings)
     missing_symbols = get_missing_required_symbols(reader_result.price_history_by_symbol, required_symbols=required_symbols)
     if missing_symbols:

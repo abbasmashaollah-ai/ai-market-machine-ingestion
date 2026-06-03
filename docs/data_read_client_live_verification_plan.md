@@ -34,11 +34,15 @@ GET {AI_MARKET_MACHINE_DATA_BASE_URL}/openapi.json
 
 Use the OpenAPI document to confirm the private-read route shape and request/response contract.
 
+The live route confirmed in manual verification is:
+
+- `GET /internal/read/symbol/{symbol}/ohlcv/history`
+
 ## Expected Private-Read Endpoint Discovery
 
 The verification step should identify the certified OHLCV private-read endpoint exposed by `ai-market-machine-data`.
 
-The exact route is intentionally left uncalled here until the OpenAPI document confirms it.
+The confirmed live route is single-symbol and returns certified OHLCV history for the requested symbol.
 
 ## Read-Only Command Examples
 
@@ -60,6 +64,7 @@ The live client should accept any of the following response envelopes:
 - `{"ohlcv": [...]}`
 - `{"historical": [...]}`
 - `{"results": [...]}`
+- `{"historical_ohlcv": [...]}`
 
 ## Failure Handling
 
@@ -89,3 +94,5 @@ This plan is documentation for that approval gate, not authorization to run the 
 Human approval must happen before any live verification step is executed.
 
 human approval
+
+The manual SPY verification returned `200` on the live route, but this plan remains documentation only and does not authorize any new live calls.

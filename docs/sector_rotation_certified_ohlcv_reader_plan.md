@@ -154,3 +154,5 @@ The mocked `DataReadClient` implementation exists, but live endpoint verificatio
 The sector rotation certified OHLCV adapter now exists as mocked/test-only code and still requires live endpoint verification before any runtime enablement.
 
 The live read plan is documented in `docs/sector_rotation_certified_ohlcv_live_read_plan.md`.
+
+The live route is confirmed as `GET /internal/read/symbol/{symbol}/ohlcv/history`, and the adapter should combine single-symbol `historical_ohlcv` rows before feeding the dry-run pipeline.

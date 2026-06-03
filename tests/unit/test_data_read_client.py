@@ -37,20 +37,34 @@ def test_missing_token_rejected() -> None:
 
 def test_request_includes_internal_token_and_params() -> None:
     transport = Mock()
-    transport.request.return_value = _response(200, [{"symbol": "SPY", "close": 100.0}])
+    transport.request.return_value = _response(200, {"symbol": "SPY", "historical_ohlcv": [{"symbol": "SPY", "close": 100.0}]})
     client = DataReadClient(DataReadClientConfig(base_url="https://example.com/", ops_internal_token="secret"), http_client=transport)
 
-    result = client.get_certified_ohlcv_history(["spy", "xlk"], start_date="2026-01-01", end_date="2026-01-31", lookback_days=61)
+    result = client.get_symbol_ohlcv_history("spy", start_date="2026-01-01", end_date="2026-01-31", limit=61, order="asc")
 
     metadata = transport.request.call_args[0][0]
     assert metadata.method == "GET"
-    assert metadata.url == "https://example.com/private-read/canonical_ohlcv/certified-history"
+    assert metadata.url == "https://example.com/internal/read/symbol/SPY/ohlcv/history"
     assert metadata.headers["X-Ops-Internal-Token"] == "secret"
-    assert metadata.query_params["symbols"] == "SPY,XLK"
     assert metadata.query_params["start_date"] == "2026-01-01"
     assert metadata.query_params["end_date"] == "2026-01-31"
-    assert metadata.query_params["lookback_days"] == "61"
-    assert result == [{"symbol": "SPY", "close": 100.0}]
+    assert metadata.query_params["limit"] == "61"
+    assert metadata.query_params["order"] == "asc"
+    assert result == {"symbol": "SPY", "historical_ohlcv": [{"symbol": "SPY", "close": 100.0}]}
+
+
+def test_single_symbol_history_uses_live_route() -> None:
+    transport = Mock()
+    transport.request.return_value = _response(200, {"historical_ohlcv": [{"symbol": "SPY", "close": 100.0}]})
+    client = DataReadClient(DataReadClientConfig(base_url="https://example.com", ops_internal_token="secret"), http_client=transport)
+
+    result = client.get_symbol_ohlcv_history("spy", limit=65, order="asc")
+
+    metadata = transport.request.call_args[0][0]
+    assert metadata.url == "https://example.com/internal/read/symbol/SPY/ohlcv/history"
+    assert metadata.query_params["limit"] == "65"
+    assert metadata.query_params["order"] == "asc"
+    assert result == {"historical_ohlcv": [{"symbol": "SPY", "close": 100.0}]}
 
 
 def test_token_not_exposed_in_repr_or_errors() -> None:
@@ -117,3 +131,16 @@ def test_no_vendor_fallback_by_construction() -> None:
     client.get_certified_ohlcv_history(["SPY"])
     assert transport.request.call_count == 1
 
+
+def test_get_certified_ohlcv_history_loops_per_symbol() -> None:
+    transport = Mock()
+    transport.request.side_effect = [
+        _response(200, {"historical_ohlcv": [{"symbol": "SPY", "close": 100.0}]}),
+        _response(200, {"historical_ohlcv": [{"symbol": "XLK", "close": 50.0}]}),
+    ]
+    client = DataReadClient(DataReadClientConfig(base_url="https://example.com", ops_internal_token="secret"), http_client=transport)
+
+    result = client.get_certified_ohlcv_history(["SPY", "XLK"], lookback_days=65)
+
+    assert result == [{"symbol": "SPY", "close": 100.0}, {"symbol": "XLK", "close": 50.0}]
+    assert transport.request.call_count == 2

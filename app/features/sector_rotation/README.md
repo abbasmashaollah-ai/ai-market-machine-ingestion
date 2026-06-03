@@ -119,3 +119,5 @@ The pure row-to-history transformer now exists. The API/client reader adapter is
 The adapter review is documented separately and currently blocks runtime adapter implementation until an approved data-read client contract exists.
 
 The live verification plan for the client and adapter is documented, but no live read has been executed.
+
+The live route has since been confirmed as single-symbol; the adapter should call the client once per required symbol and combine `historical_ohlcv` rows before the dry-run pipeline.

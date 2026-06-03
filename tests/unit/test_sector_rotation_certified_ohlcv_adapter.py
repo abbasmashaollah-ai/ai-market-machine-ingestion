@@ -38,25 +38,46 @@ def _fixture_rows() -> list[dict[str, object]]:
 
 
 class FakeDataReadClient:
-    def __init__(self, payload: object) -> None:
-        self.payload = payload
-        self.calls: list[tuple[tuple[str, ...], dict[str, object]]] = []
+    def __init__(self, payload_by_symbol: object) -> None:
+        self.payload_by_symbol = payload_by_symbol
+        self.calls: list[tuple[str, dict[str, object]]] = []
 
-    def get_certified_ohlcv_history(self, symbols, start_date=None, end_date=None, lookback_days=None):
-        self.calls.append((tuple(symbols), {
+    def get_symbol_ohlcv_history(self, symbol, start_date=None, end_date=None, limit=None, order="asc"):
+        self.calls.append((str(symbol), {
             "start_date": start_date,
             "end_date": end_date,
-            "lookback_days": lookback_days,
+            "limit": limit,
+            "order": order,
         }))
-        return self.payload
+        if isinstance(self.payload_by_symbol, dict) and str(symbol).upper() in self.payload_by_symbol:
+            return self.payload_by_symbol[str(symbol).upper()]
+        return self.payload_by_symbol
+
+
+def _payloads_by_symbol(shape: str) -> dict[str, object]:
+    payloads: dict[str, object] = {}
+    for symbol in get_required_symbols(include_benchmark=True):
+        if shape == "list":
+            payloads[symbol] = [_row(symbol, 1, 100.0), _row(symbol, 2, 101.0)]
+        elif shape == "rows":
+            payloads[symbol] = {"rows": [_row(symbol, 1, 100.0), _row(symbol, 2, 101.0)]}
+        elif shape == "data":
+            payloads[symbol] = {"data": [_row(symbol, 1, 100.0), _row(symbol, 2, 101.0)]}
+        elif shape == "ohlcv":
+            payloads[symbol] = {"ohlcv": [_row(symbol, 1, 100.0), _row(symbol, 2, 101.0)]}
+        elif shape == "historical_ohlcv":
+            payloads[symbol] = {"historical_ohlcv": [_row(symbol, 1, 100.0), _row(symbol, 2, 101.0)]}
+        else:
+            payloads[symbol] = {"historical_ohlcv": [_row(symbol, 1, 100.0), _row(symbol, 2, 101.0)]}
+    return payloads
 
 
 def test_adapter_calls_data_read_client_with_required_symbols_and_lookback() -> None:
-    client = FakeDataReadClient(_fixture_rows())
+    client = FakeDataReadClient(_payloads_by_symbol("historical_ohlcv"))
     result = fetch_sector_rotation_price_history(client, start_date="2026-01-01", end_date="2026-01-31", lookback_days=90)
 
-    assert client.calls[0][0] == get_required_symbols(include_benchmark=True)
-    assert client.calls[0][1] == {"start_date": "2026-01-01", "end_date": "2026-01-31", "lookback_days": 90}
+    assert [call[0] for call in client.calls] == list(get_required_symbols(include_benchmark=True))
+    assert client.calls[0][1] == {"start_date": "2026-01-01", "end_date": "2026-01-31", "limit": 90, "order": "asc"}
     assert isinstance(result, SectorRotationCertifiedOHLCVAdapterResult)
     assert result.no_db_writes is True
     assert result.no_vendor_calls is True
@@ -64,27 +85,33 @@ def test_adapter_calls_data_read_client_with_required_symbols_and_lookback() -> 
 
 
 def test_list_response_shape_works() -> None:
-    client = FakeDataReadClient(_fixture_rows())
+    client = FakeDataReadClient(_payloads_by_symbol("list"))
     result = fetch_sector_rotation_price_history(client)
     assert result.price_history_by_symbol["SPY"] == [100.0, 101.0]
 
 
 def test_rows_response_shape_works() -> None:
-    client = FakeDataReadClient({"rows": _fixture_rows()})
+    client = FakeDataReadClient(_payloads_by_symbol("rows"))
     result = fetch_sector_rotation_price_history(client)
     assert result.price_history_by_symbol["XLK"]
 
 
 def test_data_response_shape_works() -> None:
-    client = FakeDataReadClient({"data": _fixture_rows()})
+    client = FakeDataReadClient(_payloads_by_symbol("data"))
     result = fetch_sector_rotation_price_history(client)
     assert result.price_history_by_symbol["XLU"]
 
 
 def test_ohlcv_response_shape_works() -> None:
-    client = FakeDataReadClient({"ohlcv": _fixture_rows()})
+    client = FakeDataReadClient(_payloads_by_symbol("ohlcv"))
     result = fetch_sector_rotation_price_history(client)
     assert result.price_history_by_symbol["XLC"]
+
+
+def test_live_historical_ohlcv_response_shape_works() -> None:
+    client = FakeDataReadClient(_payloads_by_symbol("historical_ohlcv"))
+    result = fetch_sector_rotation_price_history(client)
+    assert result.price_history_by_symbol["SPY"] == [100.0, 101.0]
 
 
 def test_warnings_are_preserved() -> None:
@@ -124,6 +151,6 @@ def test_input_payload_is_not_mutated() -> None:
 
 
 def test_no_live_http_calls_by_construction() -> None:
-    client = FakeDataReadClient(_fixture_rows())
-    client.get_certified_ohlcv_history(["SPY"])
+    client = FakeDataReadClient(_payloads_by_symbol("historical_ohlcv"))
+    client.get_symbol_ohlcv_history("SPY")
     assert len(client.calls) == 1

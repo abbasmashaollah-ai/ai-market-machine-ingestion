@@ -184,6 +184,7 @@ Current status:
 - mocked `DataReadClient` implementation now exists, but live endpoint verification is still pending
 - sector rotation certified OHLCV adapter now exists in mocked/test-only form
 - live verification plans for `DataReadClient` and the sector rotation adapter now exist
+- live single-symbol OHLCV history route has been confirmed for read-only use
 - runtime feature engines are not implemented yet
 - real persistence/writer behavior is not implemented yet
 

@@ -10,6 +10,7 @@ def test_data_read_client_live_verification_plan_covers_openapi_and_safety() -> 
         "OpenAPI",
         "/openapi.json",
         "certified OHLCV",
+        "historical_ohlcv",
         "401",
         "403",
         "404",
@@ -23,4 +24,3 @@ def test_data_read_client_live_verification_plan_covers_openapi_and_safety() -> 
 
     missing = [phrase for phrase in required_phrases if phrase not in text]
     assert not missing, f"Missing required phrases: {missing}"
-
