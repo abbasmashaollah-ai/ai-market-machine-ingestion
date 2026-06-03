@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
-from collections.abc import Mapping, Sequence
 
 
 @dataclass(frozen=True, slots=True)
@@ -17,10 +17,6 @@ class MarketFeatureBundleValidationResult:
     is_valid: bool
     errors: tuple[MarketFeatureBundleValidationError, ...] = field(default_factory=tuple)
     warnings: tuple[str, ...] = field(default_factory=tuple)
-
-
-def _is_bool(value: object) -> bool:
-    return isinstance(value, bool)
 
 
 def _non_empty_string(value: object) -> bool:
@@ -37,6 +33,18 @@ def _validate_section_counts(section: Mapping[str, object], section_name: str, e
             errors.append(MarketFeatureBundleValidationError(f"{section_name}.{field_name}", "field must be an integer when present"))
 
 
+def _section_label(section: Mapping[str, object], label_key: str) -> str | None:
+    value = section.get(label_key)
+    if isinstance(value, str) and value.strip():
+        return value
+    report = section.get("report")
+    if isinstance(report, Mapping):
+        value = report.get(label_key)
+        if isinstance(value, str) and value.strip():
+            return value
+    return None
+
+
 def validate_market_feature_bundle(bundle: Mapping[str, object]) -> MarketFeatureBundleValidationResult:
     errors: list[MarketFeatureBundleValidationError] = []
 
@@ -47,6 +55,7 @@ def validate_market_feature_bundle(bundle: Mapping[str, object]) -> MarketFeatur
         "sector_rotation",
         "cross_asset",
         "liquidity_rates",
+        "volatility",
         "warnings",
         "no_db_writes",
         "no_vendor_calls",
@@ -68,7 +77,7 @@ def validate_market_feature_bundle(bundle: Mapping[str, object]) -> MarketFeatur
     if warnings_value is not None and not isinstance(warnings_value, list):
         errors.append(MarketFeatureBundleValidationError("warnings", "warnings must be a list when present"))
 
-    for section_name in ("prices", "breadth", "sector_rotation", "cross_asset", "liquidity_rates"):
+    for section_name in ("prices", "breadth", "sector_rotation", "cross_asset", "liquidity_rates", "volatility"):
         section = bundle.get(section_name)
         if not _is_mapping(section):
             errors.append(MarketFeatureBundleValidationError(section_name, "field must be an object"))
@@ -81,16 +90,19 @@ def validate_market_feature_bundle(bundle: Mapping[str, object]) -> MarketFeatur
             if not has_reports:
                 errors.append(MarketFeatureBundleValidationError("prices", "prices must include reports or reports_by_symbol"))
         elif section_name == "breadth":
-            if "participation_label" not in section and not _is_mapping(section.get("report")):
-                errors.append(MarketFeatureBundleValidationError("breadth", "breadth must include participation_label or report"))
+            if _section_label(section, "participation_label") is None:
+                errors.append(MarketFeatureBundleValidationError("breadth", "breadth must include a non-empty participation_label or report"))
         elif section_name == "sector_rotation":
-            if "descriptive_rotation_state" not in section and not _is_mapping(section.get("report")):
-                errors.append(MarketFeatureBundleValidationError("sector_rotation", "sector_rotation must include descriptive_rotation_state or report"))
+            if _section_label(section, "descriptive_rotation_state") is None:
+                errors.append(MarketFeatureBundleValidationError("sector_rotation", "sector_rotation must include a non-empty descriptive_rotation_state or report"))
         elif section_name == "cross_asset":
-            if "descriptive_intermarket_state" not in section and not _is_mapping(section.get("report")):
-                errors.append(MarketFeatureBundleValidationError("cross_asset", "cross_asset must include descriptive_intermarket_state or report"))
+            if _section_label(section, "descriptive_intermarket_state") is None:
+                errors.append(MarketFeatureBundleValidationError("cross_asset", "cross_asset must include a non-empty descriptive_intermarket_state or report"))
         elif section_name == "liquidity_rates":
-            if "liquidity_regime_label" not in section and not _is_mapping(section.get("report")):
-                errors.append(MarketFeatureBundleValidationError("liquidity_rates", "liquidity_rates must include liquidity_regime_label or report"))
+            if _section_label(section, "liquidity_regime_label") is None:
+                errors.append(MarketFeatureBundleValidationError("liquidity_rates", "liquidity_rates must include a non-empty liquidity_regime_label or report"))
+        elif section_name == "volatility":
+            if _section_label(section, "volatility_regime_label") is None:
+                errors.append(MarketFeatureBundleValidationError("volatility", "volatility must include a non-empty volatility_regime_label or report"))
 
     return MarketFeatureBundleValidationResult(is_valid=not errors, errors=tuple(errors), warnings=())

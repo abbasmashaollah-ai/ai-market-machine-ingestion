@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 
-def _as_int(value: object):
+def _as_int(value: object) -> int | None:
     return value if isinstance(value, int) else None
 
 
@@ -27,6 +27,10 @@ def _section_counts(section: Mapping[str, object], accepted_key: str, rejected_k
     }
 
 
+def _non_empty_string(value: object) -> str | None:
+    return value if isinstance(value, str) and bool(value.strip()) else None
+
+
 def build_market_feature_bundle_summary(bundle):
     payload = dict(bundle or {})
     prices = payload.get("prices") if isinstance(payload.get("prices"), Mapping) else {}
@@ -34,19 +38,13 @@ def build_market_feature_bundle_summary(bundle):
     sector_rotation = payload.get("sector_rotation") if isinstance(payload.get("sector_rotation"), Mapping) else {}
     cross_asset = payload.get("cross_asset") if isinstance(payload.get("cross_asset"), Mapping) else {}
     liquidity_rates = payload.get("liquidity_rates") if isinstance(payload.get("liquidity_rates"), Mapping) else {}
+    volatility = payload.get("volatility") if isinstance(payload.get("volatility"), Mapping) else {}
 
-    breadth_label = breadth.get("participation_label") or (breadth.get("report") or {}).get("participation_label") if isinstance(breadth.get("report"), Mapping) else breadth.get("participation_label")
-    if isinstance(breadth_label, Mapping):
-        breadth_label = None
-    sector_state = sector_rotation.get("descriptive_rotation_state") or (sector_rotation.get("report") or {}).get("descriptive_rotation_state") if isinstance(sector_rotation.get("report"), Mapping) else sector_rotation.get("descriptive_rotation_state")
-    if isinstance(sector_state, Mapping):
-        sector_state = None
-    cross_state = cross_asset.get("descriptive_intermarket_state") or (cross_asset.get("report") or {}).get("descriptive_intermarket_state") if isinstance(cross_asset.get("report"), Mapping) else cross_asset.get("descriptive_intermarket_state")
-    if isinstance(cross_state, Mapping):
-        cross_state = None
-    liquidity_state = liquidity_rates.get("liquidity_regime_label") or (liquidity_rates.get("report") or {}).get("liquidity_regime_label") if isinstance(liquidity_rates.get("report"), Mapping) else liquidity_rates.get("liquidity_regime_label")
-    if isinstance(liquidity_state, Mapping):
-        liquidity_state = None
+    breadth_label = _non_empty_string(breadth.get("participation_label")) or _non_empty_string((breadth.get("report") or {}).get("participation_label") if isinstance(breadth.get("report"), Mapping) else None)
+    sector_state = _non_empty_string(sector_rotation.get("descriptive_rotation_state")) or _non_empty_string((sector_rotation.get("report") or {}).get("descriptive_rotation_state") if isinstance(sector_rotation.get("report"), Mapping) else None)
+    cross_state = _non_empty_string(cross_asset.get("descriptive_intermarket_state")) or _non_empty_string((cross_asset.get("report") or {}).get("descriptive_intermarket_state") if isinstance(cross_asset.get("report"), Mapping) else None)
+    liquidity_state = _non_empty_string(liquidity_rates.get("liquidity_regime_label")) or _non_empty_string((liquidity_rates.get("report") or {}).get("liquidity_regime_label") if isinstance(liquidity_rates.get("report"), Mapping) else None)
+    volatility_state = _non_empty_string(volatility.get("volatility_regime_label")) or _non_empty_string((volatility.get("report") or {}).get("volatility_regime_label") if isinstance(volatility.get("report"), Mapping) else None)
 
     feature_sections_present = {
         "prices": isinstance(prices, Mapping),
@@ -54,6 +52,7 @@ def build_market_feature_bundle_summary(bundle):
         "sector_rotation": isinstance(sector_rotation, Mapping),
         "cross_asset": isinstance(cross_asset, Mapping),
         "liquidity_rates": isinstance(liquidity_rates, Mapping),
+        "volatility": isinstance(volatility, Mapping),
     }
 
     accepted_counts_by_section = {
@@ -67,16 +66,11 @@ def build_market_feature_bundle_summary(bundle):
         },
         "cross_asset": _section_counts(cross_asset, "accepted_count", "rejected_count"),
         "liquidity_rates": _section_counts(liquidity_rates, "accepted_count", "rejected_count"),
+        "volatility": _section_counts(volatility, "accepted_count", "rejected_count"),
     }
 
-    total_warnings = 0
     warnings = payload.get("warnings")
-    if isinstance(warnings, list):
-        total_warnings += len(warnings)
-    for section in (prices, breadth, sector_rotation, cross_asset):
-        section_warnings = section.get("warnings") if isinstance(section, Mapping) else None
-        if isinstance(section_warnings, list):
-            total_warnings += len(section_warnings)
+    total_warnings = len(warnings) if isinstance(warnings, list) else 0
 
     summary = {
         "observation_date": payload.get("observation_date"),
@@ -86,6 +80,7 @@ def build_market_feature_bundle_summary(bundle):
         "sector_rotation_state": sector_state,
         "cross_asset_state": cross_state,
         "liquidity_rates_state": liquidity_state,
+        "volatility_state": volatility_state,
         "total_warnings": total_warnings,
         "feature_sections_present": feature_sections_present,
         "accepted_counts_by_section": accepted_counts_by_section,
@@ -94,6 +89,8 @@ def build_market_feature_bundle_summary(bundle):
             "breadth": accepted_counts_by_section["breadth"]["rejected"],
             "sector_rotation": accepted_counts_by_section["sector_rotation"]["rejected"],
             "cross_asset": accepted_counts_by_section["cross_asset"]["rejected"],
+            "liquidity_rates": accepted_counts_by_section["liquidity_rates"]["rejected"],
+            "volatility": accepted_counts_by_section["volatility"]["rejected"],
         },
         "safety_flags": {
             "no_db_writes": bool(payload.get("no_db_writes") is True),
@@ -108,6 +105,7 @@ def build_market_feature_bundle_summary(bundle):
         str(summary["sector_rotation_state"] or ""),
         str(summary["cross_asset_state"] or ""),
         str(summary["liquidity_rates_state"] or ""),
+        str(summary["volatility_state"] or ""),
     ]
     if all(state for state in states):
         if any("TIGHT" in state for state in states):

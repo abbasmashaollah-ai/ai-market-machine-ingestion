@@ -43,6 +43,30 @@ def test_missing_liquidity_rates_section_fails() -> None:
     assert any(error.field_name == "liquidity_rates" for error in result.errors)
 
 
+def test_missing_volatility_section_fails() -> None:
+    bundle = dict(run_market_feature_bundle_dry_run("2026-01-15"))
+    bundle.pop("volatility")
+    result = validate_market_feature_bundle(bundle)
+    assert result.is_valid is False
+    assert any(error.field_name == "volatility" for error in result.errors)
+
+
+def test_missing_section_labels_fail() -> None:
+    bundle = dict(run_market_feature_bundle_dry_run("2026-01-15"))
+    bundle["breadth"] = {"report": {}}
+    bundle["sector_rotation"] = {"report": {}}
+    bundle["cross_asset"] = {"report": {}}
+    bundle["liquidity_rates"] = {"report": {}}
+    bundle["volatility"] = {"report": {}}
+    result = validate_market_feature_bundle(bundle)
+    field_names = {error.field_name for error in result.errors}
+    assert "breadth" in field_names
+    assert "sector_rotation" in field_names
+    assert "cross_asset" in field_names
+    assert "liquidity_rates" in field_names
+    assert "volatility" in field_names
+
+
 def test_validator_does_not_mutate_input() -> None:
     bundle = run_market_feature_bundle_dry_run("2026-01-15")
     snapshot = deepcopy(bundle)
@@ -55,11 +79,13 @@ def test_errors_are_deterministic() -> None:
     bundle.pop("prices")
     bundle["no_scheduler_activation"] = False
     bundle["liquidity_rates"] = {}
+    bundle["volatility"] = {}
     result = validate_market_feature_bundle(bundle)
     messages = [(error.field_name, error.message) for error in result.errors]
     assert messages == [
         ("prices", "field is required"),
         ("no_scheduler_activation", "field must be True"),
         ("prices", "field must be an object"),
-        ("liquidity_rates", "liquidity_rates must include liquidity_regime_label or report"),
+        ("liquidity_rates", "liquidity_rates must include a non-empty liquidity_regime_label or report"),
+        ("volatility", "volatility must include a non-empty volatility_regime_label or report"),
     ]

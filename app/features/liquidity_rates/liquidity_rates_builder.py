@@ -41,7 +41,10 @@ def _metadata_dict(metadata: Mapping[str, object] | None) -> dict[str, object]:
 
 
 def _series_values(history) -> list[float]:
-    values = [row["value"] if isinstance(row, Mapping) else row for row in history]
+    values = [
+        row.get("value", row.get("close")) if isinstance(row, Mapping) else row
+        for row in history
+    ]
     return [float(value) for value in values if isinstance(value, (int, float))]
 
 
