@@ -6,6 +6,7 @@ from pathlib import Path
 import sys
 
 from app.features.market_feature_bundle import run_market_feature_bundle_dry_run
+from app.features.market_feature_bundle_validator import validate_market_feature_bundle
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -20,6 +21,17 @@ def main(argv=None) -> int:
     args = _build_parser().parse_args(argv)
     observation_date = args.observation_date or "2026-01-15"
     bundle = run_market_feature_bundle_dry_run(observation_date=observation_date, timestamp=args.timestamp)
+    validation_result = validate_market_feature_bundle(bundle)
+    if not validation_result.is_valid:
+        error_payload = {
+            "is_valid": False,
+            "errors": [{"field_name": error.field_name, "message": error.message} for error in validation_result.errors],
+            "warnings": list(validation_result.warnings),
+        }
+        error_json = json.dumps(error_payload, ensure_ascii=False, indent=2, sort_keys=True)
+        sys.stdout.write(error_json)
+        sys.stdout.write("\n")
+        return 1
     payload = json.dumps(bundle, ensure_ascii=False, indent=2, sort_keys=True)
     if args.output_file:
         output_path = Path(args.output_file)
