@@ -22,16 +22,20 @@ def test_summary_contains_required_fields_and_states() -> None:
     assert summary["cross_asset_state"]
     assert summary["liquidity_rates_state"]
     assert summary["volatility_state"]
+    assert summary["event_calendar_state"]
     assert "prices" not in summary
     assert "breadth" not in summary
     assert "sector_rotation" not in summary
     assert "cross_asset" not in summary
     assert "liquidity_rates" not in summary
     assert "volatility" not in summary
+    assert "event_calendar" not in summary
     assert summary["accepted_counts_by_section"]["prices"]["accepted"] == 3
     assert summary["accepted_counts_by_section"]["liquidity_rates"]["accepted"] == 1
     assert summary["accepted_counts_by_section"]["volatility"]["accepted"] == 1
+    assert summary["accepted_counts_by_section"]["event_calendar"]["accepted"] == 1
     assert summary["rejected_counts_by_section"]["volatility"] == 0
+    assert summary["rejected_counts_by_section"]["event_calendar"] == 0
     assert summary["safety_flags"]["no_db_writes"] is True
     assert summary["safety_flags"]["no_vendor_calls"] is True
     assert summary["safety_flags"]["no_live_api_calls"] is True
@@ -58,6 +62,7 @@ def test_summary_does_not_mutate_bundle_and_remains_json_friendly() -> None:
     assert summary["feature_sections_present"]["cross_asset"] is True
     assert summary["feature_sections_present"]["liquidity_rates"] is True
     assert summary["feature_sections_present"]["volatility"] is True
+    assert summary["feature_sections_present"]["event_calendar"] is True
 
 
 def test_summary_uses_canonical_warning_count() -> None:
