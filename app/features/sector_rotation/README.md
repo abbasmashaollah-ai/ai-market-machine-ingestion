@@ -5,7 +5,7 @@ This package is the first deterministic evidence vertical slice under `app/featu
 It exists to calculate sector rotation evidence from a fixed ETF universe without introducing vendor access, persistence, or AI decision logic.
 
 The sector universe definitions, return calculations, and relative-strength calculations now exist. Writer behavior, persistence, job orchestration, and scheduler activation are still deferred.
-The sector leadership ranking, leadership flag, deterioration flag, and momentum score helper now also exist. Writer behavior, persistence, job orchestration, and scheduler activation are still deferred.
+The sector leadership ranking, leadership flag, deterioration flag, and momentum score helper now also exist. Defensive, cyclical, and risk-on grouping scores now exist as well. Writer behavior, persistence, job orchestration, and scheduler activation are still deferred.
 
 ## Purpose
 
@@ -98,4 +98,7 @@ Current implementation status:
 - pure return engine exists
 - pure relative-strength engine exists
 - leadership ranking and momentum helpers exist
+- defensive/cyclical/risk-on grouping helpers exist
 - writer/persistence/job/scheduler stages are not implemented yet
+
+Group scores are deterministic evidence only. They are not final AI regime decisions, judge posture, trading signals, capital allocation, or portfolio logic.
