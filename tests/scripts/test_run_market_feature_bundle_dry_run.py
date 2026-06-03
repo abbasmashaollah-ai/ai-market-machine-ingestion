@@ -24,7 +24,7 @@ def test_cli_prints_bundle_json_and_safety_flags() -> None:
 
 
 def test_cli_writes_output_file_and_matches_stdout(tmp_path: Path) -> None:
-    output_file = tmp_path / "nested" / "bundle.json"
+    output_file = tmp_path / "outputs" / "dry_runs" / "bundle.json"
     buffer = io.StringIO()
     with redirect_stdout(buffer):
         exit_code = main(["--observation-date", "2026-01-15", "--output-file", str(output_file)])
@@ -51,7 +51,7 @@ def test_cli_uses_defaults_when_arguments_omitted() -> None:
 
 
 def test_cli_summary_only_writes_compact_summary(tmp_path: Path) -> None:
-    output_file = tmp_path / "summary" / "bundle-summary.json"
+    output_file = tmp_path / "outputs" / "dry_runs" / "market_feature_bundle_summary_fixture.json"
     buffer = io.StringIO()
     with redirect_stdout(buffer):
         exit_code = main(["--observation-date", "2026-01-15", "--summary-only", "--output-file", str(output_file)])
@@ -68,3 +68,4 @@ def test_cli_summary_only_writes_compact_summary(tmp_path: Path) -> None:
     assert stdout_payload["safety_flags"]["no_vendor_calls"] is True
     assert stdout_payload["safety_flags"]["no_live_api_calls"] is True
     assert stdout_payload["safety_flags"]["no_scheduler_activation"] is True
+    assert "prices" not in stdout_payload

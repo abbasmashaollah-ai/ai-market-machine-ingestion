@@ -20,6 +20,10 @@ def test_summary_contains_required_fields_and_states() -> None:
     assert summary["breadth_participation_label"]
     assert summary["sector_rotation_state"]
     assert summary["cross_asset_state"]
+    assert "prices" not in summary
+    assert "breadth" not in summary
+    assert "sector_rotation" not in summary
+    assert "cross_asset" not in summary
     assert summary["accepted_counts_by_section"]["prices"]["accepted"] == 3
     assert summary["safety_flags"]["no_db_writes"] is True
     assert summary["safety_flags"]["no_vendor_calls"] is True

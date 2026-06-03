@@ -69,3 +69,7 @@ Feature calculators must not call vendors directly and must not write to the dat
 
 - `prices` dry-run feature slice
 - `breadth` dry-run feature slice
+
+## Local Dry-Run Artifacts
+
+- Bundle and summary exports can be written under `outputs/dry_runs/` for local inspection only.
