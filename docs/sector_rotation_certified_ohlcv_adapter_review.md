@@ -37,6 +37,8 @@ No approved `DataReadClient` or private-read client path is currently present in
 
 That means the sector rotation runtime adapter cannot proceed yet as a concrete runtime implementation.
 
+The shared read contract is now documented in `docs/data_read_client_contract.md`, but the runtime client implementation is still pending.
+
 ## What Exists Instead
 
 The repo currently has:
@@ -96,4 +98,4 @@ This review does not include:
 
 ## Recommended Next Step
 
-Create a data-read client contract first. Only after that contract exists should the sector rotation runtime adapter be implemented.
+Create the `DataReadClient` runtime only after the shared contract exists and the data endpoint/auth/response shape are confirmed.

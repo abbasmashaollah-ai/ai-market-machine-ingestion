@@ -146,3 +146,5 @@ Current implementation status:
 - dry-run integration can already consume the transformed history map
 
 The runtime adapter review is documented in `docs/sector_rotation_certified_ohlcv_adapter_review.md`. That review currently blocks runtime adapter work until an approved data-read client contract exists.
+
+The shared data-read client contract is documented in `docs/data_read_client_contract.md`.

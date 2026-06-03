@@ -51,4 +51,6 @@ See `docs/ingestion_system_current_state_breakdown.md` for the current-state ing
 
 The sector rotation dry-run vertical slice checkpoint is complete. Real writer/persistence work is still pending, and scheduler activation must remain last.
 
+The shared ingestion-side data-read client contract is documented, but the runtime client implementation is still pending.
+
 This order prioritizes shared contracts and reusable producer foundations before higher-variance domains.
