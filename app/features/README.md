@@ -74,6 +74,7 @@ Feature calculators must not call vendors directly and must not write to the dat
 - `event_calendar` dry-run feature slice
 - `news_sentiment` dry-run feature slice
 - `fundamentals` dry-run feature slice
+- `flows_positioning` dry-run feature slice
 
 ## Local Dry-Run Artifacts
 
