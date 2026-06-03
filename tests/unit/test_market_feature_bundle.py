@@ -1,0 +1,34 @@
+import json
+from datetime import datetime, timezone
+
+from app.features.market_feature_bundle import run_market_feature_bundle_dry_run
+
+
+def test_bundle_contains_all_sections_and_is_json_friendly() -> None:
+    bundle = run_market_feature_bundle_dry_run(
+        observation_date="2026-01-15",
+        timestamp=datetime(2026, 1, 15, 16, 0, tzinfo=timezone.utc),
+    )
+
+    assert bundle["no_db_writes"] is True
+    assert bundle["no_vendor_calls"] is True
+    assert bundle["no_live_api_calls"] is True
+    assert bundle["no_scheduler_activation"] is True
+    assert set(bundle) >= {"observation_date", "timestamp", "prices", "breadth", "sector_rotation", "cross_asset", "warnings"}
+    assert "SPY" in bundle["prices"]["reports_by_symbol"]
+    assert bundle["breadth"]["report"]["participation_label"]
+    assert bundle["sector_rotation"]["descriptive_rotation_state"]
+    assert bundle["cross_asset"]["descriptive_intermarket_state"]
+    json.dumps(bundle)
+
+
+def test_bundle_uses_fixture_dry_run_inputs_only() -> None:
+    bundle = run_market_feature_bundle_dry_run("2026-01-15")
+    assert bundle["prices"]["accepted_count"] == 3
+    assert bundle["breadth"]["accepted_count"] == 1
+    assert bundle["sector_rotation"]["accepted_observation_count"] == 11
+    assert bundle["cross_asset"]["accepted_count"] == 1
+    assert bundle["prices"]["no_db_writes"] is True
+    assert bundle["breadth"]["no_vendor_calls"] is True
+    assert bundle["sector_rotation"]["no_live_api_calls"] is True
+    assert bundle["cross_asset"]["no_scheduler_activation"] is True
