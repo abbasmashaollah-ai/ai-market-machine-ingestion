@@ -171,6 +171,7 @@ Current status:
 - `app/features/` skeleton now exists
 - sector rotation package contract docs now exist
 - sector universe and relative strength calculation code now exist
+- sector leadership ranking and momentum helpers now exist
 - runtime feature engines are not implemented yet
 - persistence/writer behavior is not implemented yet
 
