@@ -13,6 +13,8 @@ Starter symbols:
 Likely source candidates:
 - Polygon
 - Cboe if later approved
+- FRED or CBOE-style source only if the repo already contains a compatible adapter or source contract
+- manual seed/backfill file only if separately approved
 
 Data repo contract dependency:
 - the target data-side contract must exist before any writer/store integration is added
@@ -20,6 +22,8 @@ Data repo contract dependency:
 - the volatility observations producer contract must be approved before any backfill or writer handoff work starts
 - a mock writer handoff proof now exists in tests, but no real persistence is authorized yet
 - a manual live-source dry-run command now exists for operator readiness checks, but it remains explicit-confirmation only
+- the most recent live dry run returned `403` for `VIX`, `VVIX`, `VXN`, and `RVX`
+- writer and persistence remain blocked until a valid source path is confirmed
 
 Normalized record shape proposal:
 - symbol

@@ -35,6 +35,24 @@
 - `vendor_error` indicates a non-entitlement vendor failure
 - the command must not print API keys or other secrets
 
+## Observed Live Dry Run
+
+The most recent confirmed live dry run returned the following result for `VIX`, `VVIX`, `VXN`, and `RVX`:
+
+- `requested_symbols=['VIX', 'VVIX', 'VXN', 'RVX']`
+- `fetched_count=0`
+- `accepted_count=0`
+- `rejected_count=0`
+- warnings:
+  - `VIX: unexpected http status: 403`
+  - `VVIX: unexpected http status: 403`
+  - `VXN: unexpected http status: 403`
+  - `RVX: unexpected http status: 403`
+- `error_categories=['vendor_error']`
+- `no_db_writes=true`
+- `no_scheduler_activation=true`
+- `no_persistence=true`
+
 ## Boundary
 
 The command is a readiness check only.
