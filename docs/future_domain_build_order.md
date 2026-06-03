@@ -45,4 +45,6 @@ Recommended first contract/adapters:
 - fundamentals/filings if ticker analyzer depth is priority
 - cross-asset OHLCV if market regime coverage is priority
 
+See `docs/ingestion_system_current_state_breakdown.md` for the current-state ingestion boundary and the recommended `app/features/` implementation map.
+
 This order prioritizes shared contracts and reusable producer foundations before higher-variance domains.
