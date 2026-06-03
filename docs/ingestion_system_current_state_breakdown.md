@@ -177,6 +177,7 @@ Current status:
 - warehouse-shaped observation builders now exist
 - deterministic payload validators now exist
 - mock writer handoff now exists
+- dry-run orchestration job now exists
 - runtime feature engines are not implemented yet
 - real persistence/writer behavior is not implemented yet
 
