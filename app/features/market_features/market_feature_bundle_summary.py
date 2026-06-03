@@ -41,6 +41,7 @@ def build_market_feature_bundle_summary(bundle):
     volatility = payload.get("volatility") if isinstance(payload.get("volatility"), Mapping) else {}
     event_calendar = payload.get("event_calendar") if isinstance(payload.get("event_calendar"), Mapping) else {}
     news_sentiment = payload.get("news_sentiment") if isinstance(payload.get("news_sentiment"), Mapping) else {}
+    fundamentals = payload.get("fundamentals") if isinstance(payload.get("fundamentals"), Mapping) else {}
 
     breadth_label = _non_empty_string(breadth.get("participation_label")) or _non_empty_string((breadth.get("report") or {}).get("participation_label") if isinstance(breadth.get("report"), Mapping) else None)
     sector_state = _non_empty_string(sector_rotation.get("descriptive_rotation_state")) or _non_empty_string((sector_rotation.get("report") or {}).get("descriptive_rotation_state") if isinstance(sector_rotation.get("report"), Mapping) else None)
@@ -49,6 +50,7 @@ def build_market_feature_bundle_summary(bundle):
     volatility_state = _non_empty_string(volatility.get("volatility_regime_label")) or _non_empty_string((volatility.get("report") or {}).get("volatility_regime_label") if isinstance(volatility.get("report"), Mapping) else None)
     event_calendar_state = _non_empty_string(event_calendar.get("event_risk_label")) or _non_empty_string((event_calendar.get("report") or {}).get("event_risk_label") if isinstance(event_calendar.get("report"), Mapping) else None)
     news_sentiment_state = _non_empty_string(news_sentiment.get("sentiment_regime_label")) or _non_empty_string((news_sentiment.get("report") or {}).get("sentiment_regime_label") if isinstance(news_sentiment.get("report"), Mapping) else None)
+    fundamental_labels = fundamentals.get("fundamental_quality_labels_by_symbol") if isinstance(fundamentals.get("fundamental_quality_labels_by_symbol"), Mapping) else {}
 
     feature_sections_present = {
         "prices": isinstance(prices, Mapping),
@@ -59,6 +61,7 @@ def build_market_feature_bundle_summary(bundle):
         "volatility": isinstance(volatility, Mapping),
         "event_calendar": isinstance(event_calendar, Mapping),
         "news_sentiment": isinstance(news_sentiment, Mapping),
+        "fundamentals": isinstance(fundamentals, Mapping),
     }
 
     accepted_counts_by_section = {
@@ -75,6 +78,7 @@ def build_market_feature_bundle_summary(bundle):
         "volatility": _section_counts(volatility, "accepted_count", "rejected_count"),
         "event_calendar": _section_counts(event_calendar, "accepted_count", "rejected_count"),
         "news_sentiment": _section_counts(news_sentiment, "accepted_count", "rejected_count"),
+        "fundamentals": _section_counts(fundamentals, "accepted_count", "rejected_count"),
     }
 
     warnings = payload.get("warnings")
@@ -91,6 +95,7 @@ def build_market_feature_bundle_summary(bundle):
         "volatility_state": volatility_state,
         "event_calendar_state": event_calendar_state,
         "news_sentiment_state": news_sentiment_state,
+        "fundamental_quality_labels_by_symbol": dict(fundamental_labels),
         "total_warnings": total_warnings,
         "feature_sections_present": feature_sections_present,
         "accepted_counts_by_section": accepted_counts_by_section,
@@ -103,6 +108,7 @@ def build_market_feature_bundle_summary(bundle):
             "volatility": accepted_counts_by_section["volatility"]["rejected"],
             "event_calendar": accepted_counts_by_section["event_calendar"]["rejected"],
             "news_sentiment": accepted_counts_by_section["news_sentiment"]["rejected"],
+            "fundamentals": accepted_counts_by_section["fundamentals"]["rejected"],
         },
         "safety_flags": {
             "no_db_writes": bool(payload.get("no_db_writes") is True),
@@ -120,6 +126,7 @@ def build_market_feature_bundle_summary(bundle):
         str(summary["volatility_state"] or ""),
         str(summary["event_calendar_state"] or ""),
         str(summary["news_sentiment_state"] or ""),
+        str(next(iter(summary["fundamental_quality_labels_by_symbol"].values()), "") if summary["fundamental_quality_labels_by_symbol"] else ""),
     ]
     if all(state for state in states):
         if any("TIGHT" in state for state in states):
