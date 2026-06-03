@@ -146,6 +146,7 @@ Current implementation status:
 - tests are mocked only
 - live endpoint verification has not been done
 - sector rotation adapter remains blocked until the runtime endpoint and response shape are verified
+- sector rotation adapter code now exists but remains test-only until the live read endpoint is verified
 
 ## Approval Gates Before Runtime
 

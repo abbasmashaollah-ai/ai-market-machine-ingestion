@@ -182,6 +182,7 @@ Current status:
 - next planning step is the certified OHLCV reader contract for sector rotation
 - ingestion-side data-read client contract now exists
 - mocked `DataReadClient` implementation now exists, but live endpoint verification is still pending
+- sector rotation certified OHLCV adapter now exists in mocked/test-only form
 - runtime feature engines are not implemented yet
 - real persistence/writer behavior is not implemented yet
 

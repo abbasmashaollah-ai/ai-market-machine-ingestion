@@ -9,6 +9,7 @@ The result of this review determines whether a runtime adapter can proceed now o
 ## Current Reader Transformer Status
 
 The sector rotation reader now has a pure certified OHLCV row-to-history transformer.
+The sector rotation certified OHLCV adapter now exists as mocked/test-only runtime code that uses `DataReadClient`, but live endpoint verification has not been done.
 
 It already shapes certified OHLCV rows into the existing dry-run input:
 
@@ -96,4 +97,4 @@ This review does not include:
 
 ## Recommended Next Step
 
-Confirm the live private-read endpoint, auth header, response shape, and secret handling before enabling any sector rotation runtime adapter.
+Confirm the live private-read endpoint, auth header, response shape, and secret handling before enabling any sector rotation runtime adapter beyond mocked tests.

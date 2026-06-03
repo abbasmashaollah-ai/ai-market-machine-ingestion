@@ -6,6 +6,8 @@ from dataclasses import asdict, dataclass, field, is_dataclass
 from datetime import date, datetime
 from collections.abc import Mapping, Sequence
 
+from app.clients.data_read_client import DataReadClient, DataReadClientError
+from app.features.sector_rotation.sector_rotation_job import run_sector_rotation_dry_run, SectorRotationDryRunResult
 from app.features.sector_rotation.sector_universe import get_required_symbols
 
 
@@ -30,6 +32,17 @@ class CertifiedOHLCVRow:
 class SectorRotationReaderResult:
     price_history_by_symbol: dict[str, list[float | int]]
     warnings: tuple[str, ...] = field(default_factory=tuple)
+
+
+@dataclass(frozen=True, slots=True)
+class SectorRotationCertifiedOHLCVAdapterResult:
+    price_history_by_symbol: dict[str, list[float | int]]
+    warnings: tuple[str, ...] = field(default_factory=tuple)
+    missing_symbols: tuple[str, ...] = field(default_factory=tuple)
+    no_db_writes: bool = True
+    no_vendor_calls: bool = True
+    no_scheduler_activation: bool = True
+    dry_run_result: SectorRotationDryRunResult | None = None
 
 
 def _normalize_symbol(symbol: object) -> str:
@@ -187,3 +200,88 @@ def validate_reader_history_coverage(
         if len(history) < min_history_length:
             warnings.append(f"insufficient_history:{_normalize_symbol(symbol)}:{len(history)}<{min_history_length}")
     return (not warnings, tuple(warnings))
+
+
+def _extract_rows_from_payload(payload: object) -> list[dict[str, object]]:
+    if isinstance(payload, list):
+        return [row for row in payload if isinstance(row, dict)]
+    if isinstance(payload, dict):
+        for key in ("rows", "data", "ohlcv", "historical", "results"):
+            rows = payload.get(key)
+            if isinstance(rows, list):
+                return [row for row in rows if isinstance(row, dict)]
+    raise ValueError("data read response did not contain a supported row collection")
+
+
+def fetch_sector_rotation_price_history(
+    data_read_client: DataReadClient,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    lookback_days: int = 90,
+    required_symbols: Sequence[str] | None = None,
+) -> SectorRotationCertifiedOHLCVAdapterResult:
+    """Fetch certified OHLCV rows and shape them into the sector rotation dry-run input."""
+
+    required_symbols = tuple(required_symbols or get_required_symbols(include_benchmark=True))
+    warnings: list[str] = []
+
+    try:
+        response = data_read_client.get_certified_ohlcv_history(
+            list(required_symbols),
+            start_date=start_date,
+            end_date=end_date,
+            lookback_days=lookback_days,
+        )
+    except DataReadClientError as exc:
+        raise RuntimeError(f"sector rotation data read failed: {exc}") from exc
+
+    rows = _extract_rows_from_payload(response)
+    reader_result = build_price_history_by_symbol(
+        rows,
+        required_symbols=required_symbols,
+        min_history_length=lookback_days if lookback_days is not None else None,
+    )
+    warnings.extend(reader_result.warnings)
+    missing_symbols = get_missing_required_symbols(reader_result.price_history_by_symbol, required_symbols=required_symbols)
+    if missing_symbols:
+        warnings.append(f"adapter_missing_symbols:{','.join(missing_symbols)}")
+
+    return SectorRotationCertifiedOHLCVAdapterResult(
+        price_history_by_symbol=reader_result.price_history_by_symbol,
+        warnings=tuple(warnings),
+        missing_symbols=missing_symbols,
+    )
+
+
+def run_sector_rotation_certified_ohlcv_dry_run(
+    data_read_client: DataReadClient,
+    observation_date: date | datetime | str,
+    start_date: str | None = None,
+    end_date: str | None = None,
+    lookback_days: int = 90,
+    timestamp: datetime | str | None = None,
+    writer: object | None = None,
+    metadata: Mapping[str, object] | SectorRotationBuildMetadata | None = None,
+) -> SectorRotationCertifiedOHLCVAdapterResult:
+    """Fetch certified OHLCV rows, shape them, and execute the dry-run pipeline in memory."""
+
+    adapter_result = fetch_sector_rotation_price_history(
+        data_read_client,
+        start_date=start_date,
+        end_date=end_date,
+        lookback_days=lookback_days,
+    )
+    dry_run_result = run_sector_rotation_dry_run(
+        adapter_result.price_history_by_symbol,
+        observation_date=observation_date,
+        timestamp=timestamp,
+        writer=writer,
+        metadata=metadata,
+    )
+    combined_warnings = tuple(adapter_result.warnings) + tuple(dry_run_result.warnings)
+    return SectorRotationCertifiedOHLCVAdapterResult(
+        price_history_by_symbol=adapter_result.price_history_by_symbol,
+        warnings=combined_warnings,
+        missing_symbols=adapter_result.missing_symbols,
+        dry_run_result=dry_run_result,
+    )

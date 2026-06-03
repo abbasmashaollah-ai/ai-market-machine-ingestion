@@ -105,3 +105,5 @@ If a runtime adapter is desired next, review `docs/sector_rotation_certified_ohl
 The shared read contract is now documented in `docs/data_read_client_contract.md`.
 
 The mocked `DataReadClient` implementation exists, but sector rotation runtime adapter activation remains blocked until the live read endpoint and response shape are confirmed.
+
+The sector rotation certified OHLCV adapter exists in mocked/test-only form; live endpoint verification is still pending.
