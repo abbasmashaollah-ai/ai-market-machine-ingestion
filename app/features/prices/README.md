@@ -2,4 +2,4 @@
 
 Deterministic price evidence helpers for dry-run use only.
 
-This package calculates close-history-derived returns, moving averages, ranges, drawdowns, and a compact evidence-only trend state. It does not write to the database, call vendors, activate schedulers, or perform AI interpretation.
+This package now includes the dry-run path from fixture closes through builder, validator, mock writer, and report generation. Real writer and persistence behavior stays deferred.
