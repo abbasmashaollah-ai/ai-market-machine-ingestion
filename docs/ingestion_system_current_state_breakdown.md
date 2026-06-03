@@ -186,6 +186,7 @@ Current status:
 - live verification plans for `DataReadClient` and the sector rotation adapter now exist
 - live single-symbol OHLCV history route has been confirmed for read-only use
 - live warehouse coverage for the 11 sector ETFs is currently missing, blocking production sector rotation
+- the vendor-deferred sector rotation development plan now documents the fixture-first path without paid vendor activation
 - runtime feature engines are not implemented yet
 - real persistence/writer behavior is not implemented yet
 

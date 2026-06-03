@@ -90,6 +90,8 @@ Possible follow-up paths:
 3. verify `symbol_master` entries for the 11 sector ETFs
 4. rerun the live coverage check after population
 
+The vendor-deferred development plan is documented in `docs/vendor_deferred_sector_rotation_development_plan.md`.
+
 ## Explicit Non-Goals
 
 - no runtime code change

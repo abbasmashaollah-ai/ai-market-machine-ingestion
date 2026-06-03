@@ -55,4 +55,6 @@ The shared ingestion-side data-read client contract is documented, but the runti
 
 The sector rotation live OHLCV coverage blocker is documented, and production sector rotation remains blocked until certified OHLCV exists for the 11 sector ETFs.
 
+The vendor-deferred sector rotation development plan is documented separately so fixture-based work can continue without paid vendor activation.
+
 This order prioritizes shared contracts and reusable producer foundations before higher-variance domains.
