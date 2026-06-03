@@ -8,6 +8,7 @@ from app.features.breadth.breadth_job import run_breadth_dry_run
 from app.features.cross_asset.cross_asset_job import run_cross_asset_dry_run
 from app.features.event_calendar.event_calendar_job import run_event_calendar_dry_run
 from app.features.liquidity_rates.liquidity_rates_job import run_liquidity_rates_dry_run
+from app.features.news_sentiment.news_sentiment_job import run_news_sentiment_dry_run
 from app.features.prices.price_feature_job import run_price_feature_dry_run
 from app.features.volatility.volatility_job import run_volatility_dry_run
 from app.features.sector_rotation.sector_rotation_reader import run_sector_rotation_certified_ohlcv_dry_run
@@ -16,6 +17,7 @@ from app.features.market_features.fixtures.breadth_fixtures import build_breadth
 from app.features.market_features.fixtures.cross_asset_fixtures import build_cross_asset_fixture_histories_scenario
 from app.features.market_features.fixtures.event_calendar_fixtures import build_event_calendar_fixture_events_scenario
 from app.features.market_features.fixtures.liquidity_rates_fixtures import build_liquidity_rates_series_scenario
+from app.features.market_features.fixtures.news_sentiment_fixtures import build_news_sentiment_fixture_articles_scenario
 from app.features.market_features.fixtures.price_fixtures import build_price_ohlcv_fixtures
 from app.features.market_features.fixtures.sector_rotation_fixtures import build_fake_data_read_client_for_sector_rotation
 from app.features.market_features.fixtures.volatility_fixtures import build_volatility_series_scenario
@@ -175,6 +177,25 @@ def run_market_feature_bundle_dry_run(observation_date, timestamp=None):
         "no_scheduler_activation": True,
     }
 
+    news_sentiment_articles = build_news_sentiment_fixture_articles_scenario("mixed_market")
+    news_sentiment_result = run_news_sentiment_dry_run(
+        news_sentiment_articles,
+        observation_date=observation_date,
+        timestamp=normalized_timestamp,
+    )
+    news_sentiment_report = dict(news_sentiment_result.reports[0]) if news_sentiment_result.reports else {}
+    news_sentiment_section = {
+        "report": news_sentiment_report,
+        "accepted_count": news_sentiment_result.accepted_count,
+        "rejected_count": news_sentiment_result.rejected_count,
+        "sentiment_regime_label": news_sentiment_report.get("sentiment_regime_label"),
+        "warnings": list(news_sentiment_result.warnings),
+        "no_db_writes": True,
+        "no_vendor_calls": True,
+        "no_live_api_calls": True,
+        "no_scheduler_activation": True,
+    }
+
     return {
         "observation_date": str(observation_date),
         "timestamp": normalized_timestamp,
@@ -185,13 +206,17 @@ def run_market_feature_bundle_dry_run(observation_date, timestamp=None):
         "liquidity_rates": liquidity_section,
         "volatility": volatility_section,
         "event_calendar": event_calendar_section,
-        "warnings": list(price_result.warnings)
-        + list(breadth_result.warnings)
-        + list(sector_result.warnings)
-        + list(cross_result.warnings)
-        + list(liquidity_result.warnings)
-        + list(volatility_result.warnings)
-        + list(event_calendar_result.warnings),
+        "news_sentiment": news_sentiment_section,
+        "warnings": (
+            list(price_result.warnings)
+            + list(breadth_result.warnings)
+            + list(sector_result.warnings)
+            + list(cross_result.warnings)
+            + list(liquidity_result.warnings)
+            + list(volatility_result.warnings)
+            + list(event_calendar_result.warnings)
+            + list(news_sentiment_result.warnings)
+        ),
         "no_db_writes": True,
         "no_vendor_calls": True,
         "no_live_api_calls": True,

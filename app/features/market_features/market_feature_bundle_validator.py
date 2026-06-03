@@ -57,6 +57,7 @@ def validate_market_feature_bundle(bundle: Mapping[str, object]) -> MarketFeatur
         "liquidity_rates",
         "volatility",
         "event_calendar",
+        "news_sentiment",
         "warnings",
         "no_db_writes",
         "no_vendor_calls",
@@ -78,7 +79,7 @@ def validate_market_feature_bundle(bundle: Mapping[str, object]) -> MarketFeatur
     if warnings_value is not None and not isinstance(warnings_value, list):
         errors.append(MarketFeatureBundleValidationError("warnings", "warnings must be a list when present"))
 
-    for section_name in ("prices", "breadth", "sector_rotation", "cross_asset", "liquidity_rates", "volatility", "event_calendar"):
+    for section_name in ("prices", "breadth", "sector_rotation", "cross_asset", "liquidity_rates", "volatility", "event_calendar", "news_sentiment"):
         section = bundle.get(section_name)
         if not _is_mapping(section):
             errors.append(MarketFeatureBundleValidationError(section_name, "field must be an object"))
@@ -108,5 +109,8 @@ def validate_market_feature_bundle(bundle: Mapping[str, object]) -> MarketFeatur
         elif section_name == "event_calendar":
             if _section_label(section, "event_risk_label") is None:
                 errors.append(MarketFeatureBundleValidationError("event_calendar", "event_calendar must include a non-empty event_risk_label or report"))
+        elif section_name == "news_sentiment":
+            if _section_label(section, "sentiment_regime_label") is None:
+                errors.append(MarketFeatureBundleValidationError("news_sentiment", "news_sentiment must include a non-empty sentiment_regime_label or report"))
 
     return MarketFeatureBundleValidationResult(is_valid=not errors, errors=tuple(errors), warnings=())

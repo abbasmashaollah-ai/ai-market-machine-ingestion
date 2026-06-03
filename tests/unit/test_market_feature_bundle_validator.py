@@ -59,6 +59,14 @@ def test_missing_event_calendar_section_fails() -> None:
     assert any(error.field_name == "event_calendar" for error in result.errors)
 
 
+def test_missing_news_sentiment_section_fails() -> None:
+    bundle = dict(run_market_feature_bundle_dry_run("2026-01-15"))
+    bundle.pop("news_sentiment")
+    result = validate_market_feature_bundle(bundle)
+    assert result.is_valid is False
+    assert any(error.field_name == "news_sentiment" for error in result.errors)
+
+
 def test_missing_section_labels_fail() -> None:
     bundle = dict(run_market_feature_bundle_dry_run("2026-01-15"))
     bundle["breadth"] = {"report": {}}
@@ -67,6 +75,7 @@ def test_missing_section_labels_fail() -> None:
     bundle["liquidity_rates"] = {"report": {}}
     bundle["volatility"] = {"report": {}}
     bundle["event_calendar"] = {"report": {}}
+    bundle["news_sentiment"] = {"report": {}}
     result = validate_market_feature_bundle(bundle)
     field_names = {error.field_name for error in result.errors}
     assert "breadth" in field_names
@@ -75,6 +84,7 @@ def test_missing_section_labels_fail() -> None:
     assert "liquidity_rates" in field_names
     assert "volatility" in field_names
     assert "event_calendar" in field_names
+    assert "news_sentiment" in field_names
 
 
 def test_validator_does_not_mutate_input() -> None:
@@ -91,6 +101,7 @@ def test_errors_are_deterministic() -> None:
     bundle["liquidity_rates"] = {}
     bundle["volatility"] = {}
     bundle["event_calendar"] = {}
+    bundle["news_sentiment"] = {}
     result = validate_market_feature_bundle(bundle)
     messages = [(error.field_name, error.message) for error in result.errors]
     assert messages == [
@@ -100,4 +111,5 @@ def test_errors_are_deterministic() -> None:
         ("liquidity_rates", "liquidity_rates must include a non-empty liquidity_regime_label or report"),
         ("volatility", "volatility must include a non-empty volatility_regime_label or report"),
         ("event_calendar", "event_calendar must include a non-empty event_risk_label or report"),
+        ("news_sentiment", "news_sentiment must include a non-empty sentiment_regime_label or report"),
     ]
