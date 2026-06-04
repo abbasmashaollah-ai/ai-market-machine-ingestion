@@ -27,6 +27,9 @@ def test_report_is_json_friendly_and_includes_writer_counts() -> None:
     assert "advancer_decliner_ratio" in report
     assert "advancing_volume_share" in report
     assert "declining_volume_share" in report
+    assert "advance_decline_ratio" in report
+    assert "advance_decline_line" in report
+    assert "percent_above_100d_ma" in report
     assert report["no_db_writes"] is True
     assert report["no_vendor_calls"] is True
     assert report["no_scheduler_activation"] is True

@@ -48,10 +48,16 @@ def validate_breadth_observation(row: Mapping[str, object]) -> BreadthValidation
         if value is not None and (not _is_integer(value) or value < 0):
             errors.append(BreadthValidationError(field_name, "field must be a non-negative integer"))
 
-    for field_name in ("percent_above_20d", "percent_above_50d", "percent_above_200d", "breadth_score", "participation_score", "advancing_volume", "declining_volume"):
+    for field_name in ("advance_decline_line", "percent_above_20d", "percent_above_50d", "percent_above_100d_ma", "percent_above_200d", "breadth_score", "participation_score", "advancing_volume", "declining_volume", "advance_decline_ratio"):
         value = row.get(field_name)
         if value is not None and not _is_numeric(value):
             errors.append(BreadthValidationError(field_name, "field must be numeric or None"))
+    if row.get("advance_decline_ratio") is not None and _is_numeric(row.get("advance_decline_ratio")) and row.get("advance_decline_ratio") < 0:
+        errors.append(BreadthValidationError("advance_decline_ratio", "field must be non-negative"))
+    if row.get("percent_above_100d_ma") is not None and _is_numeric(row.get("percent_above_100d_ma")):
+        value = float(row.get("percent_above_100d_ma"))
+        if value < 0.0 or value > 1.0:
+            errors.append(BreadthValidationError("percent_above_100d_ma", "field must be between 0.0 and 1.0"))
 
     for field_name in ("quality_status", "certification_status", "freshness_status"):
         value = row.get(field_name)

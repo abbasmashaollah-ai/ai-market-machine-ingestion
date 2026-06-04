@@ -19,6 +19,9 @@ def test_invalid_rows_fail() -> None:
     row.pop("universe")
     row["advancers"] = -1
     row["breadth_score"] = "bad"
+    row["advance_decline_ratio"] = -1
+    row["advance_decline_line"] = "bad"
+    row["percent_above_100d_ma"] = 1.5
     result = validate_breadth_observation(row)
     assert result.is_valid is False
 
@@ -28,3 +31,12 @@ def test_duplicate_batch_key_fails() -> None:
     results = validate_breadth_observations(rows)
     assert results[0].is_valid is True
     assert results[1].is_valid is False
+
+
+def test_new_fields_validate() -> None:
+    row = dict(_observation())
+    row["advance_decline_ratio"] = 1.5
+    row["advance_decline_line"] = -2
+    row["percent_above_100d_ma"] = 0.5
+    result = validate_breadth_observation(row)
+    assert result.is_valid is True
