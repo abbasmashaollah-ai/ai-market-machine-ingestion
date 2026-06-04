@@ -1,0 +1,152 @@
+from __future__ import annotations
+
+from copy import deepcopy
+
+
+EARNINGS_FIXTURES: dict[str, dict[str, object]] = {
+    "AAPL": {
+        "earnings_date": "2026-07-30",
+        "fiscal_period": "Q3",
+        "report_time": "BMO",
+        "eps_estimate": 1.18,
+        "eps_actual": 1.27,
+        "revenue_estimate": 90000,
+        "revenue_actual": 94000,
+        "eps_surprise_percent": 7.6,
+        "revenue_surprise_percent": 4.4,
+        "guidance_direction": "raise",
+        "pre_earnings_price_change_5d": 2.1,
+        "post_earnings_price_change_1d": 3.4,
+        "post_earnings_price_change_5d": 5.2,
+        "implied_move_percent": 4.2,
+        "actual_move_percent": 5.7,
+        "analyst_revision_trend": "positive",
+        "source": "manual_fixture",
+    },
+    "MSFT": {
+        "earnings_date": "2026-07-22",
+        "fiscal_period": "Q4",
+        "report_time": "AMC",
+        "eps_estimate": 2.34,
+        "eps_actual": 2.31,
+        "revenue_estimate": 64000,
+        "revenue_actual": 63800,
+        "eps_surprise_percent": -1.3,
+        "revenue_surprise_percent": -0.3,
+        "guidance_direction": "reaffirm",
+        "pre_earnings_price_change_5d": 1.0,
+        "post_earnings_price_change_1d": 0.4,
+        "post_earnings_price_change_5d": 1.2,
+        "implied_move_percent": 3.5,
+        "actual_move_percent": 3.7,
+        "analyst_revision_trend": "flat",
+        "source": "manual_fixture",
+    },
+    "NVDA": {
+        "earnings_date": "2026-08-27",
+        "fiscal_period": "Q2",
+        "report_time": "AMC",
+        "eps_estimate": 5.12,
+        "eps_actual": 5.28,
+        "revenue_estimate": 28000,
+        "revenue_actual": 29050,
+        "eps_surprise_percent": 3.1,
+        "revenue_surprise_percent": 3.8,
+        "guidance_direction": "raise",
+        "pre_earnings_price_change_5d": 4.8,
+        "post_earnings_price_change_1d": 6.4,
+        "post_earnings_price_change_5d": 8.1,
+        "implied_move_percent": 8.2,
+        "actual_move_percent": 9.6,
+        "analyst_revision_trend": "positive",
+        "source": "manual_fixture",
+    },
+    "TSLA": {
+        "earnings_date": "2026-07-18",
+        "fiscal_period": "Q2",
+        "report_time": "AMC",
+        "eps_estimate": 0.74,
+        "eps_actual": 0.61,
+        "revenue_estimate": 26000,
+        "revenue_actual": 25010,
+        "eps_surprise_percent": -17.6,
+        "revenue_surprise_percent": -3.8,
+        "guidance_direction": "lower",
+        "pre_earnings_price_change_5d": -3.2,
+        "post_earnings_price_change_1d": -5.4,
+        "post_earnings_price_change_5d": -8.9,
+        "implied_move_percent": 10.0,
+        "actual_move_percent": 12.1,
+        "analyst_revision_trend": "negative",
+        "source": "manual_fixture",
+    },
+    "JPM": {
+        "earnings_date": "2026-07-15",
+        "fiscal_period": "Q2",
+        "report_time": "BMO",
+        "eps_estimate": 4.22,
+        "eps_actual": 4.21,
+        "revenue_estimate": 42000,
+        "revenue_actual": 42080,
+        "eps_surprise_percent": -0.2,
+        "revenue_surprise_percent": 0.2,
+        "guidance_direction": "mixed",
+        "pre_earnings_price_change_5d": 0.8,
+        "post_earnings_price_change_1d": 0.1,
+        "post_earnings_price_change_5d": 0.6,
+        "implied_move_percent": 2.2,
+        "actual_move_percent": 2.1,
+        "analyst_revision_trend": "mixed",
+        "source": "manual_fixture",
+    },
+    "XOM": {
+        "earnings_date": "2026-07-21",
+        "fiscal_period": "Q2",
+        "report_time": "BMO",
+        "eps_estimate": 2.88,
+        "eps_actual": 2.79,
+        "revenue_estimate": 78000,
+        "revenue_actual": 77050,
+        "eps_surprise_percent": -3.1,
+        "revenue_surprise_percent": -1.2,
+        "guidance_direction": "reaffirm",
+        "pre_earnings_price_change_5d": -1.1,
+        "post_earnings_price_change_1d": -0.4,
+        "post_earnings_price_change_5d": -1.0,
+        "implied_move_percent": 3.1,
+        "actual_move_percent": 2.7,
+        "analyst_revision_trend": "mixed",
+        "source": "manual_fixture",
+    },
+}
+
+
+def build_earnings_fixture_payloads() -> dict[str, dict[str, object]]:
+    return deepcopy(EARNINGS_FIXTURES)
+
+
+def build_earnings_fixture_scenario(name: str) -> dict[str, dict[str, object]]:
+    fixtures = build_earnings_fixture_payloads()
+    scenarios = {
+        "upcoming_earnings": {symbol: {**payload, "earnings_date": "2026-08-01"} for symbol, payload in fixtures.items()},
+        "positive_reaction": {
+            "AAPL": fixtures["AAPL"],
+            "NVDA": fixtures["NVDA"],
+        },
+        "negative_reaction": {
+            "TSLA": fixtures["TSLA"],
+            "XOM": fixtures["XOM"],
+        },
+        "strong_quality": {
+            "AAPL": fixtures["AAPL"],
+            "NVDA": fixtures["NVDA"],
+            "MSFT": {**fixtures["MSFT"], "guidance_direction": "raise", "analyst_revision_trend": "positive"},
+        },
+        "weak_quality": {
+            "TSLA": fixtures["TSLA"],
+            "XOM": fixtures["XOM"],
+        },
+        "mixed_earnings": fixtures,
+    }
+    return deepcopy(scenarios.get(name, fixtures))
+
