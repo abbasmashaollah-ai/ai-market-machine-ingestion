@@ -27,6 +27,7 @@
 - `no_db_writes=true`
 - `no_scheduler_activation=true`
 - `no_persistence=true`
+- polygon live-check usage requires `POLYGON_API_KEY`
 
 ## Entitlement Interpretation
 

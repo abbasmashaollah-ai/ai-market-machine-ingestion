@@ -33,9 +33,19 @@ def _metadata_dict(metadata: Mapping[str, object] | None) -> dict[str, object]:
     result.setdefault("quality_status", "PENDING")
     result.setdefault("certification_status", "PENDING")
     result.setdefault("freshness_status", "PENDING")
+    result.setdefault("source_attribution", "fixture_volatility")
+    result.setdefault("dataset_version", "volatility_dry_run_v1")
     result.setdefault("lineage", {})
     result.setdefault("evidence", {})
     return result
+
+
+def _stable_metadata_timestamp(value: str | None, observation_date: str | None, fallback_suffix: str) -> str | None:
+    if value is not None:
+        return value
+    if observation_date is None:
+        return None
+    return f"{observation_date}T00:00:00Z[{fallback_suffix}]"
 
 
 def _series_values(history) -> list[float]:
@@ -43,7 +53,13 @@ def _series_values(history) -> list[float]:
     return [float(value) for value in values if isinstance(value, (int, float))]
 
 
-def build_volatility_observation(series_history_by_name, observation_date, timestamp=None, source="fixture_volatility"):
+def build_volatility_observation(
+    series_history_by_name,
+    observation_date,
+    timestamp=None,
+    source="fixture_volatility",
+    metadata: Mapping[str, object] | None = None,
+):
     required_series = get_required_volatility_series()
     series_keys = {str(name).upper() for name in series_history_by_name}
 
@@ -95,12 +111,30 @@ def build_volatility_observation(series_history_by_name, observation_date, times
         "volatility_regime_label": volatility_regime_label,
         "source": source,
     }
-    metadata_dict = _metadata_dict(None)
+    payload["vix_close"] = payload["vix_level"]
+    payload["vvix_close"] = payload["vvix_level"]
+    payload["vxn_close"] = payload["vxn_level"]
+    payload["rvx_close"] = payload["rvx_level"]
+    payload["volatility_stress_score"] = payload["composite_volatility_stress_score"]
+    payload["descriptive_volatility_state"] = payload["volatility_regime_label"]
+    metadata_dict = _metadata_dict(metadata if isinstance(metadata, Mapping) else None)
     payload.update(
         {
             "quality_status": metadata_dict["quality_status"],
             "certification_status": metadata_dict["certification_status"],
             "freshness_status": metadata_dict["freshness_status"],
+            "source_attribution": metadata_dict.get("source_attribution"),
+            "dataset_version": metadata_dict.get("dataset_version"),
+            "created_at": _stable_metadata_timestamp(
+                metadata_dict.get("created_at"),
+                payload.get("observation_date"),
+                "created_at",
+            ),
+            "updated_at": _stable_metadata_timestamp(
+                metadata_dict.get("updated_at"),
+                payload.get("observation_date"),
+                "updated_at",
+            ),
             "lineage": metadata_dict["lineage"],
             "evidence": metadata_dict["evidence"],
         }

@@ -38,6 +38,16 @@ def _is_numeric_or_none(value: object) -> bool:
     return value is None or (isinstance(value, (int, float)) and not isinstance(value, bool))
 
 
+def _is_non_empty_string_or_none(value: object) -> bool:
+    return value is None or (isinstance(value, str) and bool(value.strip()))
+
+
+def _state_or_label(value: object) -> str | None:
+    if isinstance(value, str) and value in ALLOWED_LABELS:
+        return value
+    return None
+
+
 def validate_volatility_observation(row: Mapping[str, object]) -> VolatilityValidationResult:
     errors: list[VolatilityValidationError] = []
     required = ("observation_date", "source", "series", "volatility_regime_label")
@@ -52,11 +62,19 @@ def validate_volatility_observation(row: Mapping[str, object]) -> VolatilityVali
     if row.get("volatility_regime_label") not in ALLOWED_LABELS:
         errors.append(VolatilityValidationError("volatility_regime_label", "volatility_regime_label must be an allowed label"))
 
+    descriptive_state = row.get("descriptive_volatility_state")
+    if descriptive_state is not None and _state_or_label(descriptive_state) is None:
+        errors.append(VolatilityValidationError("descriptive_volatility_state", "descriptive_volatility_state must be an allowed label or None"))
+
     for field_name in (
         "vix_level",
+        "vix_close",
         "vvix_level",
+        "vvix_close",
         "vxn_level",
+        "vxn_close",
         "rvx_level",
+        "rvx_close",
         "vix_change_1d",
         "vix_change_5d",
         "vix_change_20d",
@@ -66,9 +84,14 @@ def validate_volatility_observation(row: Mapping[str, object]) -> VolatilityVali
         "nasdaq_volatility_pressure_score",
         "small_cap_volatility_pressure_score",
         "composite_volatility_stress_score",
+        "volatility_stress_score",
     ):
         if not _is_numeric_or_none(row.get(field_name)):
             errors.append(VolatilityValidationError(field_name, "field must be numeric or None"))
+
+    for field_name in ("dataset_version", "created_at", "updated_at"):
+        if not _is_non_empty_string_or_none(row.get(field_name)):
+            errors.append(VolatilityValidationError(field_name, f"{field_name} must be a non-empty string or None"))
 
     return VolatilityValidationResult(is_valid=not errors, errors=tuple(errors), warnings=())
 
