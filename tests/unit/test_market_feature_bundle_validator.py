@@ -75,6 +75,14 @@ def test_missing_fundamentals_section_fails() -> None:
     assert any(error.field_name == "fundamentals" for error in result.errors)
 
 
+def test_missing_flows_positioning_section_fails() -> None:
+    bundle = dict(run_market_feature_bundle_dry_run("2026-01-15"))
+    bundle.pop("flows_positioning")
+    result = validate_market_feature_bundle(bundle)
+    assert result.is_valid is False
+    assert any(error.field_name == "flows_positioning" for error in result.errors)
+
+
 def test_missing_section_labels_fail() -> None:
     bundle = dict(run_market_feature_bundle_dry_run("2026-01-15"))
     bundle["breadth"] = {"report": {}}
@@ -85,6 +93,7 @@ def test_missing_section_labels_fail() -> None:
     bundle["event_calendar"] = {"report": {}}
     bundle["news_sentiment"] = {"report": {}}
     bundle["fundamentals"] = {}
+    bundle["flows_positioning"] = {"report": {}}
     result = validate_market_feature_bundle(bundle)
     field_names = {error.field_name for error in result.errors}
     assert "breadth" in field_names
@@ -95,6 +104,7 @@ def test_missing_section_labels_fail() -> None:
     assert "event_calendar" in field_names
     assert "news_sentiment" in field_names
     assert "fundamentals" in field_names
+    assert "flows_positioning" in field_names
 
 
 def test_validator_does_not_mutate_input() -> None:
@@ -113,6 +123,7 @@ def test_errors_are_deterministic() -> None:
     bundle["event_calendar"] = {}
     bundle["news_sentiment"] = {}
     bundle["fundamentals"] = {}
+    bundle["flows_positioning"] = {}
     result = validate_market_feature_bundle(bundle)
     messages = [(error.field_name, error.message) for error in result.errors]
     assert messages == [
@@ -124,4 +135,5 @@ def test_errors_are_deterministic() -> None:
         ("event_calendar", "event_calendar must include a non-empty event_risk_label or report"),
         ("news_sentiment", "news_sentiment must include a non-empty sentiment_regime_label or report"),
         ("fundamentals", "fundamentals must include reports or fundamental_quality_labels_by_symbol"),
+        ("flows_positioning", "flows_positioning must include a non-empty flow_regime_label or report"),
     ]

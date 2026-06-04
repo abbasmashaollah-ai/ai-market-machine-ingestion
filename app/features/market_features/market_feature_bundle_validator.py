@@ -59,6 +59,7 @@ def validate_market_feature_bundle(bundle: Mapping[str, object]) -> MarketFeatur
         "event_calendar",
         "news_sentiment",
         "fundamentals",
+        "flows_positioning",
         "warnings",
         "no_db_writes",
         "no_vendor_calls",
@@ -80,7 +81,7 @@ def validate_market_feature_bundle(bundle: Mapping[str, object]) -> MarketFeatur
     if warnings_value is not None and not isinstance(warnings_value, list):
         errors.append(MarketFeatureBundleValidationError("warnings", "warnings must be a list when present"))
 
-    for section_name in ("prices", "breadth", "sector_rotation", "cross_asset", "liquidity_rates", "volatility", "event_calendar", "news_sentiment", "fundamentals"):
+    for section_name in ("prices", "breadth", "sector_rotation", "cross_asset", "liquidity_rates", "volatility", "event_calendar", "news_sentiment", "fundamentals", "flows_positioning"):
         section = bundle.get(section_name)
         if not _is_mapping(section):
             errors.append(MarketFeatureBundleValidationError(section_name, "field must be an object"))
@@ -121,5 +122,8 @@ def validate_market_feature_bundle(bundle: Mapping[str, object]) -> MarketFeatur
             has_reports = bool(reports) or bool(reports_by_symbol)
             if not has_label and not has_reports:
                 errors.append(MarketFeatureBundleValidationError("fundamentals", "fundamentals must include reports or fundamental_quality_labels_by_symbol"))
+        elif section_name == "flows_positioning":
+            if _section_label(section, "flow_regime_label") is None:
+                errors.append(MarketFeatureBundleValidationError("flows_positioning", "flows_positioning must include a non-empty flow_regime_label or report"))
 
     return MarketFeatureBundleValidationResult(is_valid=not errors, errors=tuple(errors), warnings=())
