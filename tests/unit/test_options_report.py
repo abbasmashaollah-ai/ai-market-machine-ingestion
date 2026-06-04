@@ -7,6 +7,10 @@ from tests.fixtures.options_data import build_options_metrics_scenario
 
 def test_report_contains_expected_fields() -> None:
     metrics = dict(build_options_metrics_scenario("high_volatility")["NVDA"])
+    metrics["source_attribution"] = "custom_source"
+    metrics["dataset_version"] = "custom_dataset_v2"
+    metrics["created_at"] = "2026-01-14T22:00:00Z"
+    metrics["updated_at"] = "2026-01-15T10:00:00Z"
     metrics["underlying_symbol"] = "QQQ"
     metrics["expiration_date"] = "2026-06-19"
     metrics["total_volume"] = 123456
@@ -14,6 +18,10 @@ def test_report_contains_expected_fields() -> None:
     observation = build_options_observation("NVDA", metrics, "2026-01-15")
     report = build_options_report(observation, writer_result=type("R", (), {"accepted_count": 1, "rejected_count": 0})())
     assert report["symbol"] == "NVDA"
+    assert report["source_attribution"] == "custom_source"
+    assert report["dataset_version"] == "custom_dataset_v2"
+    assert report["created_at"] == "2026-01-14T22:00:00Z"
+    assert report["updated_at"] == "2026-01-15T10:00:00Z"
     assert report["underlying_symbol"] == "QQQ"
     assert report["expiration_date"] == "2026-06-19"
     assert report["total_volume"] == 123456

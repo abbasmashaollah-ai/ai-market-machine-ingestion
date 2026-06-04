@@ -46,6 +46,14 @@ def validate_options_observation(row):
             errors.append(OptionsValidationError(field_name, "field is required"))
     if not _non_empty_string(row.get("symbol")):
         errors.append(OptionsValidationError("symbol", "symbol must be a non-empty string"))
+    if "source_attribution" in row and row.get("source_attribution") is not None and not _non_empty_string(row.get("source_attribution")):
+        errors.append(OptionsValidationError("source_attribution", "source_attribution must be a non-empty string when provided"))
+    if "dataset_version" in row and row.get("dataset_version") is not None and not _non_empty_string(row.get("dataset_version")):
+        errors.append(OptionsValidationError("dataset_version", "dataset_version must be a non-empty string when provided"))
+    if "created_at" in row and row.get("created_at") is not None and not _non_empty_string(row.get("created_at")):
+        errors.append(OptionsValidationError("created_at", "created_at must be a non-empty string when provided"))
+    if "updated_at" in row and row.get("updated_at") is not None and not _non_empty_string(row.get("updated_at")):
+        errors.append(OptionsValidationError("updated_at", "updated_at must be a non-empty string when provided"))
     if "underlying_symbol" in row and row.get("underlying_symbol") is not None and not _non_empty_string(row.get("underlying_symbol")):
         errors.append(OptionsValidationError("underlying_symbol", "underlying_symbol must be a non-empty string when provided"))
     if "expiration_date" in row and row.get("expiration_date") is not None and not _non_empty_string(row.get("expiration_date")):

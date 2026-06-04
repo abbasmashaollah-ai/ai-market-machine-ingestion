@@ -29,11 +29,21 @@ def test_validator_does_not_mutate_input() -> None:
 
 def test_valid_optional_fields_pass() -> None:
     metrics = dict(build_options_metrics_scenario("high_volatility")["NVDA"])
+    metrics["source_attribution"] = "custom_source"
+    metrics["dataset_version"] = "custom_dataset_v2"
+    metrics["created_at"] = "2026-01-14T22:00:00Z"
+    metrics["updated_at"] = "2026-01-15T10:00:00Z"
     metrics["underlying_symbol"] = "QQQ"
     metrics["expiration_date"] = "2026-06-19"
     metrics["total_volume"] = 123456
     metrics["total_open_interest"] = 789012
     observation = build_options_observation("NVDA", metrics, "2026-01-15")
+    result = validate_options_observation(observation)
+    assert result.is_valid is True
+
+
+def test_metadata_defaults_and_existing_observations_pass() -> None:
+    observation = build_options_observation("NVDA", build_options_metrics_scenario("high_volatility")["NVDA"], "2026-01-15")
     result = validate_options_observation(observation)
     assert result.is_valid is True
 
@@ -72,3 +82,39 @@ def test_blank_expiration_date_fails_when_provided() -> None:
     result = validate_options_observation(invalid)
     assert result.is_valid is False
     assert any(error.field_name == "expiration_date" for error in result.errors)
+
+
+def test_blank_source_attribution_fails_when_provided() -> None:
+    observation = build_options_observation("NVDA", build_options_metrics_scenario("high_volatility")["NVDA"], "2026-01-15")
+    invalid = dict(observation)
+    invalid["source_attribution"] = ""
+    result = validate_options_observation(invalid)
+    assert result.is_valid is False
+    assert any(error.field_name == "source_attribution" for error in result.errors)
+
+
+def test_blank_dataset_version_fails_when_provided() -> None:
+    observation = build_options_observation("NVDA", build_options_metrics_scenario("high_volatility")["NVDA"], "2026-01-15")
+    invalid = dict(observation)
+    invalid["dataset_version"] = ""
+    result = validate_options_observation(invalid)
+    assert result.is_valid is False
+    assert any(error.field_name == "dataset_version" for error in result.errors)
+
+
+def test_blank_created_at_fails_when_provided() -> None:
+    observation = build_options_observation("NVDA", build_options_metrics_scenario("high_volatility")["NVDA"], "2026-01-15")
+    invalid = dict(observation)
+    invalid["created_at"] = ""
+    result = validate_options_observation(invalid)
+    assert result.is_valid is False
+    assert any(error.field_name == "created_at" for error in result.errors)
+
+
+def test_blank_updated_at_fails_when_provided() -> None:
+    observation = build_options_observation("NVDA", build_options_metrics_scenario("high_volatility")["NVDA"], "2026-01-15")
+    invalid = dict(observation)
+    invalid["updated_at"] = ""
+    result = validate_options_observation(invalid)
+    assert result.is_valid is False
+    assert any(error.field_name == "updated_at" for error in result.errors)

@@ -27,6 +27,10 @@ def _normalize_timestamp(value):
 
 def build_options_observation(symbol, metrics, observation_date, timestamp=None, source="fixture_options"):
     payload = dict(metrics or {})
+    source_attribution = payload.get("source_attribution") or source
+    dataset_version = payload.get("dataset_version") or "options_dry_run_v1"
+    created_at = payload.get("created_at") or f"{observation_date}T00:00:00Z[created_at]"
+    updated_at = payload.get("updated_at") or f"{observation_date}T00:00:00Z[updated_at]"
     underlying_symbol = str(payload.get("underlying_symbol") or symbol).upper()
     expiration_date = payload.get("expiration_date")
     total_volume = payload.get("total_volume")
@@ -61,6 +65,10 @@ def build_options_observation(symbol, metrics, observation_date, timestamp=None,
         **component_scores,
         "options_regime_label": options_regime_label,
         "source": source,
+        "source_attribution": source_attribution,
+        "dataset_version": dataset_version,
+        "created_at": created_at,
+        "updated_at": updated_at,
         "quality_status": "PENDING",
         "certification_status": "PENDING",
         "freshness_status": "PENDING",
