@@ -12,6 +12,7 @@ from app.features.news_sentiment.news_sentiment_job import run_news_sentiment_dr
 from app.features.earnings.earnings_job import run_earnings_dry_run
 from app.features.fundamentals.fundamentals_job import run_fundamentals_dry_run
 from app.features.macro_liquidity.macro_liquidity_job import run_macro_liquidity_dry_run
+from app.features.market_risk.market_risk_job import run_market_risk_dry_run
 from app.features.flows_positioning.flows_positioning_job import run_flows_positioning_dry_run
 from app.features.options.options_job import run_options_dry_run
 from app.features.prices.price_feature_job import run_price_feature_dry_run
@@ -370,5 +371,24 @@ def run_market_feature_bundle_dry_run(observation_date, timestamp=None):
 
     final_bundle = dict(base_bundle)
     final_bundle["macro_liquidity"] = macro_liquidity_section
-    final_bundle["warnings"] = list(base_bundle["warnings"]) + list(macro_liquidity_result.warnings)
+    risk_summary = build_market_feature_bundle_summary(final_bundle)
+    market_risk_result = run_market_risk_dry_run(
+        risk_summary,
+        observation_date=observation_date,
+        timestamp=normalized_timestamp,
+    )
+    market_risk_report = dict(market_risk_result.reports[0]) if market_risk_result.reports else {}
+    market_risk_section = {
+        "report": market_risk_report,
+        "accepted_count": market_risk_result.accepted_count,
+        "rejected_count": market_risk_result.rejected_count,
+        "market_risk_label": market_risk_report.get("market_risk_label"),
+        "warnings": list(market_risk_result.warnings),
+        "no_db_writes": True,
+        "no_vendor_calls": True,
+        "no_live_api_calls": True,
+        "no_scheduler_activation": True,
+    }
+    final_bundle["market_risk"] = market_risk_section
+    final_bundle["warnings"] = list(base_bundle["warnings"]) + list(macro_liquidity_result.warnings) + list(market_risk_result.warnings)
     return final_bundle

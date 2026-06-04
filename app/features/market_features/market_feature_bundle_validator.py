@@ -60,6 +60,7 @@ def validate_market_feature_bundle(bundle: Mapping[str, object]) -> MarketFeatur
         "news_sentiment",
         "earnings",
         "macro_liquidity",
+        "market_risk",
         "fundamentals",
         "flows_positioning",
         "options",
@@ -84,7 +85,7 @@ def validate_market_feature_bundle(bundle: Mapping[str, object]) -> MarketFeatur
     if warnings_value is not None and not isinstance(warnings_value, list):
         errors.append(MarketFeatureBundleValidationError("warnings", "warnings must be a list when present"))
 
-    for section_name in ("prices", "breadth", "sector_rotation", "cross_asset", "liquidity_rates", "volatility", "event_calendar", "news_sentiment", "earnings", "macro_liquidity", "fundamentals", "flows_positioning", "options"):
+    for section_name in ("prices", "breadth", "sector_rotation", "cross_asset", "liquidity_rates", "volatility", "event_calendar", "news_sentiment", "earnings", "macro_liquidity", "market_risk", "fundamentals", "flows_positioning", "options"):
         section = bundle.get(section_name)
         if not _is_mapping(section):
             errors.append(MarketFeatureBundleValidationError(section_name, "field must be an object"))
@@ -128,6 +129,9 @@ def validate_market_feature_bundle(bundle: Mapping[str, object]) -> MarketFeatur
         elif section_name == "macro_liquidity":
             if _section_label(section, "macro_liquidity_label") is None:
                 errors.append(MarketFeatureBundleValidationError("macro_liquidity", "macro_liquidity must include a non-empty macro_liquidity_label or report"))
+        elif section_name == "market_risk":
+            if _section_label(section, "market_risk_label") is None:
+                errors.append(MarketFeatureBundleValidationError("market_risk", "market_risk must include a non-empty market_risk_label or report"))
         elif section_name == "fundamentals":
             label_map = section.get("fundamental_quality_labels_by_symbol")
             reports = section.get("reports")

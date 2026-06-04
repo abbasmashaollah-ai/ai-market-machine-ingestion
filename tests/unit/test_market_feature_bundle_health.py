@@ -28,6 +28,7 @@ def test_market_feature_bundle_health_and_summary_are_complete() -> None:
         "news_sentiment",
         "earnings",
         "macro_liquidity",
+        "market_risk",
         "fundamentals",
         "flows_positioning",
         "options",
@@ -47,6 +48,7 @@ def test_market_feature_bundle_health_and_summary_are_complete() -> None:
     assert summary["rejected_counts_by_section"]["news_sentiment"] == 0
     assert summary["rejected_counts_by_section"]["earnings"] == 0
     assert summary["rejected_counts_by_section"]["macro_liquidity"] == 0
+    assert summary["rejected_counts_by_section"]["market_risk"] == 0
     assert summary["rejected_counts_by_section"]["fundamentals"] == 0
     assert summary["rejected_counts_by_section"]["flows_positioning"] == 0
     assert summary["rejected_counts_by_section"]["options"] == 0
@@ -56,6 +58,7 @@ def test_market_feature_bundle_health_and_summary_are_complete() -> None:
     for field_name in (
         "earnings_regime_labels_by_symbol",
         "macro_liquidity_state",
+        "market_risk_state",
         "options_regime_labels_by_symbol",
         "flows_positioning_state",
         "fundamental_quality_labels_by_symbol",
@@ -78,6 +81,7 @@ def test_market_feature_bundle_health_cli_summary_only_is_json_friendly() -> Non
     assert payload["feature_sections_present"]["earnings"] is True
     assert payload["earnings_regime_labels_by_symbol"]["AAPL"]
     assert payload["macro_liquidity_state"]
+    assert payload["market_risk_state"]
     assert payload["options_regime_labels_by_symbol"]["AAPL"]
     assert payload["flows_positioning_state"]
     assert payload["fundamental_quality_labels_by_symbol"]["AAPL"]
