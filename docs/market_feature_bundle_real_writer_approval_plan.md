@@ -97,3 +97,8 @@ app/features remains calculation-only
 - idempotency conflict behavior approved
 - test list approved
 - production write path explicitly blocked by default
+
+## Stage E.1 completion
+
+- Stage E.1 real-writer skeleton is ready with fake/session-stub tests only
+- production persistence is still blocked pending explicit approval

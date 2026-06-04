@@ -48,3 +48,8 @@ This checkpoint records the completed market feature bundle producer and mock-ha
 - real-writer approval plan only
 - real writer implementation only after explicit approval
 - AI Machine consumption remains last
+
+## Stage E.1 status
+
+- real-writer skeleton is next, but production persistence is still blocked
+- fake/session-stub validation only
