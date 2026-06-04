@@ -29,6 +29,7 @@ def test_cli_prints_bundle_json_and_safety_flags() -> None:
     assert payload["news_sentiment"]["sentiment_regime_label"]
     assert payload["fundamentals"]["reports_by_symbol"]["AAPL"]["fundamental_quality_label"]
     assert payload["flows_positioning"]["flow_regime_label"]
+    assert payload["options"]["options_regime_labels_by_symbol"]
 
 
 def test_cli_writes_output_file_and_matches_stdout(tmp_path: Path) -> None:
@@ -78,6 +79,7 @@ def test_cli_summary_only_writes_compact_summary(tmp_path: Path) -> None:
     assert stdout_payload["news_sentiment_state"]
     assert stdout_payload["fundamental_quality_labels_by_symbol"]["AAPL"]
     assert stdout_payload["flows_positioning_state"]
+    assert stdout_payload["options_regime_labels_by_symbol"]
     assert stdout_payload["safety_flags"]["no_db_writes"] is True
     assert stdout_payload["safety_flags"]["no_vendor_calls"] is True
     assert stdout_payload["safety_flags"]["no_live_api_calls"] is True
@@ -89,6 +91,7 @@ def test_cli_summary_only_writes_compact_summary(tmp_path: Path) -> None:
     assert "news_sentiment" not in stdout_payload
     assert "fundamental_quality_labels_by_symbol" in stdout_payload
     assert "flows_positioning_state" in stdout_payload
+    assert "options_regime_labels_by_symbol" in stdout_payload
 
 
 def test_cli_runs_as_subprocess_from_repo_root() -> None:

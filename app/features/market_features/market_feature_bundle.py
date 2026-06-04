@@ -11,6 +11,7 @@ from app.features.liquidity_rates.liquidity_rates_job import run_liquidity_rates
 from app.features.news_sentiment.news_sentiment_job import run_news_sentiment_dry_run
 from app.features.fundamentals.fundamentals_job import run_fundamentals_dry_run
 from app.features.flows_positioning.flows_positioning_job import run_flows_positioning_dry_run
+from app.features.options.options_job import run_options_dry_run
 from app.features.prices.price_feature_job import run_price_feature_dry_run
 from app.features.volatility.volatility_job import run_volatility_dry_run
 from app.features.sector_rotation.sector_rotation_reader import run_sector_rotation_certified_ohlcv_dry_run
@@ -22,6 +23,7 @@ from app.features.market_features.fixtures.liquidity_rates_fixtures import build
 from app.features.market_features.fixtures.news_sentiment_fixtures import build_news_sentiment_fixture_articles_scenario
 from app.features.market_features.fixtures.fundamentals_fixtures import build_fundamentals_fixture_financials_scenario
 from app.features.market_features.fixtures.flows_positioning_fixtures import build_flows_positioning_fixture_payload_scenario
+from app.features.market_features.fixtures.options_fixtures import build_options_fixture_metrics_scenario
 from app.features.market_features.fixtures.price_fixtures import build_price_ohlcv_fixtures
 from app.features.market_features.fixtures.sector_rotation_fixtures import build_fake_data_read_client_for_sector_rotation
 from app.features.market_features.fixtures.volatility_fixtures import build_volatility_series_scenario
@@ -243,6 +245,36 @@ def run_market_feature_bundle_dry_run(observation_date, timestamp=None):
         "no_scheduler_activation": True,
     }
 
+    options_metrics = build_options_fixture_metrics_scenario("mixed_options")
+    options_result = run_options_dry_run(
+        next(iter(options_metrics.values())),
+        observation_date=observation_date,
+        timestamp=normalized_timestamp,
+    )
+    options_reports = [dict(report) for report in options_result.reports]
+    options_reports_by_symbol = {
+        str(report.get("symbol", "")).upper(): report
+        for report in options_reports
+        if str(report.get("symbol", "")).strip()
+    }
+    options_section = {
+        "report": options_reports[0] if options_reports else {},
+        "reports": options_reports,
+        "reports_by_symbol": options_reports_by_symbol,
+        "accepted_count": options_result.accepted_count,
+        "rejected_count": options_result.rejected_count,
+        "options_regime_label": (options_reports[0] if options_reports else {}).get("options_regime_label"),
+        "options_regime_labels_by_symbol": {
+            symbol: report.get("options_regime_label")
+            for symbol, report in options_reports_by_symbol.items()
+        },
+        "warnings": list(options_result.warnings),
+        "no_db_writes": True,
+        "no_vendor_calls": True,
+        "no_live_api_calls": True,
+        "no_scheduler_activation": True,
+    }
+
     return {
         "observation_date": str(observation_date),
         "timestamp": normalized_timestamp,
@@ -256,6 +288,7 @@ def run_market_feature_bundle_dry_run(observation_date, timestamp=None):
         "news_sentiment": news_sentiment_section,
         "fundamentals": fundamentals_section,
         "flows_positioning": flows_positioning_section,
+        "options": options_section,
         "warnings": (
             list(price_result.warnings)
             + list(breadth_result.warnings)
@@ -267,6 +300,7 @@ def run_market_feature_bundle_dry_run(observation_date, timestamp=None):
             + list(news_sentiment_result.warnings)
             + list(fundamentals_result.warnings)
             + list(flows_positioning_result.warnings)
+            + list(options_result.warnings)
         ),
         "no_db_writes": True,
         "no_vendor_calls": True,
