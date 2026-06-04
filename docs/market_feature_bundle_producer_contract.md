@@ -95,3 +95,10 @@ This key is the basis for avoiding duplicate writes once a writer stage is appro
 - The payload must remain JSON-serializable and deterministic for identical inputs.
 - `generated_at` is only a formatting input for the Stage B payload, not a persistence signal.
 
+## Stage C mock writer handoff
+
+- Stage C receives the contract-shaped producer payload and performs validation only.
+- The mock writer must not write to the warehouse or open any persistence session.
+- The mock writer must confirm the handoff target is `ai-market-machine-data.market_feature_bundle_snapshots`.
+- The mock writer must preserve the deterministic `idempotency_key` and return a dry-run write intent.
+- Stage C remains fixture-only and mock-only.
