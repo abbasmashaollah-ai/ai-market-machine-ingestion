@@ -25,6 +25,10 @@ def _normalize_timestamp(value):
 
 def build_fundamental_observation(symbol, financials, observation_date, timestamp=None, source="fixture_fundamentals"):
     payload = dict(financials or {})
+    source_attribution = payload.get("source_attribution") or source
+    dataset_version = payload.get("dataset_version") or "fundamentals_dry_run_v1"
+    created_at = payload.get("created_at") or f"{observation_date}T00:00:00Z"
+    updated_at = payload.get("updated_at") or f"{observation_date}T00:00:00Z"
     growth_score = calculate_growth_score(payload)
     profitability_score = calculate_profitability_score(payload)
     balance_sheet_score = calculate_balance_sheet_score(payload)
@@ -47,6 +51,10 @@ def build_fundamental_observation(symbol, financials, observation_date, timestam
         "composite_fundamental_score": composite,
         "fundamental_quality_label": quality_label,
         "source": source,
+        "source_attribution": source_attribution,
+        "dataset_version": dataset_version,
+        "created_at": created_at,
+        "updated_at": updated_at,
         "quality_status": "PENDING",
         "certification_status": "PENDING",
         "freshness_status": "PENDING",
