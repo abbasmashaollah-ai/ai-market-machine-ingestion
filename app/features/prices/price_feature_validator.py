@@ -58,10 +58,20 @@ def validate_price_feature_observation(row: Mapping[str, object]) -> PriceFeatur
         "return_5d",
         "return_20d",
         "return_60d",
+        "return_252d",
         "moving_average_20d",
         "moving_average_50d",
+        "moving_average_100d",
+        "moving_average_200d",
         "distance_from_ma_20d",
         "distance_from_ma_50d",
+        "realized_vol_20d",
+        "realized_vol_60d",
+        "atr_14d",
+        "dollar_volume",
+        "average_dollar_volume_20d",
+        "relative_volume_20d",
+        "liquidity_score",
         "drawdown_from_20d_high",
         "drawdown_from_60d_high",
         "high_low_range_20d",
@@ -76,10 +86,19 @@ def validate_price_feature_observation(row: Mapping[str, object]) -> PriceFeatur
     if trend_state is not None and trend_state not in ALLOWED_PRICE_TREND_STATES:
         errors.append(PriceFeatureValidationError("price_trend_state", "invalid price trend state"))
 
+    for field_name in ("above_ma_20d", "above_ma_50d", "above_ma_100d", "above_ma_200d"):
+        value = row.get(field_name)
+        if value is not None and not isinstance(value, bool):
+            errors.append(PriceFeatureValidationError(field_name, "field must be boolean or None"))
+
     for field_name in ("quality_status", "certification_status", "freshness_status"):
         value = row.get(field_name)
         if value is not None and not _non_empty_string(value):
             errors.append(PriceFeatureValidationError(field_name, "field must be a non-empty string when present"))
+
+    for field_name in ("dataset_version", "source_attribution"):
+        if not _non_empty_string(row.get(field_name)):
+            errors.append(PriceFeatureValidationError(field_name, "field must be a non-empty string"))
 
     for field_name in ("source",):
         if field_name in row and not _non_empty_string(row.get(field_name)):

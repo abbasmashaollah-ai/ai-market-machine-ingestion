@@ -17,3 +17,9 @@ def test_report_is_json_friendly_and_has_safety_flags() -> None:
     assert report["no_scheduler_activation"] is True
     assert report["symbol"] == "MSFT"
     assert report["returns"]["return_20d"] is not None
+    assert report["dataset_version"] == "price_feature_v2"
+    assert report["source_attribution"] == "fixture_ohlcv"
+    assert "moving_average_100d" in report["moving_average_context"]
+    assert "moving_average_200d" in report["moving_average_context"]
+    assert "above_ma_20d" in report["moving_average_context"]
+    assert "realized_vol_20d" in report["volatility_context"]

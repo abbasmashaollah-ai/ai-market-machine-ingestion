@@ -37,6 +37,22 @@ def test_mock_writer_rejects_invalid_rows() -> None:
     assert result.errors
 
 
+def test_mock_writer_rejects_duplicate_rows_in_same_batch() -> None:
+    fixtures = build_price_ohlcv_fixtures()
+    row = build_price_feature_observation("SPY", [item["close"] for item in fixtures["SPY"]], "2026-01-15")
+    writer = PriceFeatureMockWriter()
+
+    result = write_price_feature_payloads([row, row], writer=writer)
+
+    assert result.accepted_count == 1
+    assert result.rejected_count == 1
+    assert any(
+        "duplicate" in " ".join(error.get("errors", []))
+        for error in result.errors
+    )
+    assert len(writer.accepted_rows) == 1
+
+
 def test_input_rows_are_not_mutated() -> None:
     fixtures = build_price_ohlcv_fixtures()
     row = build_price_feature_observation("AAPL", [r["close"] for r in fixtures["AAPL"]], "2026-01-15")

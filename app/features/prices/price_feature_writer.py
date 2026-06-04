@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from collections.abc import Mapping, Sequence
 from copy import deepcopy
 
-from app.features.prices.price_feature_validator import validate_price_feature_observation
+from app.features.prices.price_feature_validator import validate_price_feature_observations
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,13 +29,14 @@ class PriceFeatureMockWriter:
         return [deepcopy(row) for row in self._accepted_rows]
 
     def write(self, rows: Sequence[Mapping[str, object]]) -> PriceFeatureWriterResult:
+        normalized_rows = [dict(row) for row in rows]
+        validations = validate_price_feature_observations(normalized_rows)
         errors: list[dict[str, object]] = []
         accepted_count = 0
         rejected_count = 0
-        for row in rows:
-            validation = validate_price_feature_observation(row)
+        for row, validation in zip(normalized_rows, validations, strict=False):
             if validation.is_valid:
-                self._accepted_rows.append(deepcopy(dict(row)))
+                self._accepted_rows.append(deepcopy(row))
                 accepted_count += 1
             else:
                 rejected_count += 1
