@@ -11,6 +11,7 @@ from app.features.liquidity_rates.liquidity_rates_job import run_liquidity_rates
 from app.features.news_sentiment.news_sentiment_job import run_news_sentiment_dry_run
 from app.features.earnings.earnings_job import run_earnings_dry_run
 from app.features.fundamentals.fundamentals_job import run_fundamentals_dry_run
+from app.features.macro_liquidity.macro_liquidity_job import run_macro_liquidity_dry_run
 from app.features.flows_positioning.flows_positioning_job import run_flows_positioning_dry_run
 from app.features.options.options_job import run_options_dry_run
 from app.features.prices.price_feature_job import run_price_feature_dry_run
@@ -29,6 +30,7 @@ from app.features.market_features.fixtures.options_fixtures import build_options
 from app.features.market_features.fixtures.price_fixtures import build_price_ohlcv_fixtures
 from app.features.market_features.fixtures.sector_rotation_fixtures import build_fake_data_read_client_for_sector_rotation
 from app.features.market_features.fixtures.volatility_fixtures import build_volatility_series_scenario
+from app.features.market_features.market_feature_bundle_summary import build_market_feature_bundle_summary
 
 
 def _normalize_timestamp(value: date | datetime | str | None) -> str | None:
@@ -48,6 +50,13 @@ def _reports_by_symbol(feature_result) -> dict[str, dict[str, object]]:
         if symbol:
             reports_by_symbol[symbol] = dict(report)
     return reports_by_symbol
+
+
+def _warnings_from_sections(*sections) -> list[str]:
+    warnings: list[str] = []
+    for section in sections:
+        warnings.extend(list(section.warnings))
+    return warnings
 
 
 def run_market_feature_bundle_dry_run(observation_date, timestamp=None):
@@ -305,7 +314,7 @@ def run_market_feature_bundle_dry_run(observation_date, timestamp=None):
         "no_scheduler_activation": True,
     }
 
-    return {
+    base_bundle = {
         "observation_date": str(observation_date),
         "timestamp": normalized_timestamp,
         "prices": price_section,
@@ -320,22 +329,46 @@ def run_market_feature_bundle_dry_run(observation_date, timestamp=None):
         "fundamentals": fundamentals_section,
         "flows_positioning": flows_positioning_section,
         "options": options_section,
-        "warnings": (
-            list(price_result.warnings)
-            + list(breadth_result.warnings)
-            + list(sector_result.warnings)
-            + list(cross_result.warnings)
-            + list(liquidity_result.warnings)
-            + list(volatility_result.warnings)
-            + list(event_calendar_result.warnings)
-            + list(news_sentiment_result.warnings)
-            + list(earnings_result.warnings)
-            + list(fundamentals_result.warnings)
-            + list(flows_positioning_result.warnings)
-            + list(options_result.warnings)
+        "warnings": _warnings_from_sections(
+            price_result,
+            breadth_result,
+            sector_result,
+            cross_result,
+            liquidity_result,
+            volatility_result,
+            event_calendar_result,
+            news_sentiment_result,
+            earnings_result,
+            fundamentals_result,
+            flows_positioning_result,
+            options_result,
         ),
         "no_db_writes": True,
         "no_vendor_calls": True,
         "no_live_api_calls": True,
         "no_scheduler_activation": True,
     }
+
+    macro_liquidity_summary = build_market_feature_bundle_summary(base_bundle)
+    macro_liquidity_result = run_macro_liquidity_dry_run(
+        macro_liquidity_summary,
+        observation_date=observation_date,
+        timestamp=normalized_timestamp,
+    )
+    macro_liquidity_report = dict(macro_liquidity_result.reports[0]) if macro_liquidity_result.reports else {}
+    macro_liquidity_section = {
+        "report": macro_liquidity_report,
+        "accepted_count": macro_liquidity_result.accepted_count,
+        "rejected_count": macro_liquidity_result.rejected_count,
+        "macro_liquidity_label": macro_liquidity_report.get("macro_liquidity_label"),
+        "warnings": list(macro_liquidity_result.warnings),
+        "no_db_writes": True,
+        "no_vendor_calls": True,
+        "no_live_api_calls": True,
+        "no_scheduler_activation": True,
+    }
+
+    final_bundle = dict(base_bundle)
+    final_bundle["macro_liquidity"] = macro_liquidity_section
+    final_bundle["warnings"] = list(base_bundle["warnings"]) + list(macro_liquidity_result.warnings)
+    return final_bundle
