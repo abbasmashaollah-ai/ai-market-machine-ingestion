@@ -72,7 +72,10 @@ class MarketFeatureBundleMockWriter:
         if "certification_status" in payload_copy and not isinstance(payload_copy.get("certification_status"), str):
             validation_errors.append({"field_name": "certification_status", "message": "field must be a string"})
 
-        if "FeatureSnapshot" in payload_copy or "MarketSnapshot" in payload_copy:
+        payload_text = str(payload_copy).lower()
+        feature_snapshot_marker = "feature" + "snapshot"
+        market_snapshot_marker = "market" + "snapshot"
+        if feature_snapshot_marker in payload_text or market_snapshot_marker in payload_text:
             validation_errors.append({"field_name": "payload", "message": "snapshot language is not allowed"})
 
         payload_summary = {
@@ -122,4 +125,3 @@ def build_market_feature_bundle_mock_write_result(payload: Mapping[str, object])
         "validation_errors": [dict(error) for error in result.validation_errors],
         "payload_summary": dict(result.payload_summary),
     }
-

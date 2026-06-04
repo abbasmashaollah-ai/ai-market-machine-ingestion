@@ -102,3 +102,9 @@ This key is the basis for avoiding duplicate writes once a writer stage is appro
 - The mock writer must confirm the handoff target is `ai-market-machine-data.market_feature_bundle_snapshots`.
 - The mock writer must preserve the deterministic `idempotency_key` and return a dry-run write intent.
 - Stage C remains fixture-only and mock-only.
+
+## Feature engine boundary
+
+- `app/features/*` remains calculation-only.
+- The mock writer helper is allowed only as a dry-run test helper and must not evolve into a real writer.
+- Any future real writer must live outside `app/features`, preferably in `app/writers/` or `app/handoff/`.

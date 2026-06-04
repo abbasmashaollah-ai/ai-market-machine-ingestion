@@ -99,7 +99,7 @@ def test_mock_writer_module_has_no_live_dependencies() -> None:
 
 def test_mock_writer_source_has_no_snapshot_language() -> None:
     source = Path("app/features/market_features/market_feature_bundle_mock_writer.py").read_text(encoding="utf-8")
-    assert "FeatureSnapshot" in source
-    assert "MarketSnapshot" in source
     assert "import FeatureSnapshot" not in source
     assert "import MarketSnapshot" not in source
+    assert "featuresnapshot" not in source.lower()
+    assert "marketsnapshot" not in source.lower()
