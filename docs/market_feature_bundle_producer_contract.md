@@ -88,3 +88,10 @@ This key is the basis for avoiding duplicate writes once a writer stage is appro
 - Stage E: Real writer / persistence only after approval
 - Stage F: Scheduler/backfill activation only after writer is stable
 
+## Stage B payload builder
+
+- Stage B is a pure transformer from the fixture bundle into the contract-shaped producer payload.
+- It must not persist data or call external systems.
+- The payload must remain JSON-serializable and deterministic for identical inputs.
+- `generated_at` is only a formatting input for the Stage B payload, not a persistence signal.
+
