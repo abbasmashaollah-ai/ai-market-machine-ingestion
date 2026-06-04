@@ -27,6 +27,10 @@ def _normalize_timestamp(value):
 
 def build_options_observation(symbol, metrics, observation_date, timestamp=None, source="fixture_options"):
     payload = dict(metrics or {})
+    underlying_symbol = str(payload.get("underlying_symbol") or symbol).upper()
+    expiration_date = payload.get("expiration_date")
+    total_volume = payload.get("total_volume")
+    total_open_interest = payload.get("total_open_interest")
     implied_volatility_level = calculate_implied_volatility_level(payload)
     realized_vs_implied_score = calculate_realized_vs_implied_score(payload)
     iv_rank_score = calculate_iv_rank_score(payload)
@@ -48,6 +52,10 @@ def build_options_observation(symbol, metrics, observation_date, timestamp=None,
     options_regime_label = determine_options_regime_label(component_scores)
     return {
         "symbol": str(symbol).upper(),
+        "underlying_symbol": underlying_symbol,
+        "expiration_date": str(expiration_date) if expiration_date is not None else None,
+        "total_volume": total_volume,
+        "total_open_interest": total_open_interest,
         "observation_date": str(observation_date),
         "timestamp": _normalize_timestamp(timestamp),
         **component_scores,

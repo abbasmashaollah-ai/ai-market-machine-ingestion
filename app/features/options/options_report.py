@@ -7,6 +7,10 @@ def build_options_report(observation, writer_result=None):
     payload = dict(observation or {})
     report = {
         "symbol": payload.get("symbol"),
+        "underlying_symbol": payload.get("underlying_symbol"),
+        "expiration_date": payload.get("expiration_date"),
+        "total_volume": payload.get("total_volume"),
+        "total_open_interest": payload.get("total_open_interest"),
         "observation_date": payload.get("observation_date"),
         "timestamp": payload.get("timestamp"),
         "implied_volatility_level": payload.get("implied_volatility_level"),

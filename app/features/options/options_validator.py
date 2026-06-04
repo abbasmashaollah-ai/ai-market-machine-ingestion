@@ -46,6 +46,10 @@ def validate_options_observation(row):
             errors.append(OptionsValidationError(field_name, "field is required"))
     if not _non_empty_string(row.get("symbol")):
         errors.append(OptionsValidationError("symbol", "symbol must be a non-empty string"))
+    if "underlying_symbol" in row and row.get("underlying_symbol") is not None and not _non_empty_string(row.get("underlying_symbol")):
+        errors.append(OptionsValidationError("underlying_symbol", "underlying_symbol must be a non-empty string when provided"))
+    if "expiration_date" in row and row.get("expiration_date") is not None and not _non_empty_string(row.get("expiration_date")):
+        errors.append(OptionsValidationError("expiration_date", "expiration_date must be a non-empty string when provided"))
     if not _non_empty_string(row.get("observation_date")):
         errors.append(OptionsValidationError("observation_date", "observation_date must be a non-empty string"))
     if not _non_empty_string(row.get("source")):
@@ -62,6 +66,13 @@ def validate_options_observation(row):
     ):
         if field_name in row and not _numeric_or_none(row.get(field_name)):
             errors.append(OptionsValidationError(field_name, "field must be numeric or None"))
+    for field_name in ("total_volume", "total_open_interest"):
+        if field_name in row:
+            value = row.get(field_name)
+            if not _numeric_or_none(value):
+                errors.append(OptionsValidationError(field_name, "field must be numeric or None"))
+            elif isinstance(value, (int, float)) and value < 0:
+                errors.append(OptionsValidationError(field_name, "field must be non-negative when present"))
     label = row.get("options_regime_label")
     if not _non_empty_string(label) or label not in ALLOWED_LABELS:
         errors.append(OptionsValidationError("options_regime_label", "options_regime_label must be an allowed non-empty label"))
