@@ -13,6 +13,7 @@ from app.features.earnings.earnings_job import run_earnings_dry_run
 from app.features.fundamentals.fundamentals_job import run_fundamentals_dry_run
 from app.features.macro_liquidity.macro_liquidity_job import run_macro_liquidity_dry_run
 from app.features.market_risk.market_risk_job import run_market_risk_dry_run
+from app.features.market_regime.market_regime_job import run_market_regime_dry_run
 from app.features.flows_positioning.flows_positioning_job import run_flows_positioning_dry_run
 from app.features.options.options_job import run_options_dry_run
 from app.features.prices.price_feature_job import run_price_feature_dry_run
@@ -389,6 +390,27 @@ def run_market_feature_bundle_dry_run(observation_date, timestamp=None):
         "no_live_api_calls": True,
         "no_scheduler_activation": True,
     }
-    final_bundle["market_risk"] = market_risk_section
-    final_bundle["warnings"] = list(base_bundle["warnings"]) + list(macro_liquidity_result.warnings) + list(market_risk_result.warnings)
+    bundle_with_risk = dict(final_bundle)
+    bundle_with_risk["market_risk"] = market_risk_section
+    regime_summary = build_market_feature_bundle_summary(bundle_with_risk)
+    market_regime_result = run_market_regime_dry_run(
+        regime_summary,
+        observation_date=observation_date,
+        timestamp=normalized_timestamp,
+    )
+    market_regime_report = dict(market_regime_result.reports[0]) if market_regime_result.reports else {}
+    market_regime_section = {
+        "report": market_regime_report,
+        "accepted_count": market_regime_result.accepted_count,
+        "rejected_count": market_regime_result.rejected_count,
+        "market_regime_label": market_regime_report.get("market_regime_label"),
+        "warnings": list(market_regime_result.warnings),
+        "no_db_writes": True,
+        "no_vendor_calls": True,
+        "no_live_api_calls": True,
+        "no_scheduler_activation": True,
+    }
+    final_bundle = dict(bundle_with_risk)
+    final_bundle["market_regime"] = market_regime_section
+    final_bundle["warnings"] = list(base_bundle["warnings"]) + list(macro_liquidity_result.warnings) + list(market_risk_result.warnings) + list(market_regime_result.warnings)
     return final_bundle

@@ -44,6 +44,7 @@ def build_market_feature_bundle_summary(bundle):
     earnings = payload.get("earnings") if isinstance(payload.get("earnings"), Mapping) else {}
     macro_liquidity = payload.get("macro_liquidity") if isinstance(payload.get("macro_liquidity"), Mapping) else {}
     market_risk = payload.get("market_risk") if isinstance(payload.get("market_risk"), Mapping) else {}
+    market_regime = payload.get("market_regime") if isinstance(payload.get("market_regime"), Mapping) else {}
     fundamentals = payload.get("fundamentals") if isinstance(payload.get("fundamentals"), Mapping) else {}
     flows_positioning = payload.get("flows_positioning") if isinstance(payload.get("flows_positioning"), Mapping) else {}
     options = payload.get("options") if isinstance(payload.get("options"), Mapping) else {}
@@ -58,6 +59,7 @@ def build_market_feature_bundle_summary(bundle):
     earnings_labels = earnings.get("earnings_regime_labels_by_symbol") if isinstance(earnings.get("earnings_regime_labels_by_symbol"), Mapping) else {}
     macro_liquidity_state = _non_empty_string(macro_liquidity.get("macro_liquidity_label")) or _non_empty_string((macro_liquidity.get("report") or {}).get("macro_liquidity_label") if isinstance(macro_liquidity.get("report"), Mapping) else None)
     market_risk_state = _non_empty_string(market_risk.get("market_risk_label")) or _non_empty_string((market_risk.get("report") or {}).get("market_risk_label") if isinstance(market_risk.get("report"), Mapping) else None)
+    market_regime_state = _non_empty_string(market_regime.get("market_regime_label")) or _non_empty_string((market_regime.get("report") or {}).get("market_regime_label") if isinstance(market_regime.get("report"), Mapping) else None)
     fundamental_labels = fundamentals.get("fundamental_quality_labels_by_symbol") if isinstance(fundamentals.get("fundamental_quality_labels_by_symbol"), Mapping) else {}
     flows_positioning_state = _non_empty_string(flows_positioning.get("flow_regime_label")) or _non_empty_string((flows_positioning.get("report") or {}).get("flow_regime_label") if isinstance(flows_positioning.get("report"), Mapping) else None)
     options_regime_label = _non_empty_string(options.get("options_regime_label")) or _non_empty_string((options.get("report") or {}).get("options_regime_label") if isinstance(options.get("report"), Mapping) else None)
@@ -74,6 +76,7 @@ def build_market_feature_bundle_summary(bundle):
         "earnings": isinstance(earnings, Mapping),
         "macro_liquidity": isinstance(macro_liquidity, Mapping),
         "market_risk": isinstance(market_risk, Mapping),
+        "market_regime": isinstance(market_regime, Mapping),
         "fundamentals": isinstance(fundamentals, Mapping),
         "flows_positioning": isinstance(flows_positioning, Mapping),
         "options": isinstance(options, Mapping),
@@ -96,6 +99,7 @@ def build_market_feature_bundle_summary(bundle):
         "earnings": _section_counts(earnings, "accepted_count", "rejected_count"),
         "macro_liquidity": _section_counts(macro_liquidity, "accepted_count", "rejected_count"),
         "market_risk": _section_counts(market_risk, "accepted_count", "rejected_count"),
+        "market_regime": _section_counts(market_regime, "accepted_count", "rejected_count"),
         "fundamentals": _section_counts(fundamentals, "accepted_count", "rejected_count"),
         "flows_positioning": _section_counts(flows_positioning, "accepted_count", "rejected_count"),
         "options": _section_counts(options, "accepted_count", "rejected_count"),
@@ -118,6 +122,7 @@ def build_market_feature_bundle_summary(bundle):
         "earnings_regime_labels_by_symbol": dict(earnings_labels),
         "macro_liquidity_state": macro_liquidity_state,
         "market_risk_state": market_risk_state,
+        "market_regime_state": market_regime_state,
         "fundamental_quality_labels_by_symbol": dict(fundamental_labels),
         "flows_positioning_state": flows_positioning_state,
         "options_regime_labels_by_symbol": dict(options.get("options_regime_labels_by_symbol") or {}),
@@ -136,6 +141,7 @@ def build_market_feature_bundle_summary(bundle):
             "earnings": accepted_counts_by_section["earnings"]["rejected"],
             "macro_liquidity": accepted_counts_by_section["macro_liquidity"]["rejected"],
             "market_risk": accepted_counts_by_section["market_risk"]["rejected"],
+            "market_regime": accepted_counts_by_section["market_regime"]["rejected"],
             "fundamentals": accepted_counts_by_section["fundamentals"]["rejected"],
             "flows_positioning": accepted_counts_by_section["flows_positioning"]["rejected"],
             "options": accepted_counts_by_section["options"]["rejected"],
@@ -159,6 +165,7 @@ def build_market_feature_bundle_summary(bundle):
         str(next(iter(summary["earnings_regime_labels_by_symbol"].values()), "") if summary["earnings_regime_labels_by_symbol"] else ""),
         str(summary["macro_liquidity_state"] or ""),
         str(summary["market_risk_state"] or ""),
+        str(summary["market_regime_state"] or ""),
         str(next(iter(summary["fundamental_quality_labels_by_symbol"].values()), "") if summary["fundamental_quality_labels_by_symbol"] else ""),
         str(summary["flows_positioning_state"] or ""),
         str(options_regime_label or ""),
