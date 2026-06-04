@@ -53,3 +53,8 @@ This checkpoint records the completed market feature bundle producer and mock-ha
 
 - real-writer skeleton is next, but production persistence is still blocked
 - fake/session-stub validation only
+
+## Stage E.2 planning target
+
+- safe test DB integration plan is next
+- production writes remain blocked by default

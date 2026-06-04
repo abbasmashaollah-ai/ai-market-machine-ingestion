@@ -102,3 +102,9 @@ app/features remains calculation-only
 
 - Stage E.1 real-writer skeleton is ready with fake/session-stub tests only
 - production persistence is still blocked pending explicit approval
+
+## Stage E.2 planning target
+
+- safe test DB integration plan is next
+- `MarketFeatureBundleWriter` remains injectable and testable
+- production writes remain blocked by default
