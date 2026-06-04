@@ -75,6 +75,7 @@ Feature calculators must not call vendors directly and must not write to the dat
 - `news_sentiment` dry-run feature slice
 - `fundamentals` dry-run feature slice
 - `flows_positioning` dry-run feature slice
+- `options` dry-run feature slice
 
 ## Local Dry-Run Artifacts
 
