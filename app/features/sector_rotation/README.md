@@ -58,6 +58,7 @@ This is the recommended first feature slice because it is:
 - `leadership_flag`
 - `deterioration_flag`
 - `risk_on_leadership_score`
+- `cyclical_leadership_score`
 - `defensive_leadership_score`
 - `leadership_concentration_score`
 - `sector_dispersion_score`

@@ -101,6 +101,7 @@ def build_sector_rotation_dry_run_report(dry_run_result: SectorRotationDryRunRes
         "top_sector_symbols": _as_list(summary_row.get("top_sector_symbols")),
         "bottom_sector_symbols": _as_list(summary_row.get("bottom_sector_symbols")),
         "risk_on_leadership_score": summary_row.get("risk_on_leadership_score"),
+        "cyclical_leadership_score": summary_row.get("cyclical_leadership_score"),
         "defensive_leadership_score": summary_row.get("defensive_leadership_score"),
         "leadership_concentration_score": summary_row.get("leadership_concentration_score"),
         "sector_dispersion_score": summary_row.get("sector_dispersion_score"),

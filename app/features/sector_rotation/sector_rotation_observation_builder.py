@@ -213,6 +213,7 @@ def build_sector_rotation_daily_summary_observation(
         "timestamp": timestamp,
         "descriptive_rotation_state": summary_payload.get("descriptive_rotation_state"),
         "risk_on_leadership_score": summary_payload.get("risk_on_leadership_score"),
+        "cyclical_leadership_score": summary_payload.get("cyclical_leadership_score"),
         "defensive_leadership_score": summary_payload.get("defensive_leadership_score"),
         "leadership_concentration_score": summary_payload.get("leadership_concentration_score"),
         "sector_dispersion_score": summary_payload.get("sector_dispersion_score"),

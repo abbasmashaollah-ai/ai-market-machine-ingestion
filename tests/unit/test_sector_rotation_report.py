@@ -24,6 +24,7 @@ def test_sector_rotation_dry_run_report_is_json_friendly_and_complete() -> None:
     assert report["no_vendor_calls"] is True
     assert report["no_scheduler_activation"] is True
     assert report["descriptive_rotation_state"]
+    assert "cyclical_leadership_score" in report
     assert report["observation_summary"]["leadership_sectors"]
     assert report["observation_summary"]["deteriorating_sectors"] is not None
 

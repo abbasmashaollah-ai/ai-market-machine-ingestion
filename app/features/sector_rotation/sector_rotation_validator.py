@@ -175,6 +175,7 @@ def validate_sector_rotation_daily_summary(row: Mapping[str, object]) -> SectorR
 
     numeric_optional_fields = (
         "risk_on_leadership_score",
+        "cyclical_leadership_score",
         "defensive_leadership_score",
         "leadership_concentration_score",
         "sector_dispersion_score",

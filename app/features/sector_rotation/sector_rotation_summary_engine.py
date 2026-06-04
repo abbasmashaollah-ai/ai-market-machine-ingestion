@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 
+from app.features.sector_rotation.cyclical_rotation_engine import calculate_cyclical_leadership_score
 from app.features.sector_rotation.cyclical_rotation_engine import calculate_risk_on_leadership_score
 from app.features.sector_rotation.defensive_rotation_engine import calculate_defensive_leadership_score
 from app.features.sector_rotation.sector_dispersion_engine import (
@@ -108,6 +109,7 @@ def build_sector_rotation_daily_summary(
     leadership_snapshot = leadership_snapshot or build_sector_leadership_snapshot({"5d": symbol_scores})
 
     risk_on_leadership_score = calculate_risk_on_leadership_score(symbol_scores)
+    cyclical_leadership_score = calculate_cyclical_leadership_score(symbol_scores)
     defensive_leadership_score = calculate_defensive_leadership_score(symbol_scores)
     sector_dispersion_score = calculate_sector_dispersion_score(symbol_scores)
     leadership_concentration_score = calculate_leadership_concentration_score(symbol_scores, top_n=3)
@@ -118,6 +120,7 @@ def build_sector_rotation_daily_summary(
 
     return {
         "risk_on_leadership_score": risk_on_leadership_score,
+        "cyclical_leadership_score": cyclical_leadership_score,
         "defensive_leadership_score": defensive_leadership_score,
         "leadership_concentration_score": leadership_concentration_score,
         "sector_dispersion_score": sector_dispersion_score,

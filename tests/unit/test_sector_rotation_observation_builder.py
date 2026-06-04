@@ -131,6 +131,7 @@ def test_summary_row_includes_expected_fields_and_defaults() -> None:
             "timestamp": "2026-01-15T16:00:00Z",
             "descriptive_rotation_state": "BROAD_IMPROVEMENT",
             "risk_on_leadership_score": 0.7,
+            "cyclical_leadership_score": 0.65,
             "defensive_leadership_score": 0.3,
             "leadership_concentration_score": 0.6,
             "sector_dispersion_score": 0.2,
@@ -148,6 +149,7 @@ def test_summary_row_includes_expected_fields_and_defaults() -> None:
     assert summary["quality_status"] == "PENDING"
     assert summary["certification_status"] == "PENDING"
     assert summary["freshness_status"] == "PENDING"
+    assert summary["cyclical_leadership_score"] == 0.65
     assert summary["top_sector_symbols"] == ["XLK", "XLY"]
     assert summary["bottom_sector_symbols"] == ["XLE", "XLP"]
 
@@ -174,4 +176,3 @@ def test_metadata_override_works_and_output_is_dict_json_friendly() -> None:
     assert summary["source_attribution"] == "unit-test"
     assert summary["quality_status"] == "VALID"
     assert isinstance(summary, dict)
-

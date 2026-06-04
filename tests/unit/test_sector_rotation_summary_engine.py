@@ -36,6 +36,7 @@ def test_daily_summary_includes_expected_fields_and_group_scores() -> None:
 
     assert set(summary) == {
         "risk_on_leadership_score",
+        "cyclical_leadership_score",
         "defensive_leadership_score",
         "leadership_concentration_score",
         "sector_dispersion_score",
@@ -48,7 +49,7 @@ def test_daily_summary_includes_expected_fields_and_group_scores() -> None:
         "descriptive_rotation_state",
     }
     assert summary["risk_on_leadership_score"] is not None
+    assert summary["cyclical_leadership_score"] is not None
     assert summary["defensive_leadership_score"] is not None
     assert isinstance(summary["top_sector_symbols"], list)
     assert isinstance(summary["bottom_sector_symbols"], list)
-

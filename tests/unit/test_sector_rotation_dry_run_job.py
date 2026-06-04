@@ -38,6 +38,7 @@ def test_complete_sample_data_produces_full_pipeline() -> None:
     assert result.no_vendor_calls is True
     assert result.no_scheduler_activation is True
     assert result.summary_row["descriptive_rotation_state"] is not None
+    assert "cyclical_leadership_score" in result.summary_row
 
 
 def test_missing_spy_raises_clear_error() -> None:
@@ -70,4 +71,3 @@ def test_input_price_histories_are_not_mutated() -> None:
 def test_sector_universe_order_is_preserved() -> None:
     result = run_sector_rotation_dry_run(_sample_price_history(), observation_date="2026-01-15")
     assert [row["sector_symbol"] for row in result.observation_rows] == list(get_sector_symbols())
-

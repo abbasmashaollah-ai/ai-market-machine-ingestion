@@ -102,6 +102,21 @@ def test_valid_daily_summary_passes() -> None:
     assert result.is_valid is True
 
 
+def test_valid_cyclical_leadership_score_passes() -> None:
+    row = _summary_row()
+    row["cyclical_leadership_score"] = 0.42
+    result = validate_sector_rotation_daily_summary(row)
+    assert result.is_valid is True
+
+
+def test_invalid_cyclical_leadership_score_fails() -> None:
+    row = _summary_row()
+    row["cyclical_leadership_score"] = "bad"
+    result = validate_sector_rotation_daily_summary(row)
+    assert result.is_valid is False
+    assert any(error.field == "cyclical_leadership_score" for error in result.errors)
+
+
 def test_invalid_descriptive_state_fails() -> None:
     row = _summary_row()
     row["descriptive_rotation_state"] = "BULLISH"
@@ -128,4 +143,3 @@ def test_validator_does_not_mutate_input() -> None:
     snapshot = copy.deepcopy(row)
     validate_sector_rotation_observation(row)
     assert row == snapshot
-
