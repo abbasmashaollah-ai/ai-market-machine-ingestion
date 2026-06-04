@@ -27,6 +27,7 @@ def test_cli_prints_bundle_json_and_safety_flags() -> None:
     assert payload["volatility"]["volatility_regime_label"]
     assert payload["event_calendar"]["event_risk_label"]
     assert payload["news_sentiment"]["sentiment_regime_label"]
+    assert payload["earnings"]["earnings_regime_labels_by_symbol"]
     assert payload["fundamentals"]["reports_by_symbol"]["AAPL"]["fundamental_quality_label"]
     assert payload["flows_positioning"]["flow_regime_label"]
     assert payload["options"]["options_regime_labels_by_symbol"]
@@ -77,6 +78,7 @@ def test_cli_summary_only_writes_compact_summary(tmp_path: Path) -> None:
     assert stdout_payload["volatility_state"]
     assert stdout_payload["event_calendar_state"]
     assert stdout_payload["news_sentiment_state"]
+    assert stdout_payload["earnings_regime_labels_by_symbol"]["AAPL"]
     assert stdout_payload["fundamental_quality_labels_by_symbol"]["AAPL"]
     assert stdout_payload["flows_positioning_state"]
     assert stdout_payload["options_regime_labels_by_symbol"]
@@ -89,6 +91,7 @@ def test_cli_summary_only_writes_compact_summary(tmp_path: Path) -> None:
     assert "volatility" not in stdout_payload
     assert "event_calendar" not in stdout_payload
     assert "news_sentiment" not in stdout_payload
+    assert "earnings" not in stdout_payload
     assert "fundamental_quality_labels_by_symbol" in stdout_payload
     assert "flows_positioning_state" in stdout_payload
     assert "options_regime_labels_by_symbol" in stdout_payload

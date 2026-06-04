@@ -24,6 +24,7 @@ def test_summary_contains_required_fields_and_states() -> None:
     assert summary["volatility_state"]
     assert summary["event_calendar_state"]
     assert summary["news_sentiment_state"]
+    assert summary["earnings_regime_labels_by_symbol"]["AAPL"]
     assert summary["fundamental_quality_labels_by_symbol"]["AAPL"]
     assert summary["flows_positioning_state"]
     assert summary["options_regime_labels_by_symbol"]["AAPL"]
@@ -35,18 +36,21 @@ def test_summary_contains_required_fields_and_states() -> None:
     assert "volatility" not in summary
     assert "event_calendar" not in summary
     assert "news_sentiment" not in summary
+    assert "earnings" not in summary
     assert "options" not in summary
     assert summary["accepted_counts_by_section"]["prices"]["accepted"] == 3
     assert summary["accepted_counts_by_section"]["liquidity_rates"]["accepted"] == 1
     assert summary["accepted_counts_by_section"]["volatility"]["accepted"] == 1
     assert summary["accepted_counts_by_section"]["event_calendar"]["accepted"] == 1
     assert summary["accepted_counts_by_section"]["news_sentiment"]["accepted"] == 1
+    assert summary["accepted_counts_by_section"]["earnings"]["accepted"] == 6
     assert summary["accepted_counts_by_section"]["fundamentals"]["accepted"] == 6
     assert summary["accepted_counts_by_section"]["flows_positioning"]["accepted"] == 1
     assert summary["accepted_counts_by_section"]["options"]["accepted"] == 1
     assert summary["rejected_counts_by_section"]["volatility"] == 0
     assert summary["rejected_counts_by_section"]["event_calendar"] == 0
     assert summary["rejected_counts_by_section"]["news_sentiment"] == 0
+    assert summary["rejected_counts_by_section"]["earnings"] == 0
     assert summary["rejected_counts_by_section"]["fundamentals"] == 0
     assert summary["rejected_counts_by_section"]["flows_positioning"] == 0
     assert summary["rejected_counts_by_section"]["options"] == 0
@@ -78,6 +82,7 @@ def test_summary_does_not_mutate_bundle_and_remains_json_friendly() -> None:
     assert summary["feature_sections_present"]["volatility"] is True
     assert summary["feature_sections_present"]["event_calendar"] is True
     assert summary["feature_sections_present"]["news_sentiment"] is True
+    assert summary["feature_sections_present"]["earnings"] is True
     assert summary["feature_sections_present"]["fundamentals"] is True
     assert summary["feature_sections_present"]["flows_positioning"] is True
     assert summary["feature_sections_present"]["options"] is True

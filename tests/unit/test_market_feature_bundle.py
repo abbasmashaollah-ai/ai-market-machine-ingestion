@@ -15,9 +15,10 @@ def test_bundle_contains_all_sections_and_is_json_friendly() -> None:
     assert bundle["no_vendor_calls"] is True
     assert bundle["no_live_api_calls"] is True
     assert bundle["no_scheduler_activation"] is True
-    assert set(bundle) >= {"observation_date", "timestamp", "prices", "breadth", "sector_rotation", "cross_asset", "liquidity_rates", "news_sentiment", "fundamentals", "flows_positioning", "options", "warnings"}
+    assert set(bundle) >= {"observation_date", "timestamp", "prices", "breadth", "sector_rotation", "cross_asset", "liquidity_rates", "news_sentiment", "earnings", "fundamentals", "flows_positioning", "options", "warnings"}
     assert "event_calendar" in bundle
     assert "news_sentiment" in bundle
+    assert "earnings" in bundle
     assert "fundamentals" in bundle
     assert "flows_positioning" in bundle
     assert "options" in bundle
@@ -40,6 +41,7 @@ def test_bundle_uses_fixture_dry_run_inputs_only() -> None:
     assert bundle["volatility"]["accepted_count"] == 1
     assert bundle["event_calendar"]["accepted_count"] == 1
     assert bundle["news_sentiment"]["accepted_count"] == 1
+    assert bundle["earnings"]["accepted_count"] == 6
     assert bundle["fundamentals"]["accepted_count"] == 6
     assert bundle["flows_positioning"]["accepted_count"] == 1
     assert bundle["options"]["accepted_count"] == 1
@@ -47,6 +49,7 @@ def test_bundle_uses_fixture_dry_run_inputs_only() -> None:
     assert bundle["breadth"]["no_vendor_calls"] is True
     assert bundle["sector_rotation"]["no_live_api_calls"] is True
     assert bundle["cross_asset"]["no_scheduler_activation"] is True
+    assert bundle["earnings"]["no_db_writes"] is True
 
 
 def test_bundle_module_does_not_import_tests_fixtures() -> None:

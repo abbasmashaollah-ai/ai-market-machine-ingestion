@@ -67,6 +67,14 @@ def test_missing_news_sentiment_section_fails() -> None:
     assert any(error.field_name == "news_sentiment" for error in result.errors)
 
 
+def test_missing_earnings_section_fails() -> None:
+    bundle = dict(run_market_feature_bundle_dry_run("2026-01-15"))
+    bundle.pop("earnings")
+    result = validate_market_feature_bundle(bundle)
+    assert result.is_valid is False
+    assert any(error.field_name == "earnings" for error in result.errors)
+
+
 def test_missing_fundamentals_section_fails() -> None:
     bundle = dict(run_market_feature_bundle_dry_run("2026-01-15"))
     bundle.pop("fundamentals")
@@ -100,6 +108,7 @@ def test_missing_section_labels_fail() -> None:
     bundle["volatility"] = {"report": {}}
     bundle["event_calendar"] = {"report": {}}
     bundle["news_sentiment"] = {"report": {}}
+    bundle["earnings"] = {"report": {}}
     bundle["fundamentals"] = {}
     bundle["flows_positioning"] = {"report": {}}
     bundle["options"] = {"report": {}}
@@ -112,6 +121,7 @@ def test_missing_section_labels_fail() -> None:
     assert "volatility" in field_names
     assert "event_calendar" in field_names
     assert "news_sentiment" in field_names
+    assert "earnings" in field_names
     assert "fundamentals" in field_names
     assert "flows_positioning" in field_names
     assert "options" in field_names

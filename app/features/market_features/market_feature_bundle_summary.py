@@ -41,6 +41,7 @@ def build_market_feature_bundle_summary(bundle):
     volatility = payload.get("volatility") if isinstance(payload.get("volatility"), Mapping) else {}
     event_calendar = payload.get("event_calendar") if isinstance(payload.get("event_calendar"), Mapping) else {}
     news_sentiment = payload.get("news_sentiment") if isinstance(payload.get("news_sentiment"), Mapping) else {}
+    earnings = payload.get("earnings") if isinstance(payload.get("earnings"), Mapping) else {}
     fundamentals = payload.get("fundamentals") if isinstance(payload.get("fundamentals"), Mapping) else {}
     flows_positioning = payload.get("flows_positioning") if isinstance(payload.get("flows_positioning"), Mapping) else {}
     options = payload.get("options") if isinstance(payload.get("options"), Mapping) else {}
@@ -52,6 +53,7 @@ def build_market_feature_bundle_summary(bundle):
     volatility_state = _non_empty_string(volatility.get("volatility_regime_label")) or _non_empty_string((volatility.get("report") or {}).get("volatility_regime_label") if isinstance(volatility.get("report"), Mapping) else None)
     event_calendar_state = _non_empty_string(event_calendar.get("event_risk_label")) or _non_empty_string((event_calendar.get("report") or {}).get("event_risk_label") if isinstance(event_calendar.get("report"), Mapping) else None)
     news_sentiment_state = _non_empty_string(news_sentiment.get("sentiment_regime_label")) or _non_empty_string((news_sentiment.get("report") or {}).get("sentiment_regime_label") if isinstance(news_sentiment.get("report"), Mapping) else None)
+    earnings_labels = earnings.get("earnings_regime_labels_by_symbol") if isinstance(earnings.get("earnings_regime_labels_by_symbol"), Mapping) else {}
     fundamental_labels = fundamentals.get("fundamental_quality_labels_by_symbol") if isinstance(fundamentals.get("fundamental_quality_labels_by_symbol"), Mapping) else {}
     flows_positioning_state = _non_empty_string(flows_positioning.get("flow_regime_label")) or _non_empty_string((flows_positioning.get("report") or {}).get("flow_regime_label") if isinstance(flows_positioning.get("report"), Mapping) else None)
     options_regime_label = _non_empty_string(options.get("options_regime_label")) or _non_empty_string((options.get("report") or {}).get("options_regime_label") if isinstance(options.get("report"), Mapping) else None)
@@ -65,6 +67,7 @@ def build_market_feature_bundle_summary(bundle):
         "volatility": isinstance(volatility, Mapping),
         "event_calendar": isinstance(event_calendar, Mapping),
         "news_sentiment": isinstance(news_sentiment, Mapping),
+        "earnings": isinstance(earnings, Mapping),
         "fundamentals": isinstance(fundamentals, Mapping),
         "flows_positioning": isinstance(flows_positioning, Mapping),
         "options": isinstance(options, Mapping),
@@ -84,6 +87,7 @@ def build_market_feature_bundle_summary(bundle):
         "volatility": _section_counts(volatility, "accepted_count", "rejected_count"),
         "event_calendar": _section_counts(event_calendar, "accepted_count", "rejected_count"),
         "news_sentiment": _section_counts(news_sentiment, "accepted_count", "rejected_count"),
+        "earnings": _section_counts(earnings, "accepted_count", "rejected_count"),
         "fundamentals": _section_counts(fundamentals, "accepted_count", "rejected_count"),
         "flows_positioning": _section_counts(flows_positioning, "accepted_count", "rejected_count"),
         "options": _section_counts(options, "accepted_count", "rejected_count"),
@@ -103,6 +107,7 @@ def build_market_feature_bundle_summary(bundle):
         "volatility_state": volatility_state,
         "event_calendar_state": event_calendar_state,
         "news_sentiment_state": news_sentiment_state,
+        "earnings_regime_labels_by_symbol": dict(earnings_labels),
         "fundamental_quality_labels_by_symbol": dict(fundamental_labels),
         "flows_positioning_state": flows_positioning_state,
         "options_regime_labels_by_symbol": dict(options.get("options_regime_labels_by_symbol") or {}),
@@ -118,6 +123,7 @@ def build_market_feature_bundle_summary(bundle):
             "volatility": accepted_counts_by_section["volatility"]["rejected"],
             "event_calendar": accepted_counts_by_section["event_calendar"]["rejected"],
             "news_sentiment": accepted_counts_by_section["news_sentiment"]["rejected"],
+            "earnings": accepted_counts_by_section["earnings"]["rejected"],
             "fundamentals": accepted_counts_by_section["fundamentals"]["rejected"],
             "flows_positioning": accepted_counts_by_section["flows_positioning"]["rejected"],
             "options": accepted_counts_by_section["options"]["rejected"],
@@ -138,6 +144,7 @@ def build_market_feature_bundle_summary(bundle):
         str(summary["volatility_state"] or ""),
         str(summary["event_calendar_state"] or ""),
         str(summary["news_sentiment_state"] or ""),
+        str(next(iter(summary["earnings_regime_labels_by_symbol"].values()), "") if summary["earnings_regime_labels_by_symbol"] else ""),
         str(next(iter(summary["fundamental_quality_labels_by_symbol"].values()), "") if summary["fundamental_quality_labels_by_symbol"] else ""),
         str(summary["flows_positioning_state"] or ""),
         str(options_regime_label or ""),

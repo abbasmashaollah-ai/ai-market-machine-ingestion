@@ -9,6 +9,7 @@ from app.features.cross_asset.cross_asset_job import run_cross_asset_dry_run
 from app.features.event_calendar.event_calendar_job import run_event_calendar_dry_run
 from app.features.liquidity_rates.liquidity_rates_job import run_liquidity_rates_dry_run
 from app.features.news_sentiment.news_sentiment_job import run_news_sentiment_dry_run
+from app.features.earnings.earnings_job import run_earnings_dry_run
 from app.features.fundamentals.fundamentals_job import run_fundamentals_dry_run
 from app.features.flows_positioning.flows_positioning_job import run_flows_positioning_dry_run
 from app.features.options.options_job import run_options_dry_run
@@ -21,6 +22,7 @@ from app.features.market_features.fixtures.cross_asset_fixtures import build_cro
 from app.features.market_features.fixtures.event_calendar_fixtures import build_event_calendar_fixture_events_scenario
 from app.features.market_features.fixtures.liquidity_rates_fixtures import build_liquidity_rates_series_scenario
 from app.features.market_features.fixtures.news_sentiment_fixtures import build_news_sentiment_fixture_articles_scenario
+from app.features.market_features.fixtures.earnings_fixtures import build_earnings_fixture_scenario
 from app.features.market_features.fixtures.fundamentals_fixtures import build_fundamentals_fixture_financials_scenario
 from app.features.market_features.fixtures.flows_positioning_fixtures import build_flows_positioning_fixture_payload_scenario
 from app.features.market_features.fixtures.options_fixtures import build_options_fixture_metrics_scenario
@@ -202,6 +204,34 @@ def run_market_feature_bundle_dry_run(observation_date, timestamp=None):
         "no_scheduler_activation": True,
     }
 
+    earnings_payloads = build_earnings_fixture_scenario("mixed_earnings")
+    earnings_result = run_earnings_dry_run(
+        earnings_payloads,
+        observation_date=observation_date,
+        timestamp=normalized_timestamp,
+    )
+    earnings_reports = [dict(report) for report in earnings_result.reports]
+    earnings_reports_by_symbol = {
+        str(report.get("symbol", "")).upper(): report
+        for report in earnings_reports
+        if str(report.get("symbol", "")).strip()
+    }
+    earnings_section = {
+        "reports": earnings_reports,
+        "reports_by_symbol": earnings_reports_by_symbol,
+        "accepted_count": earnings_result.accepted_count,
+        "rejected_count": earnings_result.rejected_count,
+        "earnings_regime_labels_by_symbol": {
+            symbol: report.get("earnings_regime_label")
+            for symbol, report in earnings_reports_by_symbol.items()
+        },
+        "warnings": list(earnings_result.warnings),
+        "no_db_writes": True,
+        "no_vendor_calls": True,
+        "no_live_api_calls": True,
+        "no_scheduler_activation": True,
+    }
+
     fundamentals_financials = build_fundamentals_fixture_financials_scenario("mixed_quality")
     fundamentals_result = run_fundamentals_dry_run(
         fundamentals_financials,
@@ -286,6 +316,7 @@ def run_market_feature_bundle_dry_run(observation_date, timestamp=None):
         "volatility": volatility_section,
         "event_calendar": event_calendar_section,
         "news_sentiment": news_sentiment_section,
+        "earnings": earnings_section,
         "fundamentals": fundamentals_section,
         "flows_positioning": flows_positioning_section,
         "options": options_section,
@@ -298,6 +329,7 @@ def run_market_feature_bundle_dry_run(observation_date, timestamp=None):
             + list(volatility_result.warnings)
             + list(event_calendar_result.warnings)
             + list(news_sentiment_result.warnings)
+            + list(earnings_result.warnings)
             + list(fundamentals_result.warnings)
             + list(flows_positioning_result.warnings)
             + list(options_result.warnings)

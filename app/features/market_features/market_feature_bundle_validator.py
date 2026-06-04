@@ -58,6 +58,7 @@ def validate_market_feature_bundle(bundle: Mapping[str, object]) -> MarketFeatur
         "volatility",
         "event_calendar",
         "news_sentiment",
+        "earnings",
         "fundamentals",
         "flows_positioning",
         "options",
@@ -82,7 +83,7 @@ def validate_market_feature_bundle(bundle: Mapping[str, object]) -> MarketFeatur
     if warnings_value is not None and not isinstance(warnings_value, list):
         errors.append(MarketFeatureBundleValidationError("warnings", "warnings must be a list when present"))
 
-    for section_name in ("prices", "breadth", "sector_rotation", "cross_asset", "liquidity_rates", "volatility", "event_calendar", "news_sentiment", "fundamentals", "flows_positioning", "options"):
+    for section_name in ("prices", "breadth", "sector_rotation", "cross_asset", "liquidity_rates", "volatility", "event_calendar", "news_sentiment", "earnings", "fundamentals", "flows_positioning", "options"):
         section = bundle.get(section_name)
         if not _is_mapping(section):
             errors.append(MarketFeatureBundleValidationError(section_name, "field must be an object"))
@@ -115,6 +116,14 @@ def validate_market_feature_bundle(bundle: Mapping[str, object]) -> MarketFeatur
         elif section_name == "news_sentiment":
             if _section_label(section, "sentiment_regime_label") is None:
                 errors.append(MarketFeatureBundleValidationError("news_sentiment", "news_sentiment must include a non-empty sentiment_regime_label or report"))
+        elif section_name == "earnings":
+            reports = section.get("reports")
+            reports_by_symbol = section.get("reports_by_symbol")
+            labels = section.get("earnings_regime_labels_by_symbol")
+            has_labels = isinstance(labels, Mapping) and any(_non_empty_string(value) for value in labels.values())
+            has_reports = bool(reports) or bool(reports_by_symbol)
+            if not has_labels and not has_reports:
+                errors.append(MarketFeatureBundleValidationError("earnings", "earnings must include reports or earnings_regime_labels_by_symbol"))
         elif section_name == "fundamentals":
             label_map = section.get("fundamental_quality_labels_by_symbol")
             reports = section.get("reports")
