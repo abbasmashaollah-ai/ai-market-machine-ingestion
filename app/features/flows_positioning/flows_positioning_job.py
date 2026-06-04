@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .flows_positioning_builder import build_flows_positioning_observation
+from .flows_positioning_observation_builder import build_flows_positioning_observation
 from .flows_positioning_report import build_flows_positioning_report
 from .flows_positioning_validator import validate_flows_positioning_observation, validate_flows_positioning_observations
 from .flows_positioning_writer import FlowsPositioningMockWriter, write_flows_positioning_payloads
