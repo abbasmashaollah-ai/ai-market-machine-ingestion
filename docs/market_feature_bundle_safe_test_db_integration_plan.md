@@ -53,6 +53,7 @@ app/features remains calculation-only
 ## Writer implementation requirements for future E.2
 
 - DB adapter should live outside `app/features`
+- Stage E.2 adapter path: `app/writers/market_feature_bundle_db_adapter.py`
 - Likely `app/writers/market_feature_bundle_db_adapter.py` or `app/writers/market_feature_bundle_sqlalchemy_adapter.py`
 - Adapter may own SQLAlchemy/session details, but only after approval
 - `MarketFeatureBundleWriter` should remain injectable and testable

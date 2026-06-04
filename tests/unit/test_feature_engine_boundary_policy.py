@@ -36,6 +36,12 @@ def test_app_features_remain_calculation_only() -> None:
             assert marker not in text, f"{path} contains forbidden marker: {marker}"
 
 
+def test_app_features_do_not_import_market_feature_bundle_db_adapter() -> None:
+    for path in _feature_python_files():
+        text = path.read_text(encoding="utf-8").lower()
+        assert "market_feature_bundle_db_adapter" not in text, f"{path} imports the db adapter"
+
+
 def test_market_feature_bundle_mock_writer_stays_mock_only() -> None:
     path = Path("app/features/market_features/market_feature_bundle_mock_writer.py")
     text = path.read_text(encoding="utf-8").lower()

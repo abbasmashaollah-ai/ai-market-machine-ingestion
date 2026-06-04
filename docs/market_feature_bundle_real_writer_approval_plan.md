@@ -106,5 +106,6 @@ app/features remains calculation-only
 ## Stage E.2 planning target
 
 - safe test DB integration plan is next
+- adapter path: `app/writers/market_feature_bundle_db_adapter.py`
 - `MarketFeatureBundleWriter` remains injectable and testable
 - production writes remain blocked by default
