@@ -55,7 +55,7 @@
 
 ## Next recommended phase
 
-- production pilot monitoring checkpoint
+- production monitoring checkpoint
 - read-only production route verification after preserved row
 - scheduler/backfill planning remains blocked
 - AI Machine consumption remains last

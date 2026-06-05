@@ -95,7 +95,7 @@
 - one-row production pilot command and checklist
 - production pilot completion checkpoint after the approved one-row run
 - production verification checkpoint
-- monitoring checkpoint
+- production monitoring checkpoint
 - production route preservation verification after the preserved row is visible
 - scheduler/backfill planning only after pilot
 - AI Machine consumption remains last
