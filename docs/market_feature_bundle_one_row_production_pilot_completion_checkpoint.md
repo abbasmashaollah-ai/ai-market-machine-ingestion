@@ -52,6 +52,7 @@
 - no token
 - no full idempotency_key
 - credential was exposed earlier and should be rotated
+- later credential rotation verification confirmed preserved row survival
 
 ## Next recommended phase
 

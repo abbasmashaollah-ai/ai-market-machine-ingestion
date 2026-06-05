@@ -47,6 +47,7 @@
 - no DB URL documented
 - no full idempotency_key documented
 - production DB credential was exposed earlier and should be rotated
+- credential rotation verification completed afterward
 
 ## Next recommended phase
 

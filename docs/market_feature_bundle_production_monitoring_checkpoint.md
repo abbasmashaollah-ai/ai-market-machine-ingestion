@@ -95,6 +95,13 @@
 - never print token or DB URL
 - only idempotency_key_prefix should appear in logs/checkpoints
 
+## Credential verification continuity
+
+- preserved production row survived credential rotation
+- protected route verification passed after rotation
+- ai-market-machine-data was redeployed or reconnected with updated credential
+- no new ingestion write was needed
+
 ## Next recommended phase
 
 - rotate exposed production DB credential
