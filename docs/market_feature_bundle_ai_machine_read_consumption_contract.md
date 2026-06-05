@@ -115,3 +115,4 @@
 - AI Machine read-consumption implementation plan can be created later in ai-market-machine repo
 - keep scheduler/backfill blocked until explicit approval
 - continue monitoring preserved production row
+- read-only shadow first
