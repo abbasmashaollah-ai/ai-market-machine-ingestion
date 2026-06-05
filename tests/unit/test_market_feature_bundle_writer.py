@@ -112,6 +112,17 @@ def test_live_session_stub_writes_when_not_dry_run() -> None:
     assert session.committed_count == 1
 
 
+def test_commit_failure_preserves_internal_error_class_and_message() -> None:
+    session = FakeMarketFeatureBundleSession(fail_on_commit=True)
+    writer = MarketFeatureBundleWriter(session, dry_run=False)
+
+    result = writer.write_payload(_payload())
+
+    assert result["write_status"] == "WRITE_FAILED"
+    assert result["error_class"] == "RuntimeError"
+    assert result["error_message"] == "commit failed"
+
+
 def test_repeated_idempotency_key_returns_idempotent_noop() -> None:
     payload = _payload()
     session = FakeMarketFeatureBundleSession(existing_by_idempotency_key={payload["idempotency_key"]: {"idempotency_key": payload["idempotency_key"]}})
@@ -191,4 +202,3 @@ def test_writer_source_has_no_forbidden_runtime_imports_or_terms() -> None:
         "judge posture",
     ]:
         assert marker not in text
-

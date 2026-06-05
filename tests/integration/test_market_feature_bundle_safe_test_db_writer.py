@@ -8,6 +8,7 @@ import pytest
 from app.features.market_features.market_feature_bundle import run_market_feature_bundle_dry_run
 from app.features.market_features.market_feature_bundle_producer_payload import build_market_feature_bundle_producer_payload
 from app.writers.market_feature_bundle_db_adapter import (
+    _row_from_payload,
     build_market_feature_bundle_session,
     redact_database_url,
     validate_safe_test_database_url,
@@ -66,6 +67,14 @@ def test_safe_test_db_url_redaction_and_rejection() -> None:
     assert "<redacted>" in redact_database_url("postgresql://user:secret@localhost/db")
     with pytest.raises(ValueError):
         validate_safe_test_database_url("")
+
+
+def test_adapter_row_mapping_backfills_missing_generated_at() -> None:
+    row = _row_from_payload({"observation_date": "2026-01-15", "generated_at": None})
+
+    assert row["generated_at"] is not None
+    assert isinstance(row["generated_at"], str)
+    assert row["observation_date"] == "2026-01-15"
 
 
 def test_adapter_source_has_no_forbidden_markers() -> None:

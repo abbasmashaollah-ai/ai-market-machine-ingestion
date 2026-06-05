@@ -194,7 +194,8 @@ class MarketFeatureBundleWriter:
                 "would_write": False,
                 "write_status": "WRITE_FAILED",
                 "validation_errors": [{"field_name": "session", "message": str(exc)}],
+                "error_class": exc.__class__.__name__,
+                "error_message": str(exc),
                 "conflict_status": "SESSION_FAILURE",
                 "payload_summary": payload_summary,
             }
-

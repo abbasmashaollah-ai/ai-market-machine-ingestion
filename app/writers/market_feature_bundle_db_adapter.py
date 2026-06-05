@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import re
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import urlparse, urlunparse
 
@@ -12,6 +13,18 @@ from sqlalchemy.exc import SQLAlchemyError
 
 TARGET_TABLE = "market_feature_bundle_snapshots"
 ALLOW_UNSAFE_ENV = "AMM_ALLOW_UNSAFE_TEST_DB_WRITES"
+
+
+def _utc_now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _row_from_payload(payload: dict[str, object]) -> dict[str, object]:
+    row = dict(payload)
+    generated_at = row.get("generated_at")
+    if generated_at is None or (isinstance(generated_at, str) and not generated_at.strip()):
+        row["generated_at"] = _utc_now_iso()
+    return row
 
 
 def redact_database_url(database_url: str) -> str:
@@ -108,10 +121,10 @@ class MarketFeatureBundleSqlAlchemySessionAdapter:
             return dict(row) if row else None
 
     def add(self, payload: dict[str, object]) -> None:
-        self._staged_rows.append(dict(payload))
+        self._staged_rows.append(_row_from_payload(payload))
 
     def merge(self, payload: dict[str, object]) -> None:
-        self._staged_rows.append(dict(payload))
+        self._staged_rows.append(_row_from_payload(payload))
 
     def commit(self) -> None:
         if not self._staged_rows:

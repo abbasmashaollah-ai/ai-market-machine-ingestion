@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+import re
 from urllib.parse import urlparse
 import sys
 
@@ -33,6 +34,7 @@ TARGET_UNIVERSE = "SPY"
 TARGET_DATASET_VERSION = "production_pilot.v1"
 TARGET_SOURCE_RUN_ID = "production_pilot.v1"
 TARGET_ROUTE = "/internal/read/market-feature-bundle/SPY"
+_MAX_ERROR_MESSAGE_LENGTH = 240
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -49,6 +51,42 @@ def _redact_database_url(database_url: str) -> str:
     port = f":{parsed.port}" if parsed.port else ""
     database = parsed.path.lstrip("/") if parsed.path else "<unknown>"
     return f"{parsed.scheme}://<redacted>@{host}{port}/{database}"
+
+
+def _sanitize_error_message(message: object, *, idempotency_key: str | None = None) -> str | None:
+    if not isinstance(message, str):
+        return None
+
+    sanitized = " ".join(message.split())
+    for marker in ("INSERT INTO", "parameters:", "full_bundle_payload"):
+        sanitized = re.sub(re.escape(marker), "[redacted]", sanitized, flags=re.IGNORECASE)
+    sanitized = re.sub(r"(?i)(token|password)\s*[:=]\s*[^,\s)]+", r"\1=<redacted>", sanitized)
+    sanitized = re.sub(r"(?i)(['\"])(token|password|idempotency_key)\1\s*:\s*(['\"])[^'\"]*\3", r"\1\2\1: \3<redacted>\3", sanitized)
+    sanitized = re.sub(r"\b[a-z][a-z0-9+.-]*://[^ \t]+", "<redacted-url>", sanitized, flags=re.IGNORECASE)
+    sanitized = re.sub(r"\b[^@\s:/]+:[^@\s]+@", "<redacted>@", sanitized)
+    if idempotency_key:
+        sanitized = sanitized.replace(idempotency_key, f"{idempotency_key[:12]}<redacted>")
+    if len(sanitized) > _MAX_ERROR_MESSAGE_LENGTH:
+        sanitized = sanitized[: _MAX_ERROR_MESSAGE_LENGTH - 3] + "..."
+    return sanitized
+
+
+def _sanitize_validation_errors(validation_errors: object, *, idempotency_key: str | None = None) -> list[dict[str, object]]:
+    if not isinstance(validation_errors, list):
+        return []
+
+    sanitized_errors: list[dict[str, object]] = []
+    for item in validation_errors:
+        if not isinstance(item, dict):
+            continue
+        sanitized_errors.append(
+            {
+                "field_name": item.get("field_name"),
+                "message": _sanitize_error_message(item.get("message"), idempotency_key=idempotency_key),
+                "error_class": item.get("error_class") if isinstance(item.get("error_class"), str) else None,
+            }
+        )
+    return sanitized_errors
 
 
 def _load_required_env() -> dict[str, str]:
@@ -95,13 +133,27 @@ def _build_pilot_report(*, observation_date: str, timestamp: str | None) -> dict
     observability_summary = summarize_market_feature_bundle_writer_results([write_result])
 
     if write_result["write_status"] not in {"WRITE_ACCEPTED", "IDEMPOTENT_NOOP"}:
+        error_class = write_result.get("error_class") if isinstance(write_result.get("error_class"), str) else None
         return {
             "pilot_status": "WRITE_STOPPED",
             "dry_run": False,
             "write_status": write_result["write_status"],
             "conflict_status": write_result.get("conflict_status"),
-            "validation_errors": write_result.get("validation_errors", []),
+            "validation_errors": _sanitize_validation_errors(
+                write_result.get("validation_errors", []),
+                idempotency_key=payload.get("idempotency_key") if isinstance(payload.get("idempotency_key"), str) else None,
+            ),
             "error_type": observability_event.get("error_type"),
+            "error_class": error_class,
+            "message": _sanitize_error_message(
+                write_result.get("error_message")
+                or (
+                    write_result.get("validation_errors", [{}])[0].get("message")
+                    if isinstance(write_result.get("validation_errors"), list) and write_result.get("validation_errors")
+                    else None
+                ),
+                idempotency_key=payload.get("idempotency_key") if isinstance(payload.get("idempotency_key"), str) else None,
+            ),
             "redacted_target": _redact_database_url(env[DATABASE_ENV]),
             "idempotency_key_prefix": observability_event.get("idempotency_key_prefix"),
             "target_repo": write_result.get("target_repo"),

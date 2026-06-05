@@ -153,7 +153,11 @@ def build_market_feature_bundle_producer_payload(
     summary = build_market_feature_bundle_summary(bundle_payload)
     validation_result = validate_market_feature_bundle(bundle_payload)
     normalized_observation_date = _normalize_datetime(observation_date or bundle_payload.get("observation_date"))
-    normalized_generated_at = _normalize_datetime(generated_at) or _normalize_datetime(bundle_payload.get("generated_at"))
+    normalized_generated_at = (
+        _normalize_datetime(generated_at)
+        or _normalize_datetime(bundle_payload.get("generated_at"))
+        or datetime.now(timezone.utc).isoformat()
+    )
 
     raw_sections = [name for name in RAW_SECTION_NAMES if name in bundle_payload]
     synthesized_sections = [name for name in SYNTHESIZED_SECTION_NAMES if name in bundle_payload]
@@ -221,4 +225,3 @@ def build_market_feature_bundle_producer_payload(
     }
     payload["idempotency_key"] = hashlib.sha256(_stable_json(checksum_payload).encode("utf-8")).hexdigest()
     return payload
-

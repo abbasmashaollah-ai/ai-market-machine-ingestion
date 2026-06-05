@@ -33,6 +33,7 @@ def test_production_pilot_dry_run_prints_safe_report() -> None:
     assert report["target_repo"] == "ai-market-machine-data"
     assert report["validation_status"]
     assert report["certification_status"]
+    assert "placeholder-idempotency-key" not in buffer.getvalue()
 
 
 def test_production_pilot_dry_run_runs_as_subprocess_from_repo_root() -> None:

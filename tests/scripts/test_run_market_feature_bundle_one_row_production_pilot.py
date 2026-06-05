@@ -22,6 +22,12 @@ from scripts.run_market_feature_bundle_one_row_production_pilot import (
 
 
 class _FakeSession:
+    def __init__(self):
+        self.added = None
+        self.merged = None
+        self.committed = False
+        self.rolled_back = False
+
     def existing_by_idempotency_key(self, key):
         return None
 
@@ -43,7 +49,11 @@ class _FakeSession:
 
 class _WriteFailedSession(_FakeSession):
     def commit(self):
-        raise RuntimeError("synthetic commit failure")
+        raise RuntimeError(
+            "INSERT INTO market_feature_bundle_snapshots parameters: "
+            "{'full_bundle_payload': {'token': 'token-123'}, 'idempotency_key': 'placeholder-idempotency-key'} "
+            "postgresql://user:secret@host.example.com:5432/railway"
+        )
 
 
 def test_production_pilot_refuses_to_run_without_env_vars(monkeypatch, capsys) -> None:
@@ -82,7 +92,8 @@ def test_pilot_report_is_safe_and_contains_required_fields(monkeypatch) -> None:
     monkeypatch.setenv(DATABASE_ENV, "postgresql://user:secret@host.example.com:5432/railway")
     monkeypatch.setenv(DATA_BASE_ENV, "http://127.0.0.1:8001")
     monkeypatch.setenv(DATA_TOKEN_ENV, "token-123")
-    monkeypatch.setattr(pilot_module, "build_market_feature_bundle_session", lambda database_url: _FakeSession())
+    fake_session = _FakeSession()
+    monkeypatch.setattr(pilot_module, "build_market_feature_bundle_session", lambda database_url: fake_session)
     monkeypatch.setattr(
         pilot_module.requests,
         "get",
@@ -126,6 +137,26 @@ def test_pilot_report_is_safe_and_contains_required_fields(monkeypatch) -> None:
     assert report["route_read_back"]["idempotency_key"] == "placeholder-idempotency-key"
     assert report["route_read_back"]["universe"] == "SPY"
     assert report["route_read_back"]["dataset_version"] == "production_pilot.v1"
+    assert fake_session.added["generated_at"] == "2026-01-15T18:00:00Z"
+
+
+def test_pilot_report_backfills_generated_at_before_write_attempt(monkeypatch) -> None:
+    monkeypatch.setenv(APPROVAL_ENV, APPROVAL_VALUE)
+    monkeypatch.setenv(DATABASE_ENV, "postgresql://user:secret@host.example.com:5432/railway")
+    monkeypatch.setenv(DATA_BASE_ENV, "http://127.0.0.1:8001")
+    monkeypatch.setenv(DATA_TOKEN_ENV, "token-123")
+    fake_session = _FakeSession()
+    monkeypatch.setattr(pilot_module, "build_market_feature_bundle_session", lambda database_url: fake_session)
+    monkeypatch.setattr(
+        pilot_module.requests,
+        "get",
+        lambda url, headers=None, timeout=None: SimpleNamespace(status_code=200, json=lambda: {"market_feature_bundle": {}}),
+    )
+
+    _build_pilot_report(observation_date="2026-01-15", timestamp=None)
+
+    assert fake_session.added["generated_at"]
+    assert fake_session.added["generated_at"].endswith("+00:00")
 
 
 def test_pilot_report_returns_structured_failure_without_route_readback(monkeypatch) -> None:
@@ -154,12 +185,38 @@ def test_pilot_report_returns_structured_failure_without_route_readback(monkeypa
     assert report["target_table"] == "market_feature_bundle_snapshots"
     assert report["validation_errors"]
     assert report["error_type"] == "session"
+    assert report["error_class"] == "RuntimeError"
     assert report["redacted_target"] == "postgresql://<redacted>@host.example.com:5432/railway"
+    assert "INSERT INTO" not in json.dumps(report)
+    assert "parameters:" not in json.dumps(report)
+    assert "full_bundle_payload" not in json.dumps(report)
+    assert "placeholder-idempotency-key" not in json.dumps(report)
     assert "user" not in json.dumps(report)
     assert "secret" not in json.dumps(report)
     assert "token-123" not in json.dumps(report)
     assert len(report["idempotency_key_prefix"]) <= 12
     assert route_called["value"] is False
+
+
+def test_main_prints_redacted_failure_report(monkeypatch, capsys) -> None:
+    monkeypatch.setenv(APPROVAL_ENV, APPROVAL_VALUE)
+    monkeypatch.setenv(DATABASE_ENV, "postgresql://user:secret@host.example.com:5432/railway")
+    monkeypatch.setenv(DATA_BASE_ENV, "http://127.0.0.1:8001")
+    monkeypatch.setenv(DATA_TOKEN_ENV, "token-123")
+    monkeypatch.setattr(pilot_module, "build_market_feature_bundle_session", lambda database_url: _WriteFailedSession())
+    monkeypatch.setattr(pilot_module.requests, "get", lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("route should not be called")))
+
+    exit_code = main(["--observation-date", "2026-01-15", "--timestamp", "2026-01-15T18:00:00Z"])
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "INSERT INTO" not in captured.out
+    assert "parameters:" not in captured.out
+    assert "full_bundle_payload" not in captured.out
+    assert "placeholder-idempotency-key" not in captured.out
+    assert "user" not in captured.out
+    assert "secret" not in captured.out
+    assert "token-123" not in captured.out
 
 
 def test_script_source_has_no_forbidden_markers() -> None:
