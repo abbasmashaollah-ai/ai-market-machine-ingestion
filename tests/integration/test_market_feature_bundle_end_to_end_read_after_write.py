@@ -105,13 +105,6 @@ def test_market_feature_bundle_end_to_end_read_after_write() -> None:
         assert "lineage_refs" in market_feature_bundle
         assert "quality_result_refs" in market_feature_bundle
 
-        after_cleanup = requests.get(
-            route_url,
-            headers={"X-Ops-Internal-Token": DATA_TOKEN},
-            timeout=30,
-        )
-        assert after_cleanup.status_code == 200
-        assert payload["idempotency_key"] not in str(after_cleanup.json())
     except BaseException as exc:
         primary_failure = exc
         raise
@@ -142,6 +135,14 @@ def test_market_feature_bundle_end_to_end_read_after_write() -> None:
             )
         if primary_failure is None and cleanup_failure is not None:
             raise cleanup_failure
+
+    after_cleanup = requests.get(
+        route_url,
+        headers={"X-Ops-Internal-Token": DATA_TOKEN},
+        timeout=30,
+    )
+    assert after_cleanup.status_code == 200
+    assert payload["idempotency_key"] not in str(after_cleanup.json())
 
 
 def test_end_to_end_env_is_redacted_only() -> None:
