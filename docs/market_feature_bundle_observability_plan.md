@@ -99,6 +99,7 @@
 - production pilot completion checkpoint
 - production route preservation verification
 - production monitoring checkpoint
+- AI Machine read-consumption contract
 - lightweight local structured logging
 - metrics surface or health endpoint
 - dashboard and export plan
