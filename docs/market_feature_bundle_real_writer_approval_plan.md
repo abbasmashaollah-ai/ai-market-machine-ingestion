@@ -109,3 +109,9 @@ app/features remains calculation-only
 - adapter path: `app/writers/market_feature_bundle_db_adapter.py`
 - `MarketFeatureBundleWriter` remains injectable and testable
 - production writes remain blocked by default
+
+## Observability gate
+
+- monitoring and observability plan must be approved before production writer activation
+- scheduler and backfill remain blocked until monitoring exists
+- AI Machine consumption remains last

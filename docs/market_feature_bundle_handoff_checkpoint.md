@@ -49,6 +49,11 @@ This checkpoint records the completed market feature bundle producer and mock-ha
 - real writer implementation only after explicit approval
 - AI Machine consumption remains last
 
+## Observability target
+
+- monitoring and observability plan must be approved before production writer activation
+- scheduler/backfill remains blocked until monitoring exists
+
 ## Stage E.1 status
 
 - real-writer skeleton is next, but production persistence is still blocked

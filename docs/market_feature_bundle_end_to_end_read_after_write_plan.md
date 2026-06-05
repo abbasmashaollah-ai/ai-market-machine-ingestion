@@ -41,6 +41,11 @@
 - Verify route returns clean missing-data response or row is absent after cleanup
 - Remove env vars
 
+## Completion checkpoint
+
+- After a successful safe run, record the result in `docs/market_feature_bundle_end_to_end_read_after_write_completion_checkpoint.md`
+- Keep the completion checkpoint focused on the verified safe test DB run, the structured response assertions, and cleanup by `idempotency_key`
+
 ## Current implementation note
 
 - An integration test exists but is gated by explicit safe test DB and data app environment variables.
