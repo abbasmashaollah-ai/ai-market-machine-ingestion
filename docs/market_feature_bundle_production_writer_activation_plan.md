@@ -93,6 +93,7 @@
 ## Next steps after approval
 
 - one-row production pilot command and checklist
+- production pilot completion checkpoint after the approved one-row run
 - production verification checkpoint
 - monitoring checkpoint
 - scheduler/backfill planning only after pilot

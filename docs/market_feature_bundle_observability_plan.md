@@ -96,6 +96,7 @@
 ## Next implementation phases
 
 - observability contract and checkpoint
+- production pilot completion checkpoint
 - lightweight local structured logging
 - metrics surface or health endpoint
 - dashboard and export plan

@@ -102,6 +102,7 @@
 ## Next steps after successful pilot
 
 - Production pilot completion checkpoint
+- Production pilot completion checkpoint recorded in `docs/market_feature_bundle_one_row_production_pilot_completion_checkpoint.md`
 - Monitoring checkpoint
 - Scheduler and backfill planning only after pilot checkpoint
 - AI Machine consumption remains last
