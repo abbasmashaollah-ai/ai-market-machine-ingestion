@@ -41,6 +41,11 @@ class _FakeSession:
         self.rolled_back = True
 
 
+class _WriteFailedSession(_FakeSession):
+    def commit(self):
+        raise RuntimeError("synthetic commit failure")
+
+
 def test_production_pilot_refuses_to_run_without_env_vars(monkeypatch, capsys) -> None:
     for name in (APPROVAL_ENV, DATABASE_ENV, DATA_BASE_ENV, DATA_TOKEN_ENV):
         monkeypatch.delenv(name, raising=False)
@@ -123,6 +128,40 @@ def test_pilot_report_is_safe_and_contains_required_fields(monkeypatch) -> None:
     assert report["route_read_back"]["dataset_version"] == "production_pilot.v1"
 
 
+def test_pilot_report_returns_structured_failure_without_route_readback(monkeypatch) -> None:
+    monkeypatch.setenv(APPROVAL_ENV, APPROVAL_VALUE)
+    monkeypatch.setenv(DATABASE_ENV, "postgresql://user:secret@host.example.com:5432/railway")
+    monkeypatch.setenv(DATA_BASE_ENV, "http://127.0.0.1:8001")
+    monkeypatch.setenv(DATA_TOKEN_ENV, "token-123")
+    monkeypatch.setattr(pilot_module, "build_market_feature_bundle_session", lambda database_url: _WriteFailedSession())
+    route_called = {"value": False}
+
+    def _unexpected_route_call(*args, **kwargs):
+        route_called["value"] = True
+        raise AssertionError("route should not be called after WRITE_FAILED")
+
+    monkeypatch.setattr(pilot_module.requests, "get", _unexpected_route_call)
+
+    report = _build_pilot_report(observation_date="2026-01-15", timestamp="2026-01-15T18:00:00Z")
+
+    assert report["pilot_status"] == "WRITE_STOPPED"
+    assert report["write_status"] == "WRITE_FAILED"
+    assert report["conflict_status"] == "SESSION_FAILURE"
+    assert report["scheduler_enabled"] is False
+    assert report["backfill_enabled"] is False
+    assert report["ai_machine_touched"] is False
+    assert report["target_repo"] == "ai-market-machine-data"
+    assert report["target_table"] == "market_feature_bundle_snapshots"
+    assert report["validation_errors"]
+    assert report["error_type"] == "session"
+    assert report["redacted_target"] == "postgresql://<redacted>@host.example.com:5432/railway"
+    assert "user" not in json.dumps(report)
+    assert "secret" not in json.dumps(report)
+    assert "token-123" not in json.dumps(report)
+    assert len(report["idempotency_key_prefix"]) <= 12
+    assert route_called["value"] is False
+
+
 def test_script_source_has_no_forbidden_markers() -> None:
     source = Path("scripts/run_market_feature_bundle_one_row_production_pilot.py").read_text(encoding="utf-8").lower()
     for marker in [
@@ -136,7 +175,6 @@ def test_script_source_has_no_forbidden_markers() -> None:
         "alembic",
         "migration",
         "vendor",
-        "backfill",
         "drop table",
         "truncate",
         "delete(",

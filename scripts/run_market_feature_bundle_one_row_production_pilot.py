@@ -88,8 +88,38 @@ def _build_pilot_report(*, observation_date: str, timestamp: str | None) -> dict
     session = build_market_feature_bundle_session(env[DATABASE_ENV])
     writer = MarketFeatureBundleWriter(session, dry_run=False)
     write_result = writer.write_payload(payload)
+    observability_event = build_market_feature_bundle_writer_observability_event(
+        write_result,
+        redacted_target=_redact_database_url(env[DATABASE_ENV]),
+    )
+    observability_summary = summarize_market_feature_bundle_writer_results([write_result])
+
     if write_result["write_status"] not in {"WRITE_ACCEPTED", "IDEMPOTENT_NOOP"}:
-        raise RuntimeError(f"unexpected write_status for production pilot: {write_result['write_status']}")
+        return {
+            "pilot_status": "WRITE_STOPPED",
+            "dry_run": False,
+            "write_status": write_result["write_status"],
+            "conflict_status": write_result.get("conflict_status"),
+            "validation_errors": write_result.get("validation_errors", []),
+            "error_type": observability_event.get("error_type"),
+            "redacted_target": _redact_database_url(env[DATABASE_ENV]),
+            "idempotency_key_prefix": observability_event.get("idempotency_key_prefix"),
+            "target_repo": write_result.get("target_repo"),
+            "target_table": write_result.get("target_table"),
+            "would_write": write_result.get("would_write"),
+            "universe": payload.get("universe"),
+            "dataset_version": payload.get("dataset_version"),
+            "schema_version": payload.get("schema_version"),
+            "observability_event": observability_event,
+            "observability_summary": observability_summary,
+            "scheduler_enabled": False,
+            "backfill_enabled": False,
+            "ai_machine_touched": False,
+            "approval_state": APPROVAL_VALUE,
+            "production_target": _redact_database_url(env[DATABASE_ENV]),
+            "data_route_base_url": env[DATA_BASE_ENV].rstrip("/"),
+            "data_route_path": TARGET_ROUTE,
+        }
 
     route_url = f"{env[DATA_BASE_ENV].rstrip('/')}{TARGET_ROUTE}"
     route_response = requests.get(route_url, headers={"X-Ops-Internal-Token": env[DATA_TOKEN_ENV]}, timeout=30)
@@ -97,13 +127,8 @@ def _build_pilot_report(*, observation_date: str, timestamp: str | None) -> dict
     route_payload = route_response.json() if hasattr(route_response, "json") else {}
     market_feature_bundle = route_payload.get("market_feature_bundle") or route_payload.get("data") or route_payload
 
-    observability_event = build_market_feature_bundle_writer_observability_event(
-        write_result,
-        redacted_target=_redact_database_url(env[DATABASE_ENV]),
-    )
-    observability_summary = summarize_market_feature_bundle_writer_results([write_result])
-
     report = {
+        "pilot_status": "WRITE_CONTINUED",
         "dry_run": False,
         "write_status": write_result["write_status"],
         "would_write": write_result["would_write"],
