@@ -114,4 +114,5 @@ app/features remains calculation-only
 
 - monitoring and observability plan must be approved before production writer activation
 - scheduler and backfill remain blocked until monitoring exists
+- production writer activation plan is required before enabling production writes
 - AI Machine consumption remains last

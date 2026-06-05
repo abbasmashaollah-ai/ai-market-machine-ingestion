@@ -99,6 +99,7 @@
 - lightweight local structured logging
 - metrics surface or health endpoint
 - dashboard and export plan
+- production writer activation approval plan
 - production writer approval
 - scheduler and backfill only after monitoring exists
 - AI Machine consumption remains last

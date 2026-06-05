@@ -53,6 +53,7 @@ This checkpoint records the completed market feature bundle producer and mock-ha
 
 - monitoring and observability plan must be approved before production writer activation
 - scheduler/backfill remains blocked until monitoring exists
+- production writer activation plan is required before enabling production writes
 
 ## Stage E.1 status
 
