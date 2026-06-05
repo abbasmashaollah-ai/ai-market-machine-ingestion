@@ -97,5 +97,6 @@
 - production verification checkpoint
 - production monitoring checkpoint
 - production route preservation verification after the preserved row is visible
+- scheduler/backfill approval plan
 - scheduler/backfill planning only after pilot
 - AI Machine consumption remains last
