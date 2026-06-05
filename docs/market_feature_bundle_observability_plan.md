@@ -97,6 +97,7 @@
 
 - observability contract and checkpoint
 - production pilot completion checkpoint
+- production route preservation verification
 - lightweight local structured logging
 - metrics surface or health endpoint
 - dashboard and export plan
