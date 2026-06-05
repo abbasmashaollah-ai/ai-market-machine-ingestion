@@ -41,6 +41,11 @@
 - Verify route returns clean missing-data response or row is absent after cleanup
 - Remove env vars
 
+## Current implementation note
+
+- An integration test exists but is gated by explicit safe test DB and data app environment variables.
+- In this environment the end-to-end test should skip if those variables are not configured.
+
 ## Safety rules
 
 - No production writes
