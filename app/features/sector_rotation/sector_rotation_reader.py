@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass, field, is_dataclass
+from dataclasses import asdict, dataclass, field, is_dataclass, replace
 from datetime import date, datetime
 from collections.abc import Mapping, Sequence
 
@@ -43,6 +43,111 @@ class SectorRotationCertifiedOHLCVAdapterResult:
     no_vendor_calls: bool = True
     no_scheduler_activation: bool = True
     dry_run_result: SectorRotationDryRunResult | None = None
+    shadow_diagnostic: "SectorRotationShadowDiagnostic | None" = None
+
+
+@dataclass(frozen=True, slots=True)
+class SectorRotationShadowDiagnostic:
+    enabled: bool
+    universe: str
+    evidence_available: bool
+    skipped: bool
+    route_failure: bool = False
+    unauthorized: bool = False
+    dataset_version: str | None = None
+    schema_version: str | None = None
+    certification_status: str | None = None
+    validation_status: str | None = None
+    coverage_status: str | None = None
+    quality_status: str | None = None
+    observation_date: str | None = None
+    generated_at: str | None = None
+    section_availability: dict[str, bool] = field(default_factory=dict)
+    warnings: tuple[str, ...] = field(default_factory=tuple)
+    differences: tuple[str, ...] = field(default_factory=tuple)
+
+
+def _build_shadow_diagnostic_disabled(universe: str) -> SectorRotationShadowDiagnostic:
+    return SectorRotationShadowDiagnostic(
+        enabled=False,
+        universe=universe,
+        evidence_available=False,
+        skipped=True,
+    )
+
+
+def _normalize_section_availability(section: object) -> bool:
+    if isinstance(section, Mapping):
+        return True
+    return False
+
+
+def _extract_market_feature_bundle_section(bundle: Mapping[str, object], section_name: str) -> bool:
+    if section_name in bundle and _normalize_section_availability(bundle.get(section_name)):
+        return True
+    return False
+
+
+def _build_shadow_diagnostic_from_bundle(
+    *,
+    universe: str,
+    bundle: Mapping[str, object] | None,
+    local_warnings: Sequence[str] | None = None,
+    skipped: bool = False,
+    route_failure: bool = False,
+    unauthorized: bool = False,
+) -> SectorRotationShadowDiagnostic:
+    if not isinstance(bundle, Mapping):
+        return SectorRotationShadowDiagnostic(
+            enabled=True,
+            universe=universe,
+            evidence_available=False,
+            skipped=True if skipped else False,
+            route_failure=route_failure,
+            unauthorized=unauthorized,
+            warnings=tuple(local_warnings or ()),
+        )
+
+    missing_data_evidence = bundle.get("missing_data_evidence")
+    stale_data_evidence = bundle.get("stale_data_evidence")
+    if missing_data_evidence not in (None, [], {}) or stale_data_evidence not in (None, [], {}):
+        return SectorRotationShadowDiagnostic(
+            enabled=True,
+            universe=universe,
+            evidence_available=False,
+            skipped=True,
+            warnings=tuple(local_warnings or ()),
+        )
+
+    section_availability = {
+        section_name: _extract_market_feature_bundle_section(bundle, section_name)
+        for section_name in ("prices", "sector_rotation", "market_risk", "market_regime", "macro_liquidity", "flows_positioning")
+    }
+    compact_summary = bundle.get("compact_summary")
+    observation_date = None
+    generated_at = None
+    if isinstance(bundle.get("observation_date"), str):
+        observation_date = str(bundle.get("observation_date"))
+    if isinstance(bundle.get("generated_at"), str):
+        generated_at = str(bundle.get("generated_at"))
+
+    return SectorRotationShadowDiagnostic(
+        enabled=True,
+        universe=str(bundle.get("universe") or universe).upper(),
+        evidence_available=True,
+        skipped=False,
+        dataset_version=str(bundle.get("dataset_version")) if bundle.get("dataset_version") is not None else None,
+        schema_version=str(bundle.get("schema_version")) if bundle.get("schema_version") is not None else None,
+        certification_status=str(bundle.get("certification_status")) if bundle.get("certification_status") is not None else None,
+        validation_status=str(bundle.get("validation_status")) if bundle.get("validation_status") is not None else None,
+        coverage_status=str(bundle.get("coverage_status")) if bundle.get("coverage_status") is not None else None,
+        quality_status=str(bundle.get("quality_status")) if bundle.get("quality_status") is not None else None,
+        observation_date=observation_date,
+        generated_at=generated_at,
+        section_availability=section_availability,
+        warnings=tuple(str(warning) for warning in (bundle.get("warnings") or []) if isinstance(warning, str)),
+        differences=tuple(),
+    )
 
 
 def _normalize_symbol(symbol: object) -> str:
@@ -219,6 +324,8 @@ def fetch_sector_rotation_price_history(
     end_date: str | None = None,
     lookback_days: int = 90,
     required_symbols: Sequence[str] | None = None,
+    enable_market_feature_bundle_shadow: bool = False,
+    market_feature_bundle_client: DataReadClient | None = None,
 ) -> SectorRotationCertifiedOHLCVAdapterResult:
     """Fetch certified OHLCV rows one symbol at a time and shape them into the dry-run input."""
 
@@ -272,10 +379,21 @@ def fetch_sector_rotation_price_history(
     if missing_symbols:
         warnings.append(f"adapter_missing_symbols:{','.join(missing_symbols)}")
 
+    shadow_diagnostic = None
+    if enable_market_feature_bundle_shadow:
+        shadow_source = market_feature_bundle_client or data_read_client
+        shadow_diagnostic = build_sector_rotation_shadow_diagnostic(
+            shadow_source,
+            universe="SPY",
+            local_price_history_by_symbol=reader_result.price_history_by_symbol,
+            local_warnings=warnings,
+        )
+
     return SectorRotationCertifiedOHLCVAdapterResult(
         price_history_by_symbol=reader_result.price_history_by_symbol,
         warnings=tuple(warnings),
         missing_symbols=missing_symbols,
+        shadow_diagnostic=shadow_diagnostic,
     )
 
 
@@ -288,6 +406,8 @@ def run_sector_rotation_certified_ohlcv_dry_run(
     timestamp: datetime | str | None = None,
     writer: object | None = None,
     metadata: Mapping[str, object] | SectorRotationBuildMetadata | None = None,
+    enable_market_feature_bundle_shadow: bool = False,
+    market_feature_bundle_client: DataReadClient | None = None,
 ) -> SectorRotationCertifiedOHLCVAdapterResult:
     """Fetch certified OHLCV rows, shape them, and execute the dry-run pipeline in memory."""
 
@@ -296,6 +416,8 @@ def run_sector_rotation_certified_ohlcv_dry_run(
         start_date=start_date,
         end_date=end_date,
         lookback_days=lookback_days,
+        enable_market_feature_bundle_shadow=enable_market_feature_bundle_shadow,
+        market_feature_bundle_client=market_feature_bundle_client,
     )
     dry_run_result = run_sector_rotation_dry_run(
         adapter_result.price_history_by_symbol,
@@ -310,4 +432,72 @@ def run_sector_rotation_certified_ohlcv_dry_run(
         warnings=combined_warnings,
         missing_symbols=adapter_result.missing_symbols,
         dry_run_result=dry_run_result,
+        shadow_diagnostic=adapter_result.shadow_diagnostic,
     )
+
+
+def build_sector_rotation_shadow_diagnostic(
+    market_feature_bundle_client: DataReadClient,
+    *,
+    universe: str = "SPY",
+    local_price_history_by_symbol: Mapping[str, Sequence[object]] | None = None,
+    local_warnings: Sequence[str] | None = None,
+) -> SectorRotationShadowDiagnostic:
+    try:
+        payload = market_feature_bundle_client.get_market_feature_bundle(universe)
+    except Exception as exc:
+        return SectorRotationShadowDiagnostic(
+            enabled=True,
+            universe=_normalize_symbol(universe),
+            evidence_available=False,
+            skipped=True,
+            route_failure=True,
+            warnings=tuple(local_warnings or ()) + (f"shadow_error:{_normalize_symbol(universe)}:{exc.__class__.__name__}",),
+        )
+
+    if not getattr(payload, "evidence_available", False):
+        return _build_shadow_diagnostic_from_bundle(
+            universe=_normalize_symbol(getattr(payload, "universe", universe)),
+            bundle=None,
+            local_warnings=tuple(local_warnings or ()),
+            skipped=True,
+            route_failure=bool(getattr(payload, "route_failure", False)),
+            unauthorized=bool(getattr(payload, "unauthorized", False)),
+        )
+
+    bundle = {
+        "universe": getattr(payload, "universe", universe),
+        "dataset_version": getattr(payload, "dataset_version", None),
+        "schema_version": getattr(payload, "schema_version", None),
+        "certification_status": getattr(payload, "certification_status", None),
+        "validation_status": getattr(payload, "validation_status", None),
+        "coverage_status": getattr(payload, "coverage_status", None),
+        "quality_status": getattr(payload, "quality_status", None),
+        "observation_date": getattr(payload, "observation_date", None),
+        "generated_at": getattr(payload, "generated_at", None),
+        "compact_summary": getattr(payload, "compact_summary", None),
+        "warnings": list(getattr(payload, "warnings", ()) or ()),
+        "missing_data_evidence": [],
+        "stale_data_evidence": [],
+    }
+    diagnostic = _build_shadow_diagnostic_from_bundle(
+        universe=_normalize_symbol(getattr(payload, "universe", universe)),
+        bundle=bundle,
+        local_warnings=local_warnings,
+    )
+
+    if local_price_history_by_symbol is None:
+        return diagnostic
+
+    local_symbol_count = len({symbol for symbol, values in local_price_history_by_symbol.items() if values})
+    differences = list(diagnostic.differences)
+    if local_symbol_count == 0:
+        differences.append("missing_local_price_history")
+    api_summary = bundle.get("compact_summary")
+    if isinstance(api_summary, Mapping):
+        api_sections = api_summary.get("feature_sections_present")
+        if isinstance(api_sections, Mapping):
+            for key in ("prices", "sector_rotation", "market_risk", "market_regime", "macro_liquidity", "flows_positioning"):
+                if not bool(api_sections.get(key)):
+                    differences.append(f"missing_api_section:{key}")
+    return replace(diagnostic, differences=tuple(differences))
