@@ -1,0 +1,100 @@
+{
+  "universe": "QQQ",
+  "observation_date": "2026-01-15",
+  "schema_version": "market_feature_bundle.v1",
+  "dataset_version": "production_pilot.fixture_dry_run.v1",
+  "validation_status": "PASS",
+  "coverage_status": "COMPLETE",
+  "quality_status": "PASS",
+  "certification_status": "FIXTURE_CERTIFIED",
+  "source_repo": "ai-market-machine-ingestion",
+  "source_run_id": "fixture_dry_run.v1",
+  "idempotency_key": "market_feature_bundle.fixture_dry_run.qqq.2026-01-15.v1",
+  "lineage_refs": [
+    "fixture_only://market_feature_bundle/qqq/source_contract"
+  ],
+  "quality_result_refs": [
+    "fixture_only://market_feature_bundle/qqq/quality_result"
+  ],
+  "raw_sections": {
+    "prices": {},
+    "breadth": {},
+    "sector_rotation": {},
+    "cross_asset": {},
+    "liquidity_rates": {},
+    "volatility": {},
+    "event_calendar": {},
+    "news_sentiment": {},
+    "earnings": {},
+    "fundamentals": {},
+    "flows_positioning": {},
+    "options": {}
+  },
+  "synthesized_sections": {
+    "macro_liquidity": {},
+    "market_risk": {},
+    "market_regime": {}
+  },
+  "compact_summary": {
+    "universe": "QQQ",
+    "observation_date": "2026-01-15",
+    "validation_status": "PASS",
+    "coverage_status": "COMPLETE",
+    "quality_status": "PASS",
+    "certification_status": "FIXTURE_CERTIFIED",
+    "total_warnings": 0,
+    "safety_flags": {
+      "no_db_writes": true,
+      "no_vendor_calls": true,
+      "no_live_api_calls": true,
+      "no_scheduler_activation": true
+    }
+  },
+  "full_bundle_payload": {
+    "universe": "QQQ",
+    "observation_date": "2026-01-15",
+    "schema_version": "market_feature_bundle.v1",
+    "dataset_version": "production_pilot.fixture_dry_run.v1",
+    "source_repo": "ai-market-machine-ingestion",
+    "source_run_id": "fixture_dry_run.v1",
+    "validation_status": "PASS",
+    "coverage_status": "COMPLETE",
+    "quality_status": "PASS",
+    "certification_status": "FIXTURE_CERTIFIED",
+    "lineage_refs": [
+      "fixture_only://market_feature_bundle/qqq/source_contract"
+    ],
+    "quality_result_refs": [
+      "fixture_only://market_feature_bundle/qqq/quality_result"
+    ],
+    "raw_sections": [
+      "prices",
+      "breadth",
+      "sector_rotation",
+      "cross_asset",
+      "liquidity_rates",
+      "volatility",
+      "event_calendar",
+      "news_sentiment",
+      "earnings",
+      "fundamentals",
+      "flows_positioning",
+      "options"
+    ],
+    "synthesized_sections": [
+      "macro_liquidity",
+      "market_risk",
+      "market_regime"
+    ],
+    "note": "fixture-only dry-run payload and not production evidence"
+  },
+  "safety_flags": {
+    "no_db_writes": true,
+    "no_vendor_calls": true,
+    "no_live_api_calls": true,
+    "no_scheduler_activation": true
+  },
+  "validation_errors": [],
+  "validation_warnings": [],
+  "note": "fixture-only dry-run payload and not production evidence"
+}
