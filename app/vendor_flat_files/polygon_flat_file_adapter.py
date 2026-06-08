@@ -235,6 +235,11 @@ class PolygonFlatFileAdapter:
         day = PolygonFlatFileAdapter._normalize_date(value)
         return f"{day:%m/%Y-%m-%d.csv.gz}"
 
+    @staticmethod
+    def stock_day_aggs_object_key(value: str | date) -> str:
+        day = PolygonFlatFileAdapter._normalize_date(value)
+        return f"us_stocks_sip/day_aggs_v1/{day:%Y/%m}/{day:%Y-%m-%d}.csv.gz"
+
     def list_remote_manifest_objects(self, *, start_date: str | date, end_date: str | date, max_days: int) -> list[dict[str, str]]:
         client = self.build_remote_listing_client()
         dates = self._date_range(start_date, end_date, max_days)
@@ -281,6 +286,38 @@ class PolygonFlatFileAdapter:
                     )
         return results
 
+    def download_single_date_object(self, *, value: str | date, local_path: str | Path, overwrite: bool = False) -> dict[str, Any]:
+        client = self.build_remote_listing_client()
+        key = self.stock_day_aggs_object_key(value)
+        path = Path(local_path)
+        if path.exists() and not overwrite:
+            return {
+                "downloaded": False,
+                "skipped_existing": True,
+                "local_file_exists": True,
+                "local_file_size_bytes": path.stat().st_size,
+                "local_file_sha256": _sha256_file(path),
+                "redacted_key_tail": self.redacted_csv_gzip_tail(key),
+                "local_quarantine_path": str(path),
+            }
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if not self.boto3_available():
+            raise RuntimeError("boto3 is required for remote download preflight")
+        client.download_file(
+            Bucket=self._env.get("POLYGON_FLAT_FILE_BUCKET"),
+            Key=key,
+            Filename=str(path),
+        )
+        return {
+            "downloaded": True,
+            "skipped_existing": False,
+            "local_file_exists": path.exists(),
+            "local_file_size_bytes": path.stat().st_size if path.exists() else 0,
+            "local_file_sha256": _sha256_file(path) if path.exists() else "",
+            "redacted_key_tail": self.redacted_csv_gzip_tail(key),
+            "local_quarantine_path": str(path),
+        }
+
     @staticmethod
     def classify_remote_listing_error(error: Exception) -> tuple[str, str, str]:
         code = "client_error"
@@ -317,3 +354,13 @@ class PolygonFlatFileAdapter:
             redacted_code = code
             message = "remote listing failed safely"
         return code, redacted_code, message
+
+
+def _sha256_file(path: Path) -> str:
+    import hashlib
+
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()

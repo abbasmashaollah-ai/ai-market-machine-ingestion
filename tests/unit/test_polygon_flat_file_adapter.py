@@ -29,6 +29,23 @@ class _FakeClientError(Exception):
         self.response = response
 
 
+class _FakeDownloadClient:
+    def __init__(self) -> None:
+        self.calls: list[dict[str, object]] = []
+
+    def download_file(self, **kwargs: object) -> None:
+        self.calls.append(kwargs)
+        path = Path(str(kwargs["Filename"]))
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"fake gzip bytes")
+
+
+class _DownloadableAdapter(PolygonFlatFileAdapter):
+    @staticmethod
+    def boto3_available() -> bool:
+        return True
+
+
 def test_required_config_names_and_universe_are_name_only() -> None:
     assert required_config_names() == REQUIRED_CONFIG_NAMES
     assert sector_etf_symbols() == SECTOR_SYMBOLS
@@ -124,3 +141,27 @@ def test_date_range_and_manifest_tail_pattern_are_csv_gzip_based() -> None:
     assert f"us_stocks_sip/day_aggs_v1/{PolygonFlatFileAdapter._normalize_date('2026-01-02'):%Y/%m}" == "us_stocks_sip/day_aggs_v1/2026/01"
     assert PolygonFlatFileAdapter.redacted_csv_gzip_tail("us_stocks_sip/day_aggs_v1/2003/09/2003-09-10.csv.gz") == "09/2003-09-10.csv.gz"
     assert PolygonFlatFileAdapter.redacted_csv_gzip_tail("us_stocks_sip/day_aggs_v1/2026/01/2026-01-02.csv.gz") == "01/2026-01-02.csv.gz"
+    assert PolygonFlatFileAdapter.stock_day_aggs_object_key("2003-09-10") == "us_stocks_sip/day_aggs_v1/2003/09/2003-09-10.csv.gz"
+    assert PolygonFlatFileAdapter.stock_day_aggs_object_key("2026-01-02") == "us_stocks_sip/day_aggs_v1/2026/01/2026-01-02.csv.gz"
+
+
+def test_download_single_date_object_writes_local_file_and_sha256(monkeypatch, tmp_path) -> None:
+    adapter = _DownloadableAdapter(
+        {
+            "POLYGON_FLAT_FILE_ACCESS_KEY_ID": "polygon-key",
+            "POLYGON_FLAT_FILE_SECRET_ACCESS_KEY": "polygon-secret",
+            "POLYGON_FLAT_FILE_ENDPOINT": "https://endpoint.invalid",
+            "POLYGON_FLAT_FILE_BUCKET": "bucket",
+            "POLYGON_FLAT_FILE_PREFIX": "prefix",
+        }
+    )
+    fake = _FakeDownloadClient()
+    monkeypatch.setattr(adapter, "build_remote_listing_client", lambda: fake)
+    local_path = tmp_path / "polygon_stocks_day_aggs_2003-09-10.csv.gz"
+    result = adapter.download_single_date_object(value="2003-09-10", local_path=local_path)
+    assert result["downloaded"] is True
+    assert result["local_file_exists"] is True
+    assert result["local_file_size_bytes"] > 0
+    assert result["local_file_sha256"]
+    assert result["redacted_key_tail"] == "09/2003-09-10.csv.gz"
+    assert fake.calls and fake.calls[0]["Key"] == "us_stocks_sip/day_aggs_v1/2003/09/2003-09-10.csv.gz"
