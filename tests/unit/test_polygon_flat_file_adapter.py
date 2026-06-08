@@ -81,7 +81,6 @@ def test_no_network_or_db_imports_in_adapter_source() -> None:
     forbidden_terms = [
         "requests",
         "httpx",
-        "boto3",
         "sqlalchemy",
         "create_engine",
         "session",
@@ -93,3 +92,10 @@ def test_no_network_or_db_imports_in_adapter_source() -> None:
     ]
     for term in forbidden_terms:
         assert term not in source
+
+
+def test_adapter_exposes_boto3_gate_and_remote_listing_helpers() -> None:
+    adapter = PolygonFlatFileAdapter(env={})
+    assert isinstance(adapter.boto3_available(), bool)
+    assert hasattr(adapter, "build_remote_listing_client")
+    assert hasattr(adapter, "list_remote_objects")

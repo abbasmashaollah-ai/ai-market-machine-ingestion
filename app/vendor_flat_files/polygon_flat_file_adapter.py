@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.util
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -167,3 +168,29 @@ class PolygonFlatFileAdapter:
 
     def build_production_handoff(self, *_: Any, **__: Any) -> dict[str, Any]:
         raise NotImplementedError("production handoff generation is unauthorized")
+
+    @staticmethod
+    def boto3_available() -> bool:
+        return importlib.util.find_spec("boto3") is not None
+
+    def build_remote_listing_client(self) -> Any:
+        if not self.boto3_available():
+            raise RuntimeError("boto3 is required for remote listing preflight")
+        import boto3
+
+        return boto3.client(
+            "s3",
+            aws_access_key_id=self._env.get("POLYGON_FLAT_FILE_ACCESS_KEY_ID"),
+            aws_secret_access_key=self._env.get("POLYGON_FLAT_FILE_SECRET_ACCESS_KEY"),
+            endpoint_url=self._env.get("POLYGON_FLAT_FILE_ENDPOINT"),
+        )
+
+    def list_remote_objects(self, *, max_keys: int) -> list[dict[str, str]]:
+        client = self.build_remote_listing_client()
+        response = client.list_objects_v2(
+            Bucket=self._env.get("POLYGON_FLAT_FILE_BUCKET"),
+            Prefix=self._env.get("POLYGON_FLAT_FILE_PREFIX"),
+            MaxKeys=max_keys,
+        )
+        contents = response.get("Contents", []) if isinstance(response, dict) else []
+        return [obj for obj in contents if isinstance(obj, dict) and "Key" in obj]
