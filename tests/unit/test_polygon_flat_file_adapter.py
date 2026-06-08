@@ -120,3 +120,7 @@ def test_date_range_and_manifest_tail_pattern_are_csv_gzip_based() -> None:
     assert PolygonFlatFileAdapter._date_range("2026-01-02", "2026-01-02", 25)[0].isoformat() == "2026-01-02"
     assert PolygonFlatFileAdapter.redacted_csv_gzip_tail("2003-09-10") == "09/2003-09-10.csv.gz"
     assert PolygonFlatFileAdapter.redacted_csv_gzip_tail("2026-01-02") == "01/2026-01-02.csv.gz"
+    assert f"us_stocks_sip/day_aggs_v1/{PolygonFlatFileAdapter._normalize_date('2003-09-10'):%Y/%m}" == "us_stocks_sip/day_aggs_v1/2003/09"
+    assert f"us_stocks_sip/day_aggs_v1/{PolygonFlatFileAdapter._normalize_date('2026-01-02'):%Y/%m}" == "us_stocks_sip/day_aggs_v1/2026/01"
+    assert PolygonFlatFileAdapter.redacted_csv_gzip_tail("us_stocks_sip/day_aggs_v1/2003/09/2003-09-10.csv.gz") == "09/2003-09-10.csv.gz"
+    assert PolygonFlatFileAdapter.redacted_csv_gzip_tail("us_stocks_sip/day_aggs_v1/2026/01/2026-01-02.csv.gz") == "01/2026-01-02.csv.gz"

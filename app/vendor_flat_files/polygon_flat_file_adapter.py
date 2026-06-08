@@ -228,8 +228,10 @@ class PolygonFlatFileAdapter:
 
     @staticmethod
     def redacted_csv_gzip_tail(value: str | date) -> str:
-        if isinstance(value, str) and re.fullmatch(r"\d{2}/\d{4}-\d{2}-\d{2}\.csv\.gz", value):
-            return value
+        if isinstance(value, str):
+            match = re.search(r"(?P<tail>\d{2}/\d{4}-\d{2}-\d{2}\.csv\.gz)$", value)
+            if match:
+                return match.group("tail")
         day = PolygonFlatFileAdapter._normalize_date(value)
         return f"{day:%m/%Y-%m-%d.csv.gz}"
 
@@ -241,7 +243,7 @@ class PolygonFlatFileAdapter:
         for day in dates:
             months.setdefault((day.year, day.month), []).append(day)
         for (year, month), month_dates in months.items():
-            lookup_prefix = f"{month:02d}/{year:04d}"
+            lookup_prefix = f"us_stocks_sip/day_aggs_v1/{year:04d}/{month:02d}"
             response = client.list_objects_v2(
                 Bucket=self._env.get("POLYGON_FLAT_FILE_BUCKET"),
                 Prefix=lookup_prefix,
