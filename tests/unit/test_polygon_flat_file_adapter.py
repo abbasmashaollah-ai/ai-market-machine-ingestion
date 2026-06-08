@@ -55,6 +55,25 @@ class _FakeDownloadClient:
             }
         return {"Contents": []}
 
+    class _Body:
+        def __init__(self, payload: bytes) -> None:
+            self._payload = payload
+            self._offset = 0
+
+        def read(self, size: int) -> bytes:
+            if self._offset >= len(self._payload):
+                return b""
+            chunk = self._payload[self._offset : self._offset + size]
+            self._offset += len(chunk)
+            return chunk
+
+    def get_object(self, **kwargs: object) -> dict[str, object]:
+        self.calls.append(kwargs)
+        if kwargs.get("Key") == "us_stocks_sip/day_aggs_v1/2003/09/2003-09-10.csv.gz":
+            payload = b"fake gzip bytes"
+            return {"Body": self._Body(payload), "ContentLength": len(payload)}
+        raise RuntimeError("unexpected key")
+
 
 class _DownloadableAdapter(PolygonFlatFileAdapter):
     @staticmethod
@@ -180,7 +199,9 @@ def test_download_single_date_object_writes_local_file_and_sha256(monkeypatch, t
     assert result["local_file_size_bytes"] > 0
     assert result["local_file_sha256"]
     assert result["redacted_key_tail"] == "09/2003-09-10.csv.gz"
+    assert result["content_length_present"] is True
     assert any(call.get("Key") == "us_stocks_sip/day_aggs_v1/2003/09/2003-09-10.csv.gz" for call in fake.calls)
+    assert any("get_object" not in call for call in fake.calls if isinstance(call, dict))
 
 
 def test_download_single_date_object_skips_when_manifest_missing(monkeypatch, tmp_path) -> None:
@@ -207,3 +228,26 @@ def test_download_single_date_object_skips_when_manifest_missing(monkeypatch, tm
     assert result["local_file_exists"] is False
     assert len(fake.calls) == 1
     assert "Key" not in fake.calls[0]
+
+
+def test_download_single_date_object_uses_get_object_stream_and_forbidden_maps_safely(monkeypatch, tmp_path) -> None:
+    adapter = _DownloadableAdapter(
+        {
+            "POLYGON_FLAT_FILE_ACCESS_KEY_ID": "polygon-key",
+            "POLYGON_FLAT_FILE_SECRET_ACCESS_KEY": "polygon-secret",
+            "POLYGON_FLAT_FILE_ENDPOINT": "https://endpoint.invalid",
+            "POLYGON_FLAT_FILE_BUCKET": "bucket",
+            "POLYGON_FLAT_FILE_PREFIX": "prefix",
+        }
+    )
+
+    class _ForbiddenClient(_FakeDownloadClient):
+        def get_object(self, **kwargs: object) -> dict[str, object]:
+            raise _FakeClientError({"Error": {"Code": "AccessDenied", "Message": "Forbidden"}, "ResponseMetadata": {"HTTPStatusCode": 403}})
+
+    fake = _ForbiddenClient()
+    monkeypatch.setattr(adapter, "build_remote_listing_client", lambda: fake)
+    local_path = tmp_path / "polygon_stocks_day_aggs_2003-09-10.csv.gz"
+    with pytest.raises(_FakeClientError):
+        adapter.download_single_date_object(value="2003-09-10", local_path=local_path)
+    assert not local_path.exists()

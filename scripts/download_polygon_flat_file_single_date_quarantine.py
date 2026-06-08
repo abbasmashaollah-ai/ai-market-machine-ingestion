@@ -57,6 +57,7 @@ def _safe_payload(*, enabled: bool, approval_phrase: str, value: str, quarantine
     local_file_exists = path.exists()
     local_file_size_bytes = path.stat().st_size if path.exists() else 0
     local_file_sha256 = ""
+    content_length_present = False
     resolved = None
     if local_quarantine_download_enabled:
         try:
@@ -107,6 +108,7 @@ def _safe_payload(*, enabled: bool, approval_phrase: str, value: str, quarantine
             local_file_exists = bool(result.get("local_file_exists"))
             local_file_size_bytes = int(result.get("local_file_size_bytes") or 0)
             local_file_sha256 = str(result.get("local_file_sha256") or "")
+            content_length_present = bool(result.get("content_length_present"))
         except Exception as exc:
             code, redacted_code, message = adapter.classify_remote_listing_error(exc)
             blockers.append(f"local quarantine download blocked safely: {code}")
@@ -136,6 +138,7 @@ def _safe_payload(*, enabled: bool, approval_phrase: str, value: str, quarantine
                 "local_file_exists": False,
                 "local_file_size_bytes": 0,
                 "local_file_sha256": "",
+                "content_length_present": False,
                 "production_handoff_generation_authorized": False,
                 "synthetic_forbidden": True,
                 "fixture_only_forbidden": True,
@@ -173,6 +176,7 @@ def _safe_payload(*, enabled: bool, approval_phrase: str, value: str, quarantine
         "local_file_exists": local_file_exists,
         "local_file_size_bytes": local_file_size_bytes,
         "local_file_sha256": local_file_sha256,
+        "content_length_present": content_length_present,
         "production_handoff_generation_authorized": False,
         "synthetic_forbidden": True,
         "fixture_only_forbidden": True,

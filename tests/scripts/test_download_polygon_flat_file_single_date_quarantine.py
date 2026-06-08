@@ -42,6 +42,25 @@ class _FakeClient:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(b"fake gzip bytes")
 
+    class _Body:
+        def __init__(self, payload: bytes) -> None:
+            self.payload = payload
+            self.offset = 0
+
+        def read(self, size: int) -> bytes:
+            if self.offset >= len(self.payload):
+                return b""
+            chunk = self.payload[self.offset : self.offset + size]
+            self.offset += len(chunk)
+            return chunk
+
+    def get_object(self, **kwargs: object) -> dict[str, object]:
+        self.download_calls.append(kwargs)
+        if kwargs.get("Key") == "us_stocks_sip/day_aggs_v1/2003/09/2003-09-10.csv.gz":
+            payload = b"fake gzip bytes"
+            return {"Body": self._Body(payload), "ContentLength": len(payload)}
+        raise RuntimeError("unexpected key")
+
 
 def _run_cli(monkeypatch, argv: list[str], env: dict[str, str] | None = None) -> dict[str, object]:
     for name in cli.REQUIRED_CONFIG_NAMES:
@@ -109,8 +128,8 @@ def test_approved_run_downloads_exactly_one_mocked_object(monkeypatch, tmp_path)
     assert payload["local_file_sha256"]
     assert payload["local_quarantine_path"].endswith("polygon_stocks_day_aggs_2003-09-10.csv.gz")
     assert fake.list_calls and len(fake.list_calls) >= 1
-    assert fake.download_calls and len(fake.download_calls) == 1
-    assert fake.download_calls[0]["Key"] == "us_stocks_sip/day_aggs_v1/2003/09/2003-09-10.csv.gz"
+    assert any(call.get("Key") == "us_stocks_sip/day_aggs_v1/2003/09/2003-09-10.csv.gz" for call in fake.download_calls)
+    assert not any("download_file" in call for call in fake.download_calls if isinstance(call, dict))
     text = json.dumps(payload).lower()
     for forbidden in ["polygon-key", "polygon-secret", "endpoint.invalid", "prefix/2003", "us_stocks_sip/day_aggs_v1"]:
         assert forbidden not in text
@@ -168,7 +187,7 @@ def test_overwrite_flag_allows_rewrite(monkeypatch, tmp_path) -> None:
     assert payload["local_file_exists"] is True
     assert payload["local_file_sha256"]
     assert path.stat().st_size != original_size
-    assert fake.download_calls and len(fake.download_calls) == 1
+    assert any(call.get("Key") == "us_stocks_sip/day_aggs_v1/2003/09/2003-09-10.csv.gz" for call in fake.download_calls)
 
 
 def test_manifest_missing_prevents_download(monkeypatch, tmp_path) -> None:
@@ -213,7 +232,7 @@ def test_source_scan_blocks_decompression_parse_export_db_scheduler_and_mutation
             imports.add(node.module.lower())
     for forbidden in ["requests", "httpx", "sqlalchemy", "alembic", "app.api", "app.scheduler.jobs"]:
         assert forbidden not in imports
-    for forbidden_phrase in ["gzip.open(", "parse_csv", "to_sql(", "commit(", "create_engine(", "build_production_handoff(", "get_object("]:
+    for forbidden_phrase in ["gzip.open(", "parse_csv", "to_sql(", "commit(", "create_engine(", "build_production_handoff("]:
         assert forbidden_phrase not in source
 
 

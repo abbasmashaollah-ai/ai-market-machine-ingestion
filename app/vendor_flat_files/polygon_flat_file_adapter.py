@@ -322,11 +322,17 @@ class PolygonFlatFileAdapter:
             }
         key = str(resolved["Key"])
         client = self.build_remote_listing_client()
-        client.download_file(
-            Bucket=self._env.get("POLYGON_FLAT_FILE_BUCKET"),
-            Key=key,
-            Filename=str(path),
-        )
+        response = client.get_object(Bucket=self._env.get("POLYGON_FLAT_FILE_BUCKET"), Key=key)
+        body = response.get("Body") if isinstance(response, dict) else None
+        content_length_present = bool(isinstance(response, dict) and response.get("ContentLength") is not None)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("wb") as handle:
+            if body is not None and hasattr(body, "read"):
+                while True:
+                    chunk = body.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    handle.write(chunk)
         return {
             "downloaded": True,
             "skipped_existing": False,
@@ -334,6 +340,7 @@ class PolygonFlatFileAdapter:
             "local_file_size_bytes": path.stat().st_size if path.exists() else 0,
             "local_file_sha256": _sha256_file(path) if path.exists() else "",
             "redacted_key_tail": self.redacted_csv_gzip_tail(key),
+            "content_length_present": content_length_present,
             "local_quarantine_path": str(path),
         }
 
