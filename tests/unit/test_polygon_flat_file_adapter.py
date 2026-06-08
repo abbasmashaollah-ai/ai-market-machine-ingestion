@@ -23,6 +23,12 @@ from app.vendor_flat_files.polygon_flat_file_adapter import (
 )
 
 
+class _FakeClientError(Exception):
+    def __init__(self, response: dict[str, object]) -> None:
+        super().__init__("client error")
+        self.response = response
+
+
 def test_required_config_names_and_universe_are_name_only() -> None:
     assert required_config_names() == REQUIRED_CONFIG_NAMES
     assert sector_etf_symbols() == SECTOR_SYMBOLS
@@ -99,3 +105,11 @@ def test_adapter_exposes_boto3_gate_and_remote_listing_helpers() -> None:
     assert isinstance(adapter.boto3_available(), bool)
     assert hasattr(adapter, "build_remote_listing_client")
     assert hasattr(adapter, "list_remote_objects")
+
+
+def test_adapter_classifies_client_error_403_safely() -> None:
+    error = _FakeClientError({"Error": {"Code": "AccessDenied", "Message": "Forbidden"}, "ResponseMetadata": {"HTTPStatusCode": 403}})
+    code, redacted_code, message = PolygonFlatFileAdapter.classify_remote_listing_error(error)
+    assert code == "forbidden"
+    assert redacted_code == "forbidden"
+    assert message == "remote listing failed safely"

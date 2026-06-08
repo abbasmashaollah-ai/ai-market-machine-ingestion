@@ -11,6 +11,12 @@ from pathlib import Path
 import scripts.preflight_polygon_flat_file_remote_listing as cli
 
 
+class _FakeClientError(Exception):
+    def __init__(self, response: dict[str, object]) -> None:
+        super().__init__("client error")
+        self.response = response
+
+
 class _FakeS3Client:
     def __init__(self) -> None:
         self.calls: list[tuple[str, dict[str, object]]] = []
@@ -71,6 +77,7 @@ def test_remote_listing_requires_explicit_flag(monkeypatch) -> None:
     else:
         assert payload["vendor_call_attempted"] is False
         assert payload["remote_object_list_attempted"] is False
+    assert payload["remote_listing_enabled"] is True
 
 
 def test_max_keys_is_capped_at_25(monkeypatch) -> None:
@@ -120,6 +127,34 @@ def test_missing_boto3_is_blocked_safely(monkeypatch) -> None:
     assert payload["vendor_call_attempted"] is False
     assert payload["remote_object_list_attempted"] is False
     assert any("boto3 is required" in blocker for blocker in payload["blockers"])
+
+
+def test_client_error_403_is_returned_as_safe_json(monkeypatch) -> None:
+    def raise_403(self, **_: object):  # type: ignore[no-untyped-def]
+        raise _FakeClientError({"Error": {"Code": "AccessDenied", "Message": "Forbidden"}, "ResponseMetadata": {"HTTPStatusCode": 403}})
+
+    monkeypatch.setattr(cli.PolygonFlatFileAdapter, "boto3_available", staticmethod(lambda: True))
+    monkeypatch.setattr(cli.PolygonFlatFileAdapter, "list_remote_objects", raise_403)
+    payload = _run_cli(
+        monkeypatch,
+        ["--enable-remote-listing", "--max-keys", "5"],
+        {
+            "POLYGON_FLAT_FILE_ACCESS_KEY_ID": "polygon-key",
+            "POLYGON_FLAT_FILE_SECRET_ACCESS_KEY": "polygon-secret",
+            "POLYGON_FLAT_FILE_ENDPOINT": "https://endpoint.invalid",
+            "POLYGON_FLAT_FILE_BUCKET": "bucket",
+            "POLYGON_FLAT_FILE_PREFIX": "prefix",
+        },
+    )
+    assert payload["remote_listing_status"] == "forbidden"
+    assert payload["remote_listing_error_code_redacted"] == "forbidden"
+    assert payload["remote_listing_error_message_redacted"] == "remote listing failed safely"
+    assert payload["object_count_seen"] == 0
+    assert payload["remote_object_list_attempted"] is True
+    assert payload["vendor_call_attempted"] is True
+    assert "Forbidden" not in json.dumps(payload)
+    assert "AccessDenied" not in json.dumps(payload)
+    assert payload["blockers"][-1] == "remote listing blocked safely: forbidden"
 
 
 def test_source_scan_blocks_download_read_write_db_scheduler_ingestion_and_mutation() -> None:

@@ -5,6 +5,16 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+try:
+    from botocore.exceptions import BotoCoreError, ClientError, EndpointConnectionError
+except Exception:  # pragma: no cover - botocore is installed in normal runs, but keep import-safe.
+    class _MissingBotocoreError(Exception):
+        pass
+
+    BotoCoreError = _MissingBotocoreError  # type: ignore[assignment]
+    ClientError = _MissingBotocoreError  # type: ignore[assignment]
+    EndpointConnectionError = _MissingBotocoreError  # type: ignore[assignment]
+
 SECTOR_ETF_UNIVERSE: tuple[str, ...] = (
     "SPY",
     "XLB",
@@ -194,3 +204,40 @@ class PolygonFlatFileAdapter:
         )
         contents = response.get("Contents", []) if isinstance(response, dict) else []
         return [obj for obj in contents if isinstance(obj, dict) and "Key" in obj]
+
+    @staticmethod
+    def classify_remote_listing_error(error: Exception) -> tuple[str, str, str]:
+        code = "client_error"
+        message = "remote listing failed safely"
+        redacted_code = "client_error"
+        error_name = error.__class__.__name__
+        if isinstance(error, EndpointConnectionError) or error_name == "EndpointConnectionError":
+            code = "endpoint_connection_error"
+            redacted_code = code
+            message = "endpoint connection error"
+            return code, redacted_code, message
+        response = getattr(error, "response", {}) if hasattr(error, "response") else {}
+        error_data = response.get("Error", {}) if isinstance(response, dict) else {}
+        raw_code = str(error_data.get("Code") or "client_error")
+        status = response.get("ResponseMetadata", {}).get("HTTPStatusCode") if isinstance(response, dict) else None
+        if isinstance(error, ClientError) or error_name == "ClientError" or isinstance(response, dict):
+            if str(status) == "403":
+                code = "forbidden"
+            elif raw_code == "AccessDenied":
+                code = "access_denied"
+            elif raw_code == "InvalidAccessKeyId":
+                code = "invalid_access_key"
+            elif raw_code == "SignatureDoesNotMatch":
+                code = "signature_mismatch"
+            elif raw_code == "NoSuchBucket":
+                code = "bucket_not_found"
+            else:
+                code = "client_error"
+            redacted_code = code
+            message = "remote listing failed safely"
+            return code, redacted_code, message
+        if isinstance(error, BotoCoreError) or error_name == "BotoCoreError":
+            code = "client_error"
+            redacted_code = code
+            message = "remote listing failed safely"
+        return code, redacted_code, message

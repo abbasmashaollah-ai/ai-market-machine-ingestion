@@ -19,6 +19,16 @@ from app.vendor_flat_files.polygon_flat_file_adapter import (
     detect_config_presence,
 )
 
+try:
+    from botocore.exceptions import BotoCoreError, ClientError, EndpointConnectionError
+except Exception:  # pragma: no cover - keep import-safe if dependency is absent.
+    class _MissingBotocoreError(Exception):
+        pass
+
+    BotoCoreError = _MissingBotocoreError  # type: ignore[assignment]
+    ClientError = _MissingBotocoreError  # type: ignore[assignment]
+    EndpointConnectionError = _MissingBotocoreError  # type: ignore[assignment]
+
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Guarded Polygon flat-file remote listing preflight for sector ETF OHLCV readiness.")
@@ -66,6 +76,9 @@ def _safe_payload(*, enabled: bool, max_keys_requested: int) -> dict[str, object
     boto3_available = adapter.boto3_available()
     remote_bucket_list_attempted = False
     remote_object_list_attempted = False
+    remote_listing_status = "not_attempted"
+    remote_listing_error_code_redacted = ""
+    remote_listing_error_message_redacted = ""
     object_count_seen = 0
     object_key_samples_redacted: list[str] = []
     blockers = [
@@ -78,18 +91,34 @@ def _safe_payload(*, enabled: bool, max_keys_requested: int) -> dict[str, object
         blockers.append("polygon flat-file configuration is required for remote listing")
     if not boto3_available:
         blockers.append("boto3 is required for remote listing preflight")
-    if enabled and config_classification == "polygon_flat_file" and boto3_available:
-        remote_bucket_list_attempted = True
-        remote_object_list_attempted = True
-        objects = adapter.list_remote_objects(max_keys=max_keys_effective)
-        object_count_seen = len(objects)
-        object_key_samples_redacted = [_redact_object_key(str(obj.get("Key", ""))) for obj in objects[:max_keys_effective]]
+    if enabled and config_classification == "polygon_flat_file":
+        if boto3_available:
+            remote_bucket_list_attempted = True
+            try:
+                remote_object_list_attempted = True
+                objects = adapter.list_remote_objects(max_keys=max_keys_effective)
+                remote_listing_status = "listed"
+                object_count_seen = len(objects)
+                object_key_samples_redacted = [_redact_object_key(str(obj.get("Key", ""))) for obj in objects[:max_keys_effective]]
+            except Exception as exc:
+                code, redacted_code, message = adapter.classify_remote_listing_error(exc)
+                remote_listing_status = code
+                remote_listing_error_code_redacted = redacted_code
+                remote_listing_error_message_redacted = message
+                object_count_seen = 0
+                object_key_samples_redacted = []
+                blockers.append(f"remote listing blocked safely: {code}")
+        else:
+            blockers.append("boto3 is required for remote listing preflight")
     return {
         "preflight_only": True,
         "remote_listing_enabled": enabled,
         "vendor_call_attempted": remote_bucket_list_attempted,
         "remote_bucket_list_attempted": remote_bucket_list_attempted,
         "remote_object_list_attempted": remote_object_list_attempted,
+        "remote_listing_status": remote_listing_status,
+        "remote_listing_error_code_redacted": remote_listing_error_code_redacted,
+        "remote_listing_error_message_redacted": remote_listing_error_message_redacted,
         "download_attempted": False,
         "remote_file_read_attempted": False,
         "export_attempted": False,
