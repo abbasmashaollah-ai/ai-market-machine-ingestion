@@ -1,0 +1,21 @@
+{
+  "vendor": "polygon",
+  "asset_class": "equities",
+  "data_type": "daily_ohlcv",
+  "date": "2026-01-15",
+  "schema_version": "vendor_flat_file_ohlcv.v1",
+  "dataset_version": "fixture.v1",
+  "source_file_name": "equities_daily_2026-01-15_sample.csv",
+  "source_file_size_bytes": 282,
+  "source_file_sha256": "820d0d09218668161d734ebc5d32be69a833312c6b297667c8d01cdaea568873",
+  "compression": "none",
+  "row_count": 3,
+  "symbols_count": 3,
+  "created_at": "2026-01-15T00:00:00Z",
+  "download_mode": "fixture",
+  "validation_status": "PASS",
+  "validation_errors": [],
+  "lineage_id": "fixture-lineage-equities-2026-01-15",
+  "certification_status": "FIXTURE_ONLY",
+  "note": "synthetic fixture only, not vendor data, not production evidence"
+}
