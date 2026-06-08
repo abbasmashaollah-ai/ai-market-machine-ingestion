@@ -10,6 +10,15 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from app.vendor_flat_files.polygon_flat_file_adapter import (
+    REQUIRED_CONFIG_NAMES,
+    PolygonFlatFileAdapter,
+    benchmark_symbol,
+    sector_etf_universe_symbols,
+    required_config_names,
+    sector_etf_symbols,
+)
+
 SECTOR_ETF_UNIVERSE = (
     "SPY",
     "XLB",
@@ -23,14 +32,6 @@ SECTOR_ETF_UNIVERSE = (
     "XLU",
     "XLV",
     "XLY",
-)
-REQUIRED_CONFIG_NAMES = (
-    "POLYGON_API_KEY",
-    "POLYGON_FLAT_FILE_ACCESS_KEY_ID",
-    "POLYGON_FLAT_FILE_SECRET_ACCESS_KEY",
-    "POLYGON_FLAT_FILE_ENDPOINT",
-    "POLYGON_FLAT_FILE_BUCKET",
-    "POLYGON_FLAT_FILE_PREFIX",
 )
 
 
@@ -50,16 +51,8 @@ def _safe_payload() -> dict[str, object]:
     missing = [name for name in REQUIRED_CONFIG_NAMES if not env.get(name)]
     parser_detected = _module_detected("app/vendor_flat_files/local_ohlcv_parser.py")
     handoff_detected = _module_detected("app/vendor_flat_files/ohlcv_handoff_builder.py")
-    flat_file_adapter_detected = any(
-        env.get(name)
-        for name in (
-            "POLYGON_FLAT_FILE_ACCESS_KEY_ID",
-            "POLYGON_FLAT_FILE_SECRET_ACCESS_KEY",
-            "POLYGON_FLAT_FILE_ENDPOINT",
-            "POLYGON_FLAT_FILE_BUCKET",
-            "POLYGON_FLAT_FILE_PREFIX",
-        )
-    )
+    adapter_detected = _module_detected("app/vendor_flat_files/polygon_flat_file_adapter.py")
+    adapter_summary = PolygonFlatFileAdapter(env=env).safe_summary() if adapter_detected else None
     return {
         "preflight_only": True,
         "polygon_flat_file_source_selected": True,
@@ -73,14 +66,15 @@ def _safe_payload() -> dict[str, object]:
         "production_mutation_attempted": False,
         "credentials_present": bool(present),
         "credentials_printed": False,
-        "required_config_names": list(REQUIRED_CONFIG_NAMES),
+        "required_config_names": list(required_config_names()),
         "missing_config_names": missing,
-        "flat_file_adapter_detected": flat_file_adapter_detected,
+        "flat_file_adapter_detected": bool(adapter_detected and adapter_summary),
         "local_parser_detected": parser_detected,
         "handoff_builder_detected": handoff_detected,
         "sector_etf_universe_detected": True,
-        "required_sector_symbols": list(SECTOR_ETF_UNIVERSE[1:]),
-        "benchmark_symbol": "SPY",
+        "required_sector_symbols": list(sector_etf_symbols()),
+        "sector_etf_universe_symbols": list(sector_etf_universe_symbols()),
+        "benchmark_symbol": benchmark_symbol(),
         "production_eligible_generation_authorized": False,
         "synthetic_forbidden": True,
         "fixture_only_forbidden": True,

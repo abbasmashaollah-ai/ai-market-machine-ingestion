@@ -32,10 +32,12 @@ def test_default_preflight_is_read_only_and_does_not_call_vendor_services() -> N
     assert payload["synthetic_forbidden"] is True
     assert payload["fixture_only_forbidden"] is True
     assert payload["credentials_printed"] is False
+    assert payload["flat_file_adapter_detected"] is True
     assert payload["benchmark_symbol"] == "SPY"
     assert payload["sector_etf_universe_detected"] is True
     assert "XLB" in payload["required_sector_symbols"]
     assert "XLY" in payload["required_sector_symbols"]
+    assert payload["sector_etf_universe_symbols"][0] == "SPY"
 
 
 def test_missing_config_names_are_reported_by_name_only(monkeypatch) -> None:
@@ -67,6 +69,7 @@ def test_source_scan_blocks_network_download_export_db_and_scheduler_usage() -> 
             import_names.add(node.module.lower())
     for forbidden in ["requests", "httpx", "sqlalchemy", "boto3", "app.api", "app.scheduler.jobs", "alembic"]:
         assert forbidden not in import_names
+    assert "polygon_flat_file_adapter" in source
     assert "vendor_call_attempted" in source
     assert "remote_bucket_list_attempted" in source
     assert "download_attempted" in source
@@ -92,3 +95,4 @@ def test_output_includes_expected_symbols_and_spy_benchmark() -> None:
     payload = cli._safe_payload()
     assert payload["benchmark_symbol"] == "SPY"
     assert set(payload["required_sector_symbols"]) == {"XLB", "XLC", "XLE", "XLF", "XLI", "XLK", "XLP", "XLRE", "XLU", "XLV", "XLY"}
+    assert set(payload["sector_etf_universe_symbols"]) == {"SPY", "XLB", "XLC", "XLE", "XLF", "XLI", "XLK", "XLP", "XLRE", "XLU", "XLV", "XLY"}
