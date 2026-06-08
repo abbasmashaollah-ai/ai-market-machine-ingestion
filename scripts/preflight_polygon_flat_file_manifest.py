@@ -79,7 +79,7 @@ def _safe_payload(*, enabled: bool, start_date: str, end_date: str, max_days_req
                     {
                         "date": entry.get("date"),
                         "redacted_key_tail": str(entry.get("redacted_key_tail") or "<redacted>"),
-                        "object_present": bool(entry.get("object_present", True)),
+                        "object_present": bool(entry.get("object_present", False)),
                         "size_bytes": entry.get("Size"),
                         "last_modified_present": bool(entry.get("LastModified")),
                         "etag_present": bool(entry.get("ETag")),

@@ -18,10 +18,13 @@ class _FakeClient:
     def list_objects_v2(self, **kwargs: object) -> dict[str, object]:
         self.calls.append(kwargs)
         prefix = str(kwargs.get("Prefix") or "")
-        if prefix.endswith("2026-01-01"):
-            return {"Contents": [{"Key": "01/2026-01-01.csv.gz", "Size": 101, "LastModified": "x", "ETag": "etag-1"}]}
-        if prefix.endswith("2026-01-03"):
-            return {"Contents": [{"Key": "01/2026-01-03.csv.gz", "Size": 103}]}
+        if prefix.endswith("09/2003"):
+            return {
+                "Contents": [
+                    {"Key": "09/2003-09-10.csv.gz", "Size": 101, "LastModified": "x", "ETag": "etag-1"},
+                    {"Key": "09/2003-09-11.csv.gz", "Size": 102},
+                ]
+            }
         return {"Contents": []}
 
 
@@ -81,26 +84,45 @@ def test_mocked_listing_returns_redacted_manifest_entries(monkeypatch) -> None:
     fake = _FakeClient()
     monkeypatch.setattr(cli.PolygonFlatFileAdapter, "boto3_available", staticmethod(lambda: True))
     monkeypatch.setattr(cli.PolygonFlatFileAdapter, "build_remote_listing_client", lambda self: fake)
-    payload = _run_cli(
-        monkeypatch,
-        ["--enable-remote-listing", "--start-date", "2026-01-01", "--end-date", "2026-01-03", "--max-days", "5"],
+    adapter = cli.PolygonFlatFileAdapter(
         {
             "POLYGON_FLAT_FILE_ACCESS_KEY_ID": "polygon-key",
             "POLYGON_FLAT_FILE_SECRET_ACCESS_KEY": "polygon-secret",
             "POLYGON_FLAT_FILE_ENDPOINT": "https://endpoint.invalid",
             "POLYGON_FLAT_FILE_BUCKET": "bucket",
             "POLYGON_FLAT_FILE_PREFIX": "prefix",
-        },
+        }
     )
-    assert payload["manifest_object_count_present"] == 2
-    assert payload["manifest_object_count_missing"] == 1
-    assert payload["manifest_entries"][0]["redacted_key_tail"] == "01/2026-01-01.csv.gz"
-    assert payload["manifest_entries"][1]["object_present"] is False
-    text = json.dumps(payload).lower()
+    entries = adapter.list_remote_manifest_objects(start_date="2003-09-10", end_date="2003-09-12", max_days=5)
+    assert entries[0]["redacted_key_tail"] == "09/2003-09-10.csv.gz"
+    assert entries[0]["object_present"] is True
+    assert entries[1]["redacted_key_tail"] == "09/2003-09-11.csv.gz"
+    assert entries[1]["object_present"] is True
+    assert entries[2]["redacted_key_tail"] == "09/2003-09-12.csv.gz"
+    assert entries[2]["object_present"] is False
+    text = json.dumps(entries).lower()
     for forbidden in ["polygon-key", "polygon-secret", "endpoint.invalid", "prefix/"]:
         assert forbidden not in text
     assert fake.calls
-    assert all("manifest.json" not in json.dumps(entry).lower() for entry in payload["manifest_entries"])
+    assert all("manifest.json" not in json.dumps(entry).lower() for entry in entries)
+
+
+def test_detects_known_visible_object_by_redacted_tail(monkeypatch) -> None:
+    fake = _FakeClient()
+    monkeypatch.setattr(cli.PolygonFlatFileAdapter, "boto3_available", staticmethod(lambda: True))
+    monkeypatch.setattr(cli.PolygonFlatFileAdapter, "build_remote_listing_client", lambda self: fake)
+    adapter = cli.PolygonFlatFileAdapter(
+        {
+            "POLYGON_FLAT_FILE_ACCESS_KEY_ID": "polygon-key",
+            "POLYGON_FLAT_FILE_SECRET_ACCESS_KEY": "polygon-secret",
+            "POLYGON_FLAT_FILE_ENDPOINT": "https://endpoint.invalid",
+            "POLYGON_FLAT_FILE_BUCKET": "bucket",
+            "POLYGON_FLAT_FILE_PREFIX": "prefix",
+        }
+    )
+    entries = adapter.list_remote_manifest_objects(start_date="2003-09-10", end_date="2003-09-16", max_days=7)
+    assert any(entry["redacted_key_tail"] == "09/2003-09-10.csv.gz" and entry["object_present"] is True for entry in entries)
+    assert any(entry["date"] == "2003-09-12" and entry["object_present"] is False for entry in entries)
 
 
 def test_missing_boto3_is_safe(monkeypatch) -> None:

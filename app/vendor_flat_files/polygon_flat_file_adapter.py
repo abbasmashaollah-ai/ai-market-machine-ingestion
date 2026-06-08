@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta
 import importlib.util
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -225,38 +226,57 @@ class PolygonFlatFileAdapter:
             current += timedelta(days=1)
         return days
 
+    @staticmethod
+    def redacted_csv_gzip_tail(value: str | date) -> str:
+        if isinstance(value, str) and re.fullmatch(r"\d{2}/\d{4}-\d{2}-\d{2}\.csv\.gz", value):
+            return value
+        day = PolygonFlatFileAdapter._normalize_date(value)
+        return f"{day:%m/%Y-%m-%d.csv.gz}"
+
     def list_remote_manifest_objects(self, *, start_date: str | date, end_date: str | date, max_days: int) -> list[dict[str, str]]:
         client = self.build_remote_listing_client()
         dates = self._date_range(start_date, end_date, max_days)
         results: list[dict[str, str]] = []
+        months: dict[tuple[int, int], list[date]] = {}
         for day in dates:
-            key_tail = f"{day:%m/%Y-%m-%d.csv.gz}"
-            lookup_prefix = f"{day:%m/%Y-%m-%d}"
+            months.setdefault((day.year, day.month), []).append(day)
+        for (year, month), month_dates in months.items():
+            lookup_prefix = f"{month:02d}/{year:04d}"
             response = client.list_objects_v2(
                 Bucket=self._env.get("POLYGON_FLAT_FILE_BUCKET"),
                 Prefix=lookup_prefix,
-                MaxKeys=1,
+                MaxKeys=max_days,
             )
             contents = response.get("Contents", []) if isinstance(response, dict) else []
-            match = None
+            observed_tails = {
+                self.redacted_csv_gzip_tail(str(obj.get("Key") or ""))
+                for obj in contents
+                if isinstance(obj, dict)
+            }
+            observed_by_tail: dict[str, dict[str, str]] = {}
             for obj in contents:
-                key = str(obj.get("Key") or "")
-                if key.endswith(".csv.gz"):
-                    match = obj
-                    break
-            if isinstance(match, dict):
-                result = dict(match)
-                result["date"] = day.isoformat()
-                result["redacted_key_tail"] = key_tail
-                results.append(result)
-            else:
-                results.append(
-                    {
-                        "date": day.isoformat(),
-                        "redacted_key_tail": key_tail,
-                        "object_present": False,
-                    }
-                )
+                if not isinstance(obj, dict):
+                    continue
+                tail = self.redacted_csv_gzip_tail(str(obj.get("Key") or ""))
+                if tail not in observed_by_tail:
+                    observed_by_tail[tail] = obj
+            for day in month_dates:
+                key_tail = self.redacted_csv_gzip_tail(day)
+                match = observed_by_tail.get(key_tail)
+                if isinstance(match, dict):
+                    result = dict(match)
+                    result["date"] = day.isoformat()
+                    result["redacted_key_tail"] = key_tail
+                    result["object_present"] = True
+                    results.append(result)
+                else:
+                    results.append(
+                        {
+                            "date": day.isoformat(),
+                            "redacted_key_tail": key_tail,
+                            "object_present": False,
+                        }
+                    )
         return results
 
     @staticmethod

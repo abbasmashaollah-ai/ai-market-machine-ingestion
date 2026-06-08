@@ -118,5 +118,5 @@ def test_adapter_classifies_client_error_403_safely() -> None:
 def test_date_range_and_manifest_tail_pattern_are_csv_gzip_based() -> None:
     assert PolygonFlatFileAdapter._date_range("2003-09-10", "2003-09-10", 25)[0].isoformat() == "2003-09-10"
     assert PolygonFlatFileAdapter._date_range("2026-01-02", "2026-01-02", 25)[0].isoformat() == "2026-01-02"
-    assert f"{PolygonFlatFileAdapter._normalize_date('2003-09-10'):%m/%Y-%m-%d.csv.gz}" == "09/2003-09-10.csv.gz"
-    assert f"{PolygonFlatFileAdapter._normalize_date('2026-01-02'):%m/%Y-%m-%d.csv.gz}" == "01/2026-01-02.csv.gz"
+    assert PolygonFlatFileAdapter.redacted_csv_gzip_tail("2003-09-10") == "09/2003-09-10.csv.gz"
+    assert PolygonFlatFileAdapter.redacted_csv_gzip_tail("2026-01-02") == "01/2026-01-02.csv.gz"
