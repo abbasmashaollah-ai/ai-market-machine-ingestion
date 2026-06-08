@@ -1,0 +1,71 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+
+def test_vendor_flat_file_historical_data_readiness_audit_mentions_required_terms() -> None:
+    path = Path("docs/vendor_flat_file_historical_data_readiness_audit.md")
+    text = path.read_text(encoding="utf-8").lower()
+
+    assert path.exists()
+    for needle in [
+        "vendor flat-file historical data readiness",
+        "stocks/equities",
+        "etfs",
+        "indices",
+        "options",
+        "futures",
+        "no paid vendor activation",
+        "no large downloads",
+        "ai-market-machine-ingestion is the producer/workflow repo",
+        "ai-market-machine-data is the data-service/warehouse repo",
+        "ai-market-machine-core is the ai reasoning system",
+        "vendor adapters",
+        "polygon api adapter",
+        "polygon flat-file adapter",
+        "local flat-file reader",
+        "manifest schema",
+        "checksum validator",
+        "ohlcv normalization",
+        "options chain normalization",
+        "futures normalization",
+        "symbol master",
+        "corporate actions",
+        "validation gates",
+        "lineage/evidence model",
+        "certification gates",
+        "warehouse handoff",
+        "replay/backtest support",
+        "scheduler/daily job surfaces",
+        "vendor raw landing area",
+        "normalized staging area",
+        "certified evidence output",
+        "data/vendor/polygon/flatfiles/equities/daily/yyyy/mm/dd/",
+        "data/vendor/polygon/flatfiles/options/daily/yyyy/mm/dd/",
+        "no raw vendor data committed to git",
+        "vendor cost/activation risk",
+        "large file/storage risk",
+        "options data volume risk",
+        "ai machine contamination risk",
+        "docs/contracts",
+        "fixture samples",
+        "manifest schema",
+        "checksum validation",
+        "local parser",
+        "normalization contract",
+        "warehouse handoff contract",
+        "replay/backtest contract",
+        "go_now",
+        "no_go",
+        "go_after_contracts",
+        "recommended next single step",
+        "no vendor calls",
+        "no downloads",
+        "no db writes",
+        "no ingestion run",
+        "no scheduler activation",
+        "no production changes",
+        "no ai machine runtime wiring",
+        "no secrets committed",
+    ]:
+        assert needle in text
