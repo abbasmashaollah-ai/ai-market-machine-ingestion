@@ -35,11 +35,6 @@ def _present_names(env: dict[str, str], names: tuple[str, ...]) -> list[str]:
     return [name for name in names if env.get(name)]
 
 
-def _redact_key_tail(key: str) -> str:
-    parts = [part for part in key.split("/") if part]
-    return parts[-1] if parts else "<redacted>"
-
-
 def _safe_payload(*, enabled: bool, start_date: str, end_date: str, max_days_requested: int) -> dict[str, object]:
     env = dict(os.environ)
     presence = detect_config_presence(env)
@@ -80,11 +75,10 @@ def _safe_payload(*, enabled: bool, start_date: str, end_date: str, max_days_req
         try:
             raw_entries = adapter.list_remote_manifest_objects(start_date=start_date, end_date=end_date, max_days=date_count_effective)
             for entry in raw_entries:
-                key_tail = _redact_key_tail(str(entry.get("redacted_key_tail") or "manifest.json"))
                 manifest_entries.append(
                     {
                         "date": entry.get("date"),
-                        "redacted_key_tail": key_tail,
+                        "redacted_key_tail": str(entry.get("redacted_key_tail") or "<redacted>"),
                         "object_present": bool(entry.get("object_present", True)),
                         "size_bytes": entry.get("Size"),
                         "last_modified_present": bool(entry.get("LastModified")),

@@ -229,31 +229,31 @@ class PolygonFlatFileAdapter:
         client = self.build_remote_listing_client()
         dates = self._date_range(start_date, end_date, max_days)
         results: list[dict[str, str]] = []
-        prefix = self._env.get("POLYGON_FLAT_FILE_PREFIX") or ""
         for day in dates:
-            expected_key = f"{prefix.rstrip('/')}/{day:%Y/%m/%d}/manifest.json" if prefix else f"{day:%Y/%m/%d}/manifest.json"
+            key_tail = f"{day:%m/%Y-%m-%d.csv.gz}"
+            lookup_prefix = f"{day:%m/%Y-%m-%d}"
             response = client.list_objects_v2(
                 Bucket=self._env.get("POLYGON_FLAT_FILE_BUCKET"),
-                Prefix=expected_key.rsplit("/", 1)[0],
+                Prefix=lookup_prefix,
                 MaxKeys=1,
             )
             contents = response.get("Contents", []) if isinstance(response, dict) else []
             match = None
             for obj in contents:
                 key = str(obj.get("Key") or "")
-                if key.endswith("manifest.json"):
+                if key.endswith(".csv.gz"):
                     match = obj
                     break
             if isinstance(match, dict):
                 result = dict(match)
                 result["date"] = day.isoformat()
-                result["redacted_key_tail"] = expected_key.rsplit("/", 1)[-1]
+                result["redacted_key_tail"] = key_tail
                 results.append(result)
             else:
                 results.append(
                     {
                         "date": day.isoformat(),
-                        "redacted_key_tail": "manifest.json",
+                        "redacted_key_tail": key_tail,
                         "object_present": False,
                     }
                 )

@@ -18,10 +18,10 @@ class _FakeClient:
     def list_objects_v2(self, **kwargs: object) -> dict[str, object]:
         self.calls.append(kwargs)
         prefix = str(kwargs.get("Prefix") or "")
-        if prefix.endswith("2026/01/01"):
-            return {"Contents": [{"Key": f"{prefix}/manifest.json", "Size": 101, "LastModified": "x", "ETag": "etag-1"}]}
-        if prefix.endswith("2026/01/03"):
-            return {"Contents": [{"Key": f"{prefix}/manifest.json", "Size": 103}]}
+        if prefix.endswith("2026-01-01"):
+            return {"Contents": [{"Key": "01/2026-01-01.csv.gz", "Size": 101, "LastModified": "x", "ETag": "etag-1"}]}
+        if prefix.endswith("2026-01-03"):
+            return {"Contents": [{"Key": "01/2026-01-03.csv.gz", "Size": 103}]}
         return {"Contents": []}
 
 
@@ -94,12 +94,13 @@ def test_mocked_listing_returns_redacted_manifest_entries(monkeypatch) -> None:
     )
     assert payload["manifest_object_count_present"] == 2
     assert payload["manifest_object_count_missing"] == 1
-    assert payload["manifest_entries"][0]["redacted_key_tail"] == "manifest.json"
+    assert payload["manifest_entries"][0]["redacted_key_tail"] == "01/2026-01-01.csv.gz"
     assert payload["manifest_entries"][1]["object_present"] is False
     text = json.dumps(payload).lower()
     for forbidden in ["polygon-key", "polygon-secret", "endpoint.invalid", "prefix/"]:
         assert forbidden not in text
     assert fake.calls
+    assert all("manifest.json" not in json.dumps(entry).lower() for entry in payload["manifest_entries"])
 
 
 def test_missing_boto3_is_safe(monkeypatch) -> None:
