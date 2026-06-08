@@ -178,6 +178,7 @@ def test_date_range_and_manifest_tail_pattern_are_csv_gzip_based() -> None:
     assert PolygonFlatFileAdapter.redacted_csv_gzip_tail("us_stocks_sip/day_aggs_v1/2026/01/2026-01-02.csv.gz") == "01/2026-01-02.csv.gz"
     assert PolygonFlatFileAdapter.stock_day_aggs_object_key("2003-09-10") == "us_stocks_sip/day_aggs_v1/2003/09/2003-09-10.csv.gz"
     assert PolygonFlatFileAdapter.stock_day_aggs_object_key("2026-01-02") == "us_stocks_sip/day_aggs_v1/2026/01/2026-01-02.csv.gz"
+    assert PolygonFlatFileAdapter.sha256_prefix("us_stocks_sip/day_aggs_v1/2003/09/2003-09-10.csv.gz") == PolygonFlatFileAdapter.sha256_prefix("us_stocks_sip/day_aggs_v1/2003/09/2003-09-10.csv.gz")
 
 
 def test_download_single_date_object_writes_local_file_and_sha256(monkeypatch, tmp_path) -> None:
@@ -200,6 +201,10 @@ def test_download_single_date_object_writes_local_file_and_sha256(monkeypatch, t
     assert result["local_file_sha256"]
     assert result["redacted_key_tail"] == "09/2003-09-10.csv.gz"
     assert result["content_length_present"] is True
+    assert result["resolved_key_present"] is True
+    assert result["resolved_key_tail_matches_requested_date"] is True
+    assert result["resolved_key_sha256_prefix"] == result["listed_key_sha256_prefix"]
+    assert result["resolved_key_matches_listed_key"] is True
     assert any(call.get("Key") == "us_stocks_sip/day_aggs_v1/2003/09/2003-09-10.csv.gz" for call in fake.calls)
     assert any("get_object" not in call for call in fake.calls if isinstance(call, dict))
 
@@ -226,6 +231,8 @@ def test_download_single_date_object_skips_when_manifest_missing(monkeypatch, tm
     result = adapter.download_single_date_object(value="2003-09-10", local_path=local_path)
     assert result["downloaded"] is False
     assert result["local_file_exists"] is False
+    assert result["resolved_key_present"] is False
+    assert result["resolved_key_sha256_prefix"] == ""
     assert len(fake.calls) == 1
     assert "Key" not in fake.calls[0]
 
@@ -248,6 +255,10 @@ def test_download_single_date_object_uses_get_object_stream_and_forbidden_maps_s
     fake = _ForbiddenClient()
     monkeypatch.setattr(adapter, "build_remote_listing_client", lambda: fake)
     local_path = tmp_path / "polygon_stocks_day_aggs_2003-09-10.csv.gz"
-    with pytest.raises(_FakeClientError):
-        adapter.download_single_date_object(value="2003-09-10", local_path=local_path)
+    result = adapter.download_single_date_object(value="2003-09-10", local_path=local_path)
+    assert result["downloaded"] is False
+    assert result["remote_download_status"] == "forbidden"
+    assert result["resolved_key_present"] is True
+    assert result["resolved_key_tail_matches_requested_date"] is True
+    assert result["resolved_key_matches_listed_key"] is True
     assert not local_path.exists()

@@ -240,6 +240,13 @@ class PolygonFlatFileAdapter:
         day = PolygonFlatFileAdapter._normalize_date(value)
         return f"us_stocks_sip/day_aggs_v1/{day:%Y/%m}/{day:%Y-%m-%d}.csv.gz"
 
+    @staticmethod
+    def sha256_prefix(value: str | bytes, *, prefix_len: int = 12) -> str:
+        import hashlib
+
+        payload = value if isinstance(value, bytes) else value.encode("utf-8")
+        return hashlib.sha256(payload).hexdigest()[:prefix_len]
+
     def list_remote_manifest_objects(self, *, start_date: str | date, end_date: str | date, max_days: int) -> list[dict[str, str]]:
         client = self.build_remote_listing_client()
         dates = self._date_range(start_date, end_date, max_days)
@@ -304,6 +311,12 @@ class PolygonFlatFileAdapter:
                 "local_file_size_bytes": path.stat().st_size,
                 "local_file_sha256": _sha256_file(path),
                 "redacted_key_tail": self.redacted_csv_gzip_tail(value),
+                "resolved_key_present": False,
+                "resolved_key_tail_matches_requested_date": False,
+                "resolved_key_sha256_prefix": "",
+                "listed_key_sha256_prefix": "",
+                "resolved_key_matches_listed_key": False,
+                "content_length_present": False,
                 "local_quarantine_path": str(path),
             }
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -318,28 +331,64 @@ class PolygonFlatFileAdapter:
                 "local_file_size_bytes": 0,
                 "local_file_sha256": "",
                 "redacted_key_tail": self.redacted_csv_gzip_tail(value),
+                "resolved_key_present": False,
+                "resolved_key_tail_matches_requested_date": False,
+                "resolved_key_sha256_prefix": "",
+                "listed_key_sha256_prefix": "",
+                "resolved_key_matches_listed_key": False,
+                "content_length_present": False,
                 "local_quarantine_path": str(path),
             }
-        key = str(resolved["Key"])
+        listed_key = str(resolved["Key"])
+        resolved_key = listed_key
+        requested_tail = self.redacted_csv_gzip_tail(value)
+        key_tail = self.redacted_csv_gzip_tail(resolved_key)
+        key_hash = self.sha256_prefix(resolved_key)
         client = self.build_remote_listing_client()
-        response = client.get_object(Bucket=self._env.get("POLYGON_FLAT_FILE_BUCKET"), Key=key)
-        body = response.get("Body") if isinstance(response, dict) else None
-        content_length_present = bool(isinstance(response, dict) and response.get("ContentLength") is not None)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("wb") as handle:
-            if body is not None and hasattr(body, "read"):
-                while True:
-                    chunk = body.read(1024 * 1024)
-                    if not chunk:
-                        break
-                    handle.write(chunk)
+        try:
+            response = client.get_object(Bucket=self._env.get("POLYGON_FLAT_FILE_BUCKET"), Key=resolved_key)
+            body = response.get("Body") if isinstance(response, dict) else None
+            content_length_present = bool(isinstance(response, dict) and response.get("ContentLength") is not None)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with path.open("wb") as handle:
+                if body is not None and hasattr(body, "read"):
+                    while True:
+                        chunk = body.read(1024 * 1024)
+                        if not chunk:
+                            break
+                        handle.write(chunk)
+        except Exception as error:
+            code, redacted_code, message = self.classify_remote_listing_error(error)
+            return {
+                "downloaded": False,
+                "skipped_existing": False,
+                "local_file_exists": False,
+                "local_file_size_bytes": 0,
+                "local_file_sha256": "",
+                "redacted_key_tail": key_tail,
+                "resolved_key_present": True,
+                "resolved_key_tail_matches_requested_date": key_tail == requested_tail,
+                "resolved_key_sha256_prefix": key_hash,
+                "listed_key_sha256_prefix": self.sha256_prefix(listed_key),
+                "resolved_key_matches_listed_key": resolved_key == listed_key,
+                "content_length_present": False,
+                "local_quarantine_path": str(path),
+                "remote_download_status": code,
+                "remote_download_error_code_redacted": redacted_code,
+                "remote_download_error_message_redacted": message,
+            }
         return {
             "downloaded": True,
             "skipped_existing": False,
             "local_file_exists": path.exists(),
             "local_file_size_bytes": path.stat().st_size if path.exists() else 0,
             "local_file_sha256": _sha256_file(path) if path.exists() else "",
-            "redacted_key_tail": self.redacted_csv_gzip_tail(key),
+            "redacted_key_tail": key_tail,
+            "resolved_key_present": True,
+            "resolved_key_tail_matches_requested_date": key_tail == requested_tail,
+            "resolved_key_sha256_prefix": key_hash,
+            "listed_key_sha256_prefix": self.sha256_prefix(listed_key),
+            "resolved_key_matches_listed_key": resolved_key == listed_key,
             "content_length_present": content_length_present,
             "local_quarantine_path": str(path),
         }

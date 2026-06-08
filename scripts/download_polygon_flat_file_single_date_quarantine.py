@@ -58,6 +58,14 @@ def _safe_payload(*, enabled: bool, approval_phrase: str, value: str, quarantine
     local_file_size_bytes = path.stat().st_size if path.exists() else 0
     local_file_sha256 = ""
     content_length_present = False
+    resolved_key_present = False
+    resolved_key_tail_matches_requested_date = False
+    resolved_key_sha256_prefix = ""
+    listed_key_sha256_prefix = ""
+    resolved_key_matches_listed_key = False
+    remote_download_status = ""
+    remote_download_error_code_redacted = ""
+    remote_download_error_message_redacted = ""
     resolved = None
     if local_quarantine_download_enabled:
         try:
@@ -87,6 +95,11 @@ def _safe_payload(*, enabled: bool, approval_phrase: str, value: str, quarantine
                 "prefix_value_printed": False,
                 "requested_date": value,
                 "redacted_key_tail": adapter.redacted_csv_gzip_tail(value),
+                "resolved_key_present": False,
+                "resolved_key_tail_matches_requested_date": False,
+                "resolved_key_sha256_prefix": "",
+                "listed_key_sha256_prefix": "",
+                "resolved_key_matches_listed_key": False,
                 "local_quarantine_path": str(path),
                 "local_file_exists": False,
                 "local_file_size_bytes": 0,
@@ -109,6 +122,16 @@ def _safe_payload(*, enabled: bool, approval_phrase: str, value: str, quarantine
             local_file_size_bytes = int(result.get("local_file_size_bytes") or 0)
             local_file_sha256 = str(result.get("local_file_sha256") or "")
             content_length_present = bool(result.get("content_length_present"))
+            resolved_key_present = bool(result.get("resolved_key_present"))
+            resolved_key_tail_matches_requested_date = bool(result.get("resolved_key_tail_matches_requested_date"))
+            resolved_key_sha256_prefix = str(result.get("resolved_key_sha256_prefix") or "")
+            listed_key_sha256_prefix = str(result.get("listed_key_sha256_prefix") or "")
+            resolved_key_matches_listed_key = bool(result.get("resolved_key_matches_listed_key"))
+            remote_download_status = str(result.get("remote_download_status") or "")
+            remote_download_error_code_redacted = str(result.get("remote_download_error_code_redacted") or "")
+            remote_download_error_message_redacted = str(result.get("remote_download_error_message_redacted") or "")
+            if result.get("remote_download_status"):
+                blockers.append(f"local quarantine download blocked safely: {result.get('remote_download_status')}")
         except Exception as exc:
             code, redacted_code, message = adapter.classify_remote_listing_error(exc)
             blockers.append(f"local quarantine download blocked safely: {code}")
@@ -134,11 +157,19 @@ def _safe_payload(*, enabled: bool, approval_phrase: str, value: str, quarantine
                 "prefix_value_printed": False,
                 "requested_date": value,
                 "redacted_key_tail": adapter.redacted_csv_gzip_tail(value),
+                "resolved_key_present": resolved_key_present,
+                "resolved_key_tail_matches_requested_date": resolved_key_tail_matches_requested_date,
+                "resolved_key_sha256_prefix": resolved_key_sha256_prefix,
+                "listed_key_sha256_prefix": listed_key_sha256_prefix,
+                "resolved_key_matches_listed_key": resolved_key_matches_listed_key,
                 "local_quarantine_path": str(path),
                 "local_file_exists": False,
                 "local_file_size_bytes": 0,
                 "local_file_sha256": "",
                 "content_length_present": False,
+                "remote_download_status": code,
+                "remote_download_error_code_redacted": redacted_code,
+                "remote_download_error_message_redacted": message,
                 "production_handoff_generation_authorized": False,
                 "synthetic_forbidden": True,
                 "fixture_only_forbidden": True,
@@ -172,11 +203,19 @@ def _safe_payload(*, enabled: bool, approval_phrase: str, value: str, quarantine
         "prefix_value_printed": False,
         "requested_date": value,
         "redacted_key_tail": adapter.redacted_csv_gzip_tail(value),
+        "resolved_key_present": resolved_key_present,
+        "resolved_key_tail_matches_requested_date": resolved_key_tail_matches_requested_date,
+        "resolved_key_sha256_prefix": resolved_key_sha256_prefix,
+        "listed_key_sha256_prefix": listed_key_sha256_prefix,
+        "resolved_key_matches_listed_key": resolved_key_matches_listed_key,
         "local_quarantine_path": str(path),
         "local_file_exists": local_file_exists,
         "local_file_size_bytes": local_file_size_bytes,
         "local_file_sha256": local_file_sha256,
         "content_length_present": content_length_present,
+        "remote_download_status": remote_download_status,
+        "remote_download_error_code_redacted": remote_download_error_code_redacted,
+        "remote_download_error_message_redacted": remote_download_error_message_redacted,
         "production_handoff_generation_authorized": False,
         "synthetic_forbidden": True,
         "fixture_only_forbidden": True,

@@ -12,11 +12,17 @@ from pathlib import Path
 import scripts.download_polygon_flat_file_single_date_quarantine as cli
 
 
+class _FakeClientError(Exception):
+    def __init__(self, response: dict[str, object]) -> None:
+        super().__init__("client error")
+        self.response = response
+
+
 class _FakeClient:
     def __init__(self, *, has_object: bool) -> None:
         self.has_object = has_object
         self.list_calls: list[dict[str, object]] = []
-        self.download_calls: list[dict[str, object]] = []
+        self.get_calls: list[dict[str, object]] = []
 
     def list_objects_v2(self, **kwargs: object) -> dict[str, object]:
         self.list_calls.append(kwargs)
@@ -37,7 +43,7 @@ class _FakeClient:
         return {"Contents": []}
 
     def download_file(self, **kwargs: object) -> None:
-        self.download_calls.append(kwargs)
+        self.get_calls.append(kwargs)
         path = Path(str(kwargs["Filename"]))
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(b"fake gzip bytes")
@@ -55,12 +61,11 @@ class _FakeClient:
             return chunk
 
     def get_object(self, **kwargs: object) -> dict[str, object]:
-        self.download_calls.append(kwargs)
+        self.get_calls.append(kwargs)
         if kwargs.get("Key") == "us_stocks_sip/day_aggs_v1/2003/09/2003-09-10.csv.gz":
             payload = b"fake gzip bytes"
             return {"Body": self._Body(payload), "ContentLength": len(payload)}
         raise RuntimeError("unexpected key")
-
 
 def _run_cli(monkeypatch, argv: list[str], env: dict[str, str] | None = None) -> dict[str, object]:
     for name in cli.REQUIRED_CONFIG_NAMES:
@@ -128,8 +133,13 @@ def test_approved_run_downloads_exactly_one_mocked_object(monkeypatch, tmp_path)
     assert payload["local_file_sha256"]
     assert payload["local_quarantine_path"].endswith("polygon_stocks_day_aggs_2003-09-10.csv.gz")
     assert fake.list_calls and len(fake.list_calls) >= 1
-    assert any(call.get("Key") == "us_stocks_sip/day_aggs_v1/2003/09/2003-09-10.csv.gz" for call in fake.download_calls)
-    assert not any("download_file" in call for call in fake.download_calls if isinstance(call, dict))
+    assert any(call.get("Key") == "us_stocks_sip/day_aggs_v1/2003/09/2003-09-10.csv.gz" for call in fake.get_calls)
+    assert not any("download_file" in call for call in fake.get_calls if isinstance(call, dict))
+    assert payload["resolved_key_present"] is True
+    assert payload["resolved_key_tail_matches_requested_date"] is True
+    assert payload["resolved_key_matches_listed_key"] is True
+    assert len(payload["resolved_key_sha256_prefix"]) == 12
+    assert len(payload["listed_key_sha256_prefix"]) == 12
     text = json.dumps(payload).lower()
     for forbidden in ["polygon-key", "polygon-secret", "endpoint.invalid", "prefix/2003", "us_stocks_sip/day_aggs_v1"]:
         assert forbidden not in text
@@ -158,7 +168,7 @@ def test_existing_file_skips_until_overwrite(monkeypatch, tmp_path) -> None:
     assert payload["download_attempted"] is False
     assert payload["local_file_exists"] is True
     assert payload["local_file_size_bytes"] == len(b"existing")
-    assert fake.download_calls == []
+    assert fake.get_calls == []
 
 
 def test_overwrite_flag_allows_rewrite(monkeypatch, tmp_path) -> None:
@@ -187,7 +197,7 @@ def test_overwrite_flag_allows_rewrite(monkeypatch, tmp_path) -> None:
     assert payload["local_file_exists"] is True
     assert payload["local_file_sha256"]
     assert path.stat().st_size != original_size
-    assert any(call.get("Key") == "us_stocks_sip/day_aggs_v1/2003/09/2003-09-10.csv.gz" for call in fake.download_calls)
+    assert any(call.get("Key") == "us_stocks_sip/day_aggs_v1/2003/09/2003-09-10.csv.gz" for call in fake.get_calls)
 
 
 def test_manifest_missing_prevents_download(monkeypatch, tmp_path) -> None:
@@ -216,8 +226,48 @@ def test_manifest_missing_prevents_download(monkeypatch, tmp_path) -> None:
     )
     assert payload["download_attempted"] is False
     assert payload["local_file_exists"] is False
-    assert fake.download_calls == []
+    assert fake.get_calls == []
     assert any("not present in the manifest listing" in blocker for blocker in payload["blockers"])
+
+
+def test_forbidden_get_object_returns_safe_json(monkeypatch, tmp_path) -> None:
+    fake = _FakeClient(has_object=True)
+
+    def _raise_forbidden(**kwargs: object) -> dict[str, object]:
+        fake.get_calls.append(kwargs)
+        raise _FakeClientError({"Error": {"Code": "AccessDenied", "Message": "Forbidden"}, "ResponseMetadata": {"HTTPStatusCode": 403}})
+
+    fake.get_object = _raise_forbidden  # type: ignore[assignment]
+    monkeypatch.setattr(cli.PolygonFlatFileAdapter, "boto3_available", staticmethod(lambda: True))
+    monkeypatch.setattr(cli.PolygonFlatFileAdapter, "build_remote_listing_client", lambda self: fake)
+    quarantine_dir = tmp_path / "quarantine"
+    payload = _run_cli(
+        monkeypatch,
+        [
+            "--date",
+            "2003-09-10",
+            "--approve-local-quarantine-download",
+            "--approval-phrase",
+            cli.APPROVAL_PHRASE,
+            "--quarantine-dir",
+            str(quarantine_dir),
+        ],
+        {
+            "POLYGON_FLAT_FILE_ACCESS_KEY_ID": "polygon-key",
+            "POLYGON_FLAT_FILE_SECRET_ACCESS_KEY": "polygon-secret",
+            "POLYGON_FLAT_FILE_ENDPOINT": "https://endpoint.invalid",
+            "POLYGON_FLAT_FILE_BUCKET": "bucket",
+            "POLYGON_FLAT_FILE_PREFIX": "prefix",
+        },
+    )
+    assert payload["download_attempted"] is True
+    assert payload["remote_object_download_attempted"] is True
+    assert payload["remote_download_status"] == "forbidden"
+    assert payload["local_file_exists"] is False
+    assert not (quarantine_dir / "polygon_stocks_day_aggs_2003-09-10.csv.gz").exists()
+    text = json.dumps(payload).lower()
+    for forbidden in ["polygon-key", "polygon-secret", "endpoint.invalid", "prefix/2003", "us_stocks_sip/day_aggs_v1/2003/09/2003-09-10.csv.gz"]:
+        assert forbidden not in text
 
 
 def test_source_scan_blocks_decompression_parse_export_db_scheduler_and_mutation() -> None:
