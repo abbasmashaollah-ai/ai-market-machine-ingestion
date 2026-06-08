@@ -57,7 +57,49 @@ def _safe_payload(*, enabled: bool, approval_phrase: str, value: str, quarantine
     local_file_exists = path.exists()
     local_file_size_bytes = path.stat().st_size if path.exists() else 0
     local_file_sha256 = ""
-    if local_quarantine_download_enabled and (overwrite_local_file or not path.exists()):
+    resolved = None
+    if local_quarantine_download_enabled:
+        try:
+            resolved = adapter.resolve_remote_manifest_object_for_date(value)
+        except Exception as exc:
+            code, redacted_code, message = adapter.classify_remote_listing_error(exc)
+            blockers.append(f"local quarantine download blocked safely: {code}")
+            return {
+                "preflight_only": False,
+                "local_quarantine_download_enabled": local_quarantine_download_enabled,
+                "vendor_call_attempted": True,
+                "remote_object_download_attempted": False,
+                "download_attempted": False,
+                "remote_file_read_attempted": False,
+                "decompression_attempted": False,
+                "parse_attempted": False,
+                "export_attempted": False,
+                "db_write_attempted": False,
+                "ingestion_attempted": False,
+                "scheduler_activation_attempted": False,
+                "production_mutation_attempted": False,
+                "config_classification": config_classification,
+                "credentials_present": bool(presence["credentials_present"]),
+                "credentials_printed": False,
+                "endpoint_value_printed": False,
+                "bucket_value_printed": False,
+                "prefix_value_printed": False,
+                "requested_date": value,
+                "redacted_key_tail": adapter.redacted_csv_gzip_tail(value),
+                "local_quarantine_path": str(path),
+                "local_file_exists": False,
+                "local_file_size_bytes": 0,
+                "local_file_sha256": "",
+                "production_handoff_generation_authorized": False,
+                "synthetic_forbidden": True,
+                "fixture_only_forbidden": True,
+                "remote_listing_status": code,
+                "remote_listing_error_code_redacted": redacted_code,
+                "remote_listing_error_message_redacted": message,
+                "blockers": blockers,
+                "next_allowed_step": "explicit approved single-date local quarantine download only, not export",
+            }
+    if local_quarantine_download_enabled and resolved is not None and (overwrite_local_file or not path.exists()):
         try:
             remote_object_download_attempted = True
             download_attempted = True
@@ -103,6 +145,8 @@ def _safe_payload(*, enabled: bool, approval_phrase: str, value: str, quarantine
                 "blockers": blockers,
                 "next_allowed_step": "explicit approved single-date local quarantine download only, not export",
             }
+    if local_quarantine_download_enabled and resolved is None:
+        blockers.append("requested date was not present in the manifest listing")
     return {
         "preflight_only": False if local_quarantine_download_enabled else True,
         "local_quarantine_download_enabled": local_quarantine_download_enabled,

@@ -12,29 +12,35 @@ from pathlib import Path
 import scripts.download_polygon_flat_file_single_date_quarantine as cli
 
 
-class _FakeAdapter(cli.PolygonFlatFileAdapter):
-    @staticmethod
-    def boto3_available() -> bool:
-        return True
-
-    def __init__(self, env: dict[str, str] | None = None) -> None:
-        super().__init__(env=env)
+class _FakeClient:
+    def __init__(self, *, has_object: bool) -> None:
+        self.has_object = has_object
+        self.list_calls: list[dict[str, object]] = []
         self.download_calls: list[dict[str, object]] = []
 
-    def download_single_date_object(self, *, value: str, local_path: str | Path, overwrite: bool = False) -> dict[str, object]:
-        self.download_calls.append({"value": value, "local_path": str(local_path), "overwrite": overwrite})
-        path = Path(local_path)
+    def list_objects_v2(self, **kwargs: object) -> dict[str, object]:
+        self.list_calls.append(kwargs)
+        prefix = str(kwargs.get("Prefix") or "")
+        if not self.has_object:
+            return {"Contents": []}
+        if prefix.endswith("us_stocks_sip/day_aggs_v1/2003/09"):
+            return {
+                "Contents": [
+                    {
+                        "Key": "us_stocks_sip/day_aggs_v1/2003/09/2003-09-10.csv.gz",
+                        "Size": 15,
+                        "LastModified": "x",
+                        "ETag": "etag-1",
+                    }
+                ]
+            }
+        return {"Contents": []}
+
+    def download_file(self, **kwargs: object) -> None:
+        self.download_calls.append(kwargs)
+        path = Path(str(kwargs["Filename"]))
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(b"fake gzip bytes")
-        return {
-            "downloaded": True,
-            "skipped_existing": False,
-            "local_file_exists": True,
-            "local_file_size_bytes": path.stat().st_size,
-            "local_file_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
-            "redacted_key_tail": self.redacted_csv_gzip_tail(value),
-            "local_quarantine_path": str(path),
-        }
 
 
 def _run_cli(monkeypatch, argv: list[str], env: dict[str, str] | None = None) -> dict[str, object]:
@@ -71,8 +77,9 @@ def test_wrong_approval_phrase_does_not_download(monkeypatch) -> None:
 
 
 def test_approved_run_downloads_exactly_one_mocked_object(monkeypatch, tmp_path) -> None:
-    fake = _FakeAdapter({})
-    monkeypatch.setattr(cli, "PolygonFlatFileAdapter", lambda env=None: fake)
+    fake = _FakeClient(has_object=True)
+    monkeypatch.setattr(cli.PolygonFlatFileAdapter, "boto3_available", staticmethod(lambda: True))
+    monkeypatch.setattr(cli.PolygonFlatFileAdapter, "build_remote_listing_client", lambda self: fake)
     quarantine_dir = tmp_path / "quarantine"
     payload = _run_cli(
         monkeypatch,
@@ -101,15 +108,18 @@ def test_approved_run_downloads_exactly_one_mocked_object(monkeypatch, tmp_path)
     assert payload["local_file_size_bytes"] > 0
     assert payload["local_file_sha256"]
     assert payload["local_quarantine_path"].endswith("polygon_stocks_day_aggs_2003-09-10.csv.gz")
+    assert fake.list_calls and len(fake.list_calls) >= 1
     assert fake.download_calls and len(fake.download_calls) == 1
+    assert fake.download_calls[0]["Key"] == "us_stocks_sip/day_aggs_v1/2003/09/2003-09-10.csv.gz"
     text = json.dumps(payload).lower()
     for forbidden in ["polygon-key", "polygon-secret", "endpoint.invalid", "prefix/2003", "us_stocks_sip/day_aggs_v1"]:
         assert forbidden not in text
 
 
 def test_existing_file_skips_until_overwrite(monkeypatch, tmp_path) -> None:
-    fake = _FakeAdapter({})
-    monkeypatch.setattr(cli, "PolygonFlatFileAdapter", lambda env=None: fake)
+    fake = _FakeClient(has_object=True)
+    monkeypatch.setattr(cli.PolygonFlatFileAdapter, "boto3_available", staticmethod(lambda: True))
+    monkeypatch.setattr(cli.PolygonFlatFileAdapter, "build_remote_listing_client", lambda self: fake)
     quarantine_dir = tmp_path / "quarantine"
     path = quarantine_dir / "polygon_stocks_day_aggs_2003-09-10.csv.gz"
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -133,12 +143,14 @@ def test_existing_file_skips_until_overwrite(monkeypatch, tmp_path) -> None:
 
 
 def test_overwrite_flag_allows_rewrite(monkeypatch, tmp_path) -> None:
-    fake = _FakeAdapter({})
-    monkeypatch.setattr(cli, "PolygonFlatFileAdapter", lambda env=None: fake)
+    fake = _FakeClient(has_object=True)
+    monkeypatch.setattr(cli.PolygonFlatFileAdapter, "boto3_available", staticmethod(lambda: True))
+    monkeypatch.setattr(cli.PolygonFlatFileAdapter, "build_remote_listing_client", lambda self: fake)
     quarantine_dir = tmp_path / "quarantine"
     path = quarantine_dir / "polygon_stocks_day_aggs_2003-09-10.csv.gz"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(b"existing")
+    original_size = path.stat().st_size
     payload = _run_cli(
         monkeypatch,
         [
@@ -155,7 +167,38 @@ def test_overwrite_flag_allows_rewrite(monkeypatch, tmp_path) -> None:
     assert payload["download_attempted"] is True
     assert payload["local_file_exists"] is True
     assert payload["local_file_sha256"]
-    assert fake.download_calls and fake.download_calls[0]["overwrite"] is True
+    assert path.stat().st_size != original_size
+    assert fake.download_calls and len(fake.download_calls) == 1
+
+
+def test_manifest_missing_prevents_download(monkeypatch, tmp_path) -> None:
+    fake = _FakeClient(has_object=False)
+    monkeypatch.setattr(cli.PolygonFlatFileAdapter, "boto3_available", staticmethod(lambda: True))
+    monkeypatch.setattr(cli.PolygonFlatFileAdapter, "build_remote_listing_client", lambda self: fake)
+    quarantine_dir = tmp_path / "quarantine"
+    payload = _run_cli(
+        monkeypatch,
+        [
+            "--date",
+            "2003-09-10",
+            "--approve-local-quarantine-download",
+            "--approval-phrase",
+            cli.APPROVAL_PHRASE,
+            "--quarantine-dir",
+            str(quarantine_dir),
+        ],
+        {
+            "POLYGON_FLAT_FILE_ACCESS_KEY_ID": "polygon-key",
+            "POLYGON_FLAT_FILE_SECRET_ACCESS_KEY": "polygon-secret",
+            "POLYGON_FLAT_FILE_ENDPOINT": "https://endpoint.invalid",
+            "POLYGON_FLAT_FILE_BUCKET": "bucket",
+            "POLYGON_FLAT_FILE_PREFIX": "prefix",
+        },
+    )
+    assert payload["download_attempted"] is False
+    assert payload["local_file_exists"] is False
+    assert fake.download_calls == []
+    assert any("not present in the manifest listing" in blocker for blocker in payload["blockers"])
 
 
 def test_source_scan_blocks_decompression_parse_export_db_scheduler_and_mutation() -> None:

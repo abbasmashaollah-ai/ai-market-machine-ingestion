@@ -286,9 +286,15 @@ class PolygonFlatFileAdapter:
                     )
         return results
 
+    def resolve_remote_manifest_object_for_date(self, value: str | date) -> dict[str, Any] | None:
+        day = PolygonFlatFileAdapter._normalize_date(value)
+        entries = self.list_remote_manifest_objects(start_date=day, end_date=day, max_days=1)
+        for entry in entries:
+            if entry.get("date") == day.isoformat() and entry.get("object_present") is True:
+                return entry
+        return None
+
     def download_single_date_object(self, *, value: str | date, local_path: str | Path, overwrite: bool = False) -> dict[str, Any]:
-        client = self.build_remote_listing_client()
-        key = self.stock_day_aggs_object_key(value)
         path = Path(local_path)
         if path.exists() and not overwrite:
             return {
@@ -297,12 +303,25 @@ class PolygonFlatFileAdapter:
                 "local_file_exists": True,
                 "local_file_size_bytes": path.stat().st_size,
                 "local_file_sha256": _sha256_file(path),
-                "redacted_key_tail": self.redacted_csv_gzip_tail(key),
+                "redacted_key_tail": self.redacted_csv_gzip_tail(value),
                 "local_quarantine_path": str(path),
             }
         path.parent.mkdir(parents=True, exist_ok=True)
         if not self.boto3_available():
             raise RuntimeError("boto3 is required for remote download preflight")
+        resolved = self.resolve_remote_manifest_object_for_date(value)
+        if not resolved or not resolved.get("object_present") or not resolved.get("Key"):
+            return {
+                "downloaded": False,
+                "skipped_existing": False,
+                "local_file_exists": False,
+                "local_file_size_bytes": 0,
+                "local_file_sha256": "",
+                "redacted_key_tail": self.redacted_csv_gzip_tail(value),
+                "local_quarantine_path": str(path),
+            }
+        key = str(resolved["Key"])
+        client = self.build_remote_listing_client()
         client.download_file(
             Bucket=self._env.get("POLYGON_FLAT_FILE_BUCKET"),
             Key=key,

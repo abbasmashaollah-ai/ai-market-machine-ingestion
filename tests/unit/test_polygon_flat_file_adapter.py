@@ -39,6 +39,22 @@ class _FakeDownloadClient:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(b"fake gzip bytes")
 
+    def list_objects_v2(self, **kwargs: object) -> dict[str, object]:
+        self.calls.append(kwargs)
+        prefix = str(kwargs.get("Prefix") or "")
+        if prefix.endswith("us_stocks_sip/day_aggs_v1/2003/09"):
+            return {
+                "Contents": [
+                    {
+                        "Key": "us_stocks_sip/day_aggs_v1/2003/09/2003-09-10.csv.gz",
+                        "Size": 17,
+                        "LastModified": "x",
+                        "ETag": "etag-1",
+                    }
+                ]
+            }
+        return {"Contents": []}
+
 
 class _DownloadableAdapter(PolygonFlatFileAdapter):
     @staticmethod
@@ -164,4 +180,30 @@ def test_download_single_date_object_writes_local_file_and_sha256(monkeypatch, t
     assert result["local_file_size_bytes"] > 0
     assert result["local_file_sha256"]
     assert result["redacted_key_tail"] == "09/2003-09-10.csv.gz"
-    assert fake.calls and fake.calls[0]["Key"] == "us_stocks_sip/day_aggs_v1/2003/09/2003-09-10.csv.gz"
+    assert any(call.get("Key") == "us_stocks_sip/day_aggs_v1/2003/09/2003-09-10.csv.gz" for call in fake.calls)
+
+
+def test_download_single_date_object_skips_when_manifest_missing(monkeypatch, tmp_path) -> None:
+    adapter = _DownloadableAdapter(
+        {
+            "POLYGON_FLAT_FILE_ACCESS_KEY_ID": "polygon-key",
+            "POLYGON_FLAT_FILE_SECRET_ACCESS_KEY": "polygon-secret",
+            "POLYGON_FLAT_FILE_ENDPOINT": "https://endpoint.invalid",
+            "POLYGON_FLAT_FILE_BUCKET": "bucket",
+            "POLYGON_FLAT_FILE_PREFIX": "prefix",
+        }
+    )
+
+    class _MissingClient(_FakeDownloadClient):
+        def list_objects_v2(self, **kwargs: object) -> dict[str, object]:
+            self.calls.append(kwargs)
+            return {"Contents": []}
+
+    fake = _MissingClient()
+    monkeypatch.setattr(adapter, "build_remote_listing_client", lambda: fake)
+    local_path = tmp_path / "polygon_stocks_day_aggs_2003-09-10.csv.gz"
+    result = adapter.download_single_date_object(value="2003-09-10", local_path=local_path)
+    assert result["downloaded"] is False
+    assert result["local_file_exists"] is False
+    assert len(fake.calls) == 1
+    assert "Key" not in fake.calls[0]
