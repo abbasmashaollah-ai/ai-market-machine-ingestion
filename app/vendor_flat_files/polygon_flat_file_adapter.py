@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date, datetime, timedelta
 import importlib.util
 from dataclasses import dataclass
 from pathlib import Path
@@ -204,6 +205,59 @@ class PolygonFlatFileAdapter:
         )
         contents = response.get("Contents", []) if isinstance(response, dict) else []
         return [obj for obj in contents if isinstance(obj, dict) and "Key" in obj]
+
+    @staticmethod
+    def _normalize_date(value: str | date) -> date:
+        if isinstance(value, date):
+            return value
+        return datetime.strptime(value, "%Y-%m-%d").date()
+
+    @staticmethod
+    def _date_range(start_date: str | date, end_date: str | date, max_days: int) -> list[date]:
+        start = PolygonFlatFileAdapter._normalize_date(start_date)
+        end = PolygonFlatFileAdapter._normalize_date(end_date)
+        if end < start:
+            start, end = end, start
+        days: list[date] = []
+        current = start
+        while current <= end and len(days) < max_days:
+            days.append(current)
+            current += timedelta(days=1)
+        return days
+
+    def list_remote_manifest_objects(self, *, start_date: str | date, end_date: str | date, max_days: int) -> list[dict[str, str]]:
+        client = self.build_remote_listing_client()
+        dates = self._date_range(start_date, end_date, max_days)
+        results: list[dict[str, str]] = []
+        prefix = self._env.get("POLYGON_FLAT_FILE_PREFIX") or ""
+        for day in dates:
+            expected_key = f"{prefix.rstrip('/')}/{day:%Y/%m/%d}/manifest.json" if prefix else f"{day:%Y/%m/%d}/manifest.json"
+            response = client.list_objects_v2(
+                Bucket=self._env.get("POLYGON_FLAT_FILE_BUCKET"),
+                Prefix=expected_key.rsplit("/", 1)[0],
+                MaxKeys=1,
+            )
+            contents = response.get("Contents", []) if isinstance(response, dict) else []
+            match = None
+            for obj in contents:
+                key = str(obj.get("Key") or "")
+                if key.endswith("manifest.json"):
+                    match = obj
+                    break
+            if isinstance(match, dict):
+                result = dict(match)
+                result["date"] = day.isoformat()
+                result["redacted_key_tail"] = expected_key.rsplit("/", 1)[-1]
+                results.append(result)
+            else:
+                results.append(
+                    {
+                        "date": day.isoformat(),
+                        "redacted_key_tail": "manifest.json",
+                        "object_present": False,
+                    }
+                )
+        return results
 
     @staticmethod
     def classify_remote_listing_error(error: Exception) -> tuple[str, str, str]:
