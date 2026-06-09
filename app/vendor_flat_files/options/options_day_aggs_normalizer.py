@@ -82,7 +82,14 @@ def normalize_options_day_aggs_records(parsed: OptionsDayAggsParseResult, *, sou
         if transactions < 0:
             errors.append(OptionsDayAggsNormalizationError(code="NEGATIVE_TRANSACTIONS", message="transactions cannot be negative", row_number=row_number, field_name="transactions"))
             continue
+        row_warnings: list[str] = []
         _maybe_issue_warning(warnings, row_number=row_number, contract=contract, high_value=high_value, low_value=low_value)
+        if not contract.parse_ok:
+            row_warnings.append(f"row {row_number}: {contract.warning or 'symbol parse failed'}")
+        high = _to_decimal(high_value)
+        low = _to_decimal(low_value)
+        if high is not None and low is not None and high < low:
+            row_warnings.append(f"row {row_number}: high lower than low")
 
         records.append(
             {
@@ -102,6 +109,7 @@ def normalize_options_day_aggs_records(parsed: OptionsDayAggsParseResult, *, sou
                 "source": source,
                 "source_dataset": source_dataset,
                 "vendor": _vendor_from_source(parsed.source_file_path),
+                "warnings": tuple(row_warnings),
                 "lineage": {
                     "source_file_path": parsed.source_file_path,
                     "source_file_sha256": parsed.source_file_sha256,
