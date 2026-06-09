@@ -73,8 +73,9 @@ def _safe_payload(*, enabled: bool, approval_phrase: str, date_value: str, quara
 
 def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
+    approval_matched = args.approval_phrase == APPROVAL_PHRASE
     payload = _safe_payload(
-        enabled=bool(args.approve_local_quarantine_download),
+        enabled=approval_matched,
         approval_phrase=args.approval_phrase,
         date_value=args.date,
         quarantine_dir=args.quarantine_dir,
