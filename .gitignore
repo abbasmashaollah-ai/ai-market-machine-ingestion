@@ -22,3 +22,6 @@ docs/
 check_ohlcv_schema.py
 check_schema.py
 main.py
+
+# Local options quarantine outputs
+outputs/quarantine/options_flat_files/*.csv.gz
