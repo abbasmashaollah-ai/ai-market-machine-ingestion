@@ -1,0 +1,22 @@
+# Options JSONL Handoff Implementation
+
+- Final filename: `docs/options_handoff_jsonl_implementation.md`
+- Status: IMPLEMENTED / LOCAL JSONL HANDOFF ADDED / NOT PRODUCTION
+- Repository: `ai-market-machine-ingestion`
+- Producer repo role: local ingestion-side producer of replayable options handoff batches
+- Consumer repo: `ai-market-machine-data`
+- Module file: `app/options/options_handoff_jsonl.py`
+- Supported domains: `options_day_aggregates`, `options_contracts_master`, `options_open_interest`, `options_greeks_iv`
+- Writer behavior: accepts in-memory records, stamps shared metadata, writes one JSON object per line, returns a deterministic summary
+- Reader behavior: reads local JSONL in file order and raises a clear error on malformed lines
+- Common metadata stamped: `source_dataset`, `vendor`, `producer_run_id`, `lineage`, `warnings`
+- Validation/rejection behavior: rejects missing or unsupported domains, non-serializable records, and missing required minimal fields
+- Confirmation no vendor calls: yes
+- Confirmation no downloads: yes
+- Confirmation no DB writes: yes
+- Confirmation no scheduler jobs: yes
+- Confirmation no production deployment: yes
+- Confirmation no secrets stored: yes
+- Confirmation no AI/trading/risk/regime/portfolio logic: yes
+- Credential rotation still required before production/online use: yes
+- Next step: local fixture-based end-to-end handoff dry run, or vendor parser integration later
