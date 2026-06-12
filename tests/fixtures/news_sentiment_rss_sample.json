@@ -1,0 +1,30 @@
+[
+  {
+    "guid": "rss-news-001",
+    "title": "Apple expands services coverage",
+    "link": "https://example.com/news/aapl-1",
+    "source_name": "RSS Fixture Wire",
+    "source_domain": "example.com",
+    "published": "2026-05-30T14:30:00Z",
+    "collected_at": "2026-05-30T14:35:00Z",
+    "summary": "Deterministic RSS sample for AAPL.",
+    "categories": ["services"],
+    "symbols": ["AAPL"],
+    "sentiment_score": 0.7,
+    "sentiment_label": "positive"
+  },
+  {
+    "guid": "rss-news-002",
+    "title": "Microsoft cloud demand remains steady",
+    "link": "https://example.com/news/msft-1",
+    "source_name": "RSS Fixture Wire",
+    "source_domain": "example.com",
+    "published": "2026-05-30T15:00:00Z",
+    "collected_at": "2026-05-30T15:05:00Z",
+    "summary": "Deterministic RSS sample for MSFT.",
+    "categories": ["cloud"],
+    "symbols": ["MSFT"],
+    "sentiment_score": 0.1,
+    "sentiment_label": "neutral"
+  }
+]

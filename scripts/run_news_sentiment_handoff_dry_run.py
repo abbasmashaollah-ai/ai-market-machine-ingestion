@@ -14,6 +14,7 @@ from app.handoff.news_sentiment_fixture_normalizer import (
     load_fixture_news_records,
     normalize_fixture_news_records,
 )
+from app.handoff.news_sentiment_rss_sample_adapter import load_rss_sample_items, normalize_rss_sample_items
 from app.handoff.news_sentiment_handoff import DEFAULT_FIXTURE_BATCH_METADATA, write_news_sentiment_handoff_jsonl
 
 
@@ -26,15 +27,25 @@ def main(argv: list[str] | None = None) -> int:
         default="tests/fixtures/news_sentiment_fixture_sample.json",
         help="Local fixture JSON file to normalize.",
     )
+    parser.add_argument(
+        "--rss-sample-file",
+        help="Optional stored-sample RSS JSON file to normalize instead of the standard fixture file.",
+    )
     args = parser.parse_args(argv)
 
     batch_metadata = DEFAULT_FIXTURE_BATCH_METADATA
-    raw_records = load_fixture_news_records(args.input_fixture)
-    normalized = normalize_fixture_news_records(raw_records, batch_metadata=batch_metadata)
+    if args.rss_sample_file:
+        raw_records = load_rss_sample_items(args.rss_sample_file)
+        normalized = normalize_rss_sample_items(raw_records, batch_metadata=batch_metadata)
+        input_label = str(args.rss_sample_file)
+    else:
+        raw_records = load_fixture_news_records(args.input_fixture)
+        normalized = normalize_fixture_news_records(raw_records, batch_metadata=batch_metadata)
+        input_label = str(args.input_fixture)
     output_path = Path(args.output_file) if args.output_file else Path("outputs") / "handoff" / "news_sentiment" / "news_sentiment_fixture.jsonl"
     write_result = write_news_sentiment_handoff_jsonl(normalized.normalized_records, output_path, batch_metadata=batch_metadata)
     payload = {
-        "input_fixture": str(args.input_fixture),
+        "input_fixture": input_label,
         "records_received": len(raw_records),
         "records_normalized": len(normalized.normalized_records),
         "records_rejected": len(normalized.rejected_records),
