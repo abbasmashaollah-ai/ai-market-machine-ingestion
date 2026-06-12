@@ -77,8 +77,14 @@ def _is_json_serializable(value: Any) -> bool:
     return True
 
 
-def _normalize_sequence(value: Sequence[str] | None) -> list[str]:
-    return list(value) if value is not None else []
+def _normalize_metadata(value: Any) -> Any:
+    if value is None:
+        return []
+    if isinstance(value, (str, bytes)):
+        return value
+    if isinstance(value, Sequence):
+        return list(value)
+    return value
 
 
 def _safe_optional_text(value: Any) -> str | None:
@@ -119,8 +125,8 @@ def write_options_handoff_jsonl(
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    stamped_lineage = _normalize_sequence(lineage)
-    stamped_warnings = _normalize_sequence(warnings)
+    stamped_lineage = _normalize_metadata(lineage)
+    stamped_warnings = _normalize_metadata(warnings)
     errors: list[dict[str, Any]] = []
     written_records: list[dict[str, Any]] = []
 

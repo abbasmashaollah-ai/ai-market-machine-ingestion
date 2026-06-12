@@ -1,0 +1,21 @@
+# Options JSONL Handoff Dry Run
+
+- Final filename: `docs/options_handoff_jsonl_dry_run.md`
+- Status: LOCAL DRY RUN ADDED / NOT PRODUCTION
+- Repository: `ai-market-machine-ingestion`
+- Purpose: validate local fixture-style end-to-end JSONL handoff flow in memory and on temp files only
+- Module validated: `app/options/options_handoff_jsonl.py`
+- Test file: `tests/unit/test_options_handoff_jsonl_dry_run.py`
+- Domains covered: `options_contracts_master`, `options_open_interest`, `options_greeks_iv`, `options_day_aggregates`
+- Metadata stamped/verified: `source_dataset`, `vendor`, `producer_run_id`, `source_file_name`, `source_sha256`, `lineage`, `warnings`
+- Dry-run behavior: write temp JSONL, read it back in file order, verify contract shape, reject an invalid record while preserving valid records
+- Confirmation no vendor calls: yes
+- Confirmation no downloads: yes
+- Confirmation no DB writes: yes
+- Confirmation no scheduler jobs: yes
+- Confirmation no production deployment: yes
+- Confirmation no generated handoff artifacts committed: yes
+- Confirmation no secrets stored: yes
+- Confirmation no AI/trading/risk/regime/portfolio logic: yes
+- Credential rotation still required before production/online use: yes
+- Next step: vendor parser integration later, or data-repo market-calendar-aware freshness policy, or production approval path only after explicit user approval
