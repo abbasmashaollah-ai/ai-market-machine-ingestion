@@ -111,6 +111,12 @@ def _hash_idempotency_key(*parts: str | None) -> str:
     return digest.hexdigest()
 
 
+def _canonicalize_z_timestamp(value: Any) -> Any:
+    if isinstance(value, str) and value.endswith("+00:00"):
+        return value[:-6] + "Z"
+    return value
+
+
 @dataclass(frozen=True, slots=True)
 class NewsSentimentBatchMetadata:
     producer_run_id: str
@@ -537,6 +543,8 @@ def write_news_sentiment_handoff_jsonl(
             quarantined_records.append(rejected)
             continue
         enriched = dict(result.record)
+        for field_name in ("published_at", "collected_at", "updated_at"):
+            enriched[field_name] = _canonicalize_z_timestamp(enriched.get(field_name))
         enriched.setdefault("producer_run_id", batch_metadata.producer_run_id)
         enriched.setdefault("source_dataset", batch_metadata.source_dataset)
         enriched.setdefault("vendor", batch_metadata.vendor)
