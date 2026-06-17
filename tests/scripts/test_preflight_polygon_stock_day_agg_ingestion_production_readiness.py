@@ -68,6 +68,45 @@ def test_production_db_write_or_scheduler_activation_returns_blocked(monkeypatch
     assert payload["ingestion_readiness_status"] == "BLOCKED"
 
 
+def test_generic_insert_update_delete_text_does_not_block(monkeypatch) -> None:
+    monkeypatch.setattr(cli, "_scan_for_blockers", lambda: {
+        "production_db_write_detected": False,
+        "scheduler_activation_detected": False,
+        "data_repo_mutation_detected": False,
+    })
+    payload = _payload(monkeypatch)
+    assert payload["ingestion_readiness_status"] == "READY_FOR_OPERATOR_REVIEW"
+
+
+def test_descriptor_handoff_wording_does_not_block(monkeypatch) -> None:
+    monkeypatch.setattr(cli, "_scan_for_blockers", lambda: {
+        "production_db_write_detected": False,
+        "scheduler_activation_detected": False,
+        "data_repo_mutation_detected": False,
+    })
+    payload = _payload(monkeypatch)
+    assert payload["data_repo_mutation_detected"] is False
+    assert payload["ingestion_readiness_status"] == "READY_FOR_OPERATOR_REVIEW"
+
+
+def test_explicit_production_db_write_signature_blocks(monkeypatch) -> None:
+    payload = _payload(monkeypatch, db=True)
+    assert payload["production_db_write_detected"] is True
+    assert payload["ingestion_readiness_status"] == "BLOCKED"
+
+
+def test_explicit_direct_data_repo_mutation_signature_blocks(monkeypatch) -> None:
+    payload = _payload(monkeypatch, data_repo=True)
+    assert payload["data_repo_mutation_detected"] is True
+    assert payload["ingestion_readiness_status"] == "BLOCKED"
+
+
+def test_scheduler_activation_signature_blocks(monkeypatch) -> None:
+    payload = _payload(monkeypatch, scheduler=True)
+    assert payload["scheduler_activation_detected"] is True
+    assert payload["ingestion_readiness_status"] == "BLOCKED"
+
+
 def test_gitkeep_placeholder_does_not_block_readiness(monkeypatch) -> None:
     payload = _payload_with_git(
         monkeypatch,

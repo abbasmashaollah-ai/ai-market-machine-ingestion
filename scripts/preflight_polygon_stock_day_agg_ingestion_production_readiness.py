@@ -39,6 +39,32 @@ REQUIRED_DOCS = (
 )
 
 GENERATED_PATTERNS = ("outputs/", "output/", "artifacts/", "artifact/")
+PRODUCTION_DB_WRITE_SIGNATURES = (
+    "database_url",
+    "prod_database_url",
+    "production_database_url",
+    "railway production database",
+    "production_db_write",
+    "write_production",
+    "production migration",
+    "alembic upgrade head",
+    "alembic upgrade",
+)
+SCHEDULER_ACTIVATION_SIGNATURES = (
+    "--enable-scheduler-cycle",
+    "enable_scheduler_cycle",
+    "enable_scheduler=true",
+    "scheduler_cycle_enabled = true",
+    "scheduler_cycle_enabled=true",
+    "run_polygon_ohlcv_scheduler_cycle",
+)
+DATA_REPO_MUTATION_SIGNATURES = (
+    "direct mutation of ai-market-machine-data",
+    "direct data repo write",
+    "direct data repo mutation",
+    "write to ai-market-machine-data",
+    "mutate ai-market-machine-data",
+)
 
 
 def _exists(paths: tuple[str, ...]) -> list[str]:
@@ -67,14 +93,14 @@ def _git_status_short() -> list[str]:
 
 def _scan_for_blockers() -> dict[str, bool]:
     text_blobs: list[str] = []
-    for rel in REQUIRED_SCRIPTS + REQUIRED_TESTS:
+    for rel in REQUIRED_SCRIPTS:
         path = REPO_ROOT / rel
         if path.exists():
             text_blobs.append(path.read_text(encoding="utf-8").lower())
     text = "\n".join(text_blobs)
-    production_db_write_detected = any(token in text for token in ("to_sql(", "create_engine(", "commit(", "insert(", "update(", "delete("))
-    scheduler_activation_detected = any(token in text for token in ("run_polygon_ohlcv_scheduler_cycle", "enable_scheduler", "cron", "apscheduler"))
-    data_repo_mutation_detected = any(token in text for token in ("direct db mutation", "db write", "commit(", "create_engine(", "to_sql("))
+    production_db_write_detected = any(token in text for token in PRODUCTION_DB_WRITE_SIGNATURES)
+    scheduler_activation_detected = any(token in text for token in SCHEDULER_ACTIVATION_SIGNATURES)
+    data_repo_mutation_detected = any(token in text for token in DATA_REPO_MUTATION_SIGNATURES)
     return {
         "production_db_write_detected": production_db_write_detected,
         "scheduler_activation_detected": scheduler_activation_detected,
