@@ -156,6 +156,7 @@ def _safe_payload(*, enabled: bool, start_date: str, end_date: str, max_days_req
         "date_count_effective": date_count_effective,
         "manifest_object_count_present": present_count,
         "manifest_object_count_missing": missing_count,
+        "remote_list_object_count_seen": len(manifest_entries),
         "manifest_entries": manifest_entries,
         "expected_dataset_type": EXPECTED_FLAT_FILE_DATASET_TYPE,
         "benchmark_symbol": BENCHMARK_SYMBOL,

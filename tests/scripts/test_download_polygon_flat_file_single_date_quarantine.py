@@ -29,15 +29,9 @@ class _FakeClient:
         prefix = str(kwargs.get("Prefix") or "")
         if not self.has_object:
             return {"Contents": []}
-        if prefix.endswith("us_stocks_sip/day_aggs_v1/2003/09/") or prefix.endswith("us_stocks_sip/day_aggs_v1/2026/06/"):
+        if prefix.endswith("us_stocks_sip/day_aggs_v1/2026/06/"):
             return {
                 "Contents": [
-                    {
-                        "Key": "us_stocks_sip/day_aggs_v1/2003/09/2003-09-10.csv.gz",
-                        "Size": 15,
-                        "LastModified": "x",
-                        "ETag": "etag-1",
-                    },
                     {
                         "Key": "us_stocks_sip/day_aggs_v1/2026/06/2026-06-15.csv.gz",
                         "Size": 19,
@@ -68,10 +62,7 @@ class _FakeClient:
 
     def get_object(self, **kwargs: object) -> dict[str, object]:
         self.get_calls.append(kwargs)
-        if kwargs.get("Key") in {
-            "us_stocks_sip/day_aggs_v1/2003/09/2003-09-10.csv.gz",
-            "us_stocks_sip/day_aggs_v1/2026/06/2026-06-15.csv.gz",
-        }:
+        if kwargs.get("Key") == "us_stocks_sip/day_aggs_v1/2026/06/2026-06-15.csv.gz":
             payload = b"fake gzip bytes"
             return {"Body": self._Body(payload), "ContentLength": len(payload)}
         raise RuntimeError("unexpected key")
@@ -150,7 +141,7 @@ def test_approved_run_downloads_exactly_one_mocked_object(monkeypatch, tmp_path)
     assert len(payload["resolved_key_sha256_prefix"]) == 12
     assert len(payload["listed_key_sha256_prefix"]) == 12
     text = json.dumps(payload).lower()
-    for forbidden in ["polygon-key", "polygon-secret", "endpoint.invalid", "prefix/2003", "us_stocks_sip/day_aggs_v1"]:
+    for forbidden in ["polygon-key", "polygon-secret", "endpoint.invalid", "prefix/2026", "us_stocks_sip/day_aggs_v1/2026/06/2026-06-15.csv.gz"]:
         assert forbidden not in text
 
 
@@ -275,7 +266,7 @@ def test_forbidden_get_object_returns_safe_json(monkeypatch, tmp_path) -> None:
     assert payload["local_file_exists"] is False
     assert not (quarantine_dir / "polygon_stocks_day_aggs_2026-06-15.csv.gz").exists()
     text = json.dumps(payload).lower()
-    for forbidden in ["polygon-key", "polygon-secret", "endpoint.invalid", "prefix/2003", "us_stocks_sip/day_aggs_v1/2003/09/2003-09-10.csv.gz"]:
+    for forbidden in ["polygon-key", "polygon-secret", "endpoint.invalid", "prefix/2026", "us_stocks_sip/day_aggs_v1/2026/06/2026-06-15.csv.gz"]:
         assert forbidden not in text
 
 

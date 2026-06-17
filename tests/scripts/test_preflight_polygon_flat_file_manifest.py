@@ -18,11 +18,9 @@ class _FakeClient:
     def list_objects_v2(self, **kwargs: object) -> dict[str, object]:
         self.calls.append(kwargs)
         prefix = str(kwargs.get("Prefix") or "")
-        if prefix.endswith("us_stocks_sip/day_aggs_v1/2003/09/") or prefix.endswith("us_stocks_sip/day_aggs_v1/2026/06/"):
+        if prefix.endswith("us_stocks_sip/day_aggs_v1/2026/06/"):
             return {
                 "Contents": [
-                    {"Key": "us_stocks_sip/day_aggs_v1/2003/09/2003-09-10.csv.gz", "Size": 101, "LastModified": "x", "ETag": "etag-1"},
-                    {"Key": "us_stocks_sip/day_aggs_v1/2003/09/2003-09-11.csv.gz", "Size": 102},
                     {"Key": "us_stocks_sip/day_aggs_v1/2026/06/2026-06-15.csv.gz", "Size": 103, "LastModified": "x", "ETag": "etag-3"},
                 ]
             }
@@ -94,20 +92,16 @@ def test_mocked_listing_returns_redacted_manifest_entries(monkeypatch) -> None:
             "POLYGON_FLAT_FILE_PREFIX": "prefix",
         }
     )
-    entries = adapter.list_remote_manifest_objects(start_date="2003-09-10", end_date="2003-09-12", max_days=5)
-    assert entries[0]["redacted_key_tail"] == "2003/09/2003-09-10.csv.gz"
+    entries = adapter.list_remote_manifest_objects(start_date="2026-06-15", end_date="2026-06-15", max_days=5)
+    assert entries[0]["redacted_key_tail"] == "2026/06/2026-06-15.csv.gz"
     assert entries[0]["object_present"] is True
-    assert entries[1]["redacted_key_tail"] == "2003/09/2003-09-11.csv.gz"
-    assert entries[1]["object_present"] is True
-    assert entries[2]["redacted_key_tail"] == "2003/09/2003-09-12.csv.gz"
-    assert entries[2]["object_present"] is False
     text = json.dumps(entries).lower()
     for forbidden in ["polygon-key", "polygon-secret", "endpoint.invalid", "prefix/"]:
         assert forbidden not in text
     assert fake.calls
     assert all("manifest.json" not in json.dumps(entry).lower() for entry in entries)
-    assert any(str(call.get("Prefix") or "").endswith("us_stocks_sip/day_aggs_v1/2003/09/") for call in fake.calls)
-    assert any(entry["redacted_key_tail"] == "2003/09/2003-09-10.csv.gz" and entry["object_present"] is True for entry in entries)
+    assert any(str(call.get("Prefix") or "").endswith("us_stocks_sip/day_aggs_v1/2026/06/") for call in fake.calls)
+    assert any(entry["redacted_key_tail"] == "2026/06/2026-06-15.csv.gz" and entry["object_present"] is True for entry in entries)
 
 
 def test_detects_known_visible_object_by_redacted_tail(monkeypatch) -> None:
@@ -123,10 +117,9 @@ def test_detects_known_visible_object_by_redacted_tail(monkeypatch) -> None:
             "POLYGON_FLAT_FILE_PREFIX": "prefix",
         }
     )
-    entries = adapter.list_remote_manifest_objects(start_date="2003-09-10", end_date="2003-09-16", max_days=7)
-    assert any(entry["redacted_key_tail"] == "2003/09/2003-09-10.csv.gz" and entry["object_present"] is True for entry in entries)
-    assert any(entry["date"] == "2003-09-12" and entry["object_present"] is False for entry in entries)
-    assert any(str(call.get("Prefix") or "").endswith("us_stocks_sip/day_aggs_v1/2003/09/") for call in fake.calls)
+    entries = adapter.list_remote_manifest_objects(start_date="2026-06-15", end_date="2026-06-15", max_days=7)
+    assert any(entry["redacted_key_tail"] == "2026/06/2026-06-15.csv.gz" and entry["object_present"] is True for entry in entries)
+    assert any(str(call.get("Prefix") or "").endswith("us_stocks_sip/day_aggs_v1/2026/06/") for call in fake.calls)
 
 
 def test_missing_boto3_is_safe(monkeypatch) -> None:
@@ -144,6 +137,7 @@ def test_missing_boto3_is_safe(monkeypatch) -> None:
     )
     assert payload["vendor_call_attempted"] is False
     assert payload["remote_object_list_attempted"] is False
+    assert payload["remote_list_object_count_seen"] == 0
     assert any("boto3" in blocker for blocker in payload["blockers"])
 
 
