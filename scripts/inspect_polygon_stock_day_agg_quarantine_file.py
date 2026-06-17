@@ -62,11 +62,17 @@ def _parse_date_value(value: str) -> str | None:
         numeric = int(float(text))
     except Exception:
         return None
-    if numeric > 10_000_000_000:
+    digits = len(str(abs(numeric)))
+    if digits >= 19:
         numeric //= 1_000_000_000
-    elif numeric > 10_000_000_000_000:
+    elif digits >= 16:
         numeric //= 1_000_000
-    return datetime.fromtimestamp(numeric, tz=timezone.utc).date().isoformat()
+    elif digits >= 13:
+        numeric //= 1_000
+    try:
+        return datetime.fromtimestamp(numeric, tz=timezone.utc).date().isoformat()
+    except Exception:
+        return None
 
 
 def _read_rows(path: Path) -> tuple[list[str], list[dict[str, str]]]:
