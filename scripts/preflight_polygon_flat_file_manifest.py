@@ -75,14 +75,22 @@ def _safe_payload(*, enabled: bool, start_date: str, end_date: str, max_days_req
         try:
             raw_entries = adapter.list_remote_manifest_objects(start_date=start_date, end_date=end_date, max_days=date_count_effective)
             for entry in raw_entries:
+                day = str(entry.get("date") or "")
+                tail = str(entry.get("redacted_key_tail") or "")
+                key_present = bool(entry.get("Key"))
                 manifest_entries.append(
                     {
-                        "date": entry.get("date"),
-                        "redacted_key_tail": str(entry.get("redacted_key_tail") or "<redacted>"),
+                        "date": day,
+                        "redacted_key_tail": tail or "<redacted>",
                         "object_present": bool(entry.get("object_present", False)),
                         "size_bytes": entry.get("Size"),
                         "last_modified_present": bool(entry.get("LastModified")),
                         "etag_present": bool(entry.get("ETag")),
+                        "resolved_key_present": key_present,
+                        "resolved_key_tail_matches_requested_date": bool(day and tail.endswith(f"{day}.csv.gz")),
+                        "resolved_key_sha256_prefix": adapter.sha256_prefix(str(entry.get("Key") or "")) if key_present else "",
+                        "listed_key_sha256_prefix": adapter.sha256_prefix(str(entry.get("Key") or "")) if key_present else "",
+                        "resolved_key_matches_listed_key": key_present,
                     }
                 )
         except Exception as exc:

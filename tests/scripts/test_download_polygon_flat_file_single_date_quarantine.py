@@ -29,7 +29,7 @@ class _FakeClient:
         prefix = str(kwargs.get("Prefix") or "")
         if not self.has_object:
             return {"Contents": []}
-        if prefix.endswith("us_stocks_sip/day_aggs_v1/2003/09"):
+        if prefix.endswith("us_stocks_sip/day_aggs_v1/2003/09/") or prefix.endswith("us_stocks_sip/day_aggs_v1/2026/06/"):
             return {
                 "Contents": [
                     {
@@ -37,6 +37,12 @@ class _FakeClient:
                         "Size": 15,
                         "LastModified": "x",
                         "ETag": "etag-1",
+                    },
+                    {
+                        "Key": "us_stocks_sip/day_aggs_v1/2026/06/2026-06-15.csv.gz",
+                        "Size": 19,
+                        "LastModified": "x",
+                        "ETag": "etag-2",
                     }
                 ]
             }
@@ -62,7 +68,10 @@ class _FakeClient:
 
     def get_object(self, **kwargs: object) -> dict[str, object]:
         self.get_calls.append(kwargs)
-        if kwargs.get("Key") == "us_stocks_sip/day_aggs_v1/2003/09/2003-09-10.csv.gz":
+        if kwargs.get("Key") in {
+            "us_stocks_sip/day_aggs_v1/2003/09/2003-09-10.csv.gz",
+            "us_stocks_sip/day_aggs_v1/2026/06/2026-06-15.csv.gz",
+        }:
             payload = b"fake gzip bytes"
             return {"Body": self._Body(payload), "ContentLength": len(payload)}
         raise RuntimeError("unexpected key")
@@ -81,7 +90,7 @@ def _run_cli(monkeypatch, argv: list[str], env: dict[str, str] | None = None) ->
 
 
 def test_default_run_does_not_download(monkeypatch) -> None:
-    payload = _run_cli(monkeypatch, ["--date", "2003-09-10"])
+    payload = _run_cli(monkeypatch, ["--date", "2026-06-15"])
     assert payload["local_quarantine_download_enabled"] is False
     assert payload["vendor_call_attempted"] is False
     assert payload["remote_object_download_attempted"] is False
@@ -93,7 +102,7 @@ def test_default_run_does_not_download(monkeypatch) -> None:
 def test_wrong_approval_phrase_does_not_download(monkeypatch) -> None:
     payload = _run_cli(
         monkeypatch,
-        ["--date", "2003-09-10", "--approve-local-quarantine-download", "--approval-phrase", "wrong phrase"],
+        ["--date", "2026-06-15", "--approve-local-quarantine-download", "--approval-phrase", "wrong phrase"],
     )
     assert payload["local_quarantine_download_enabled"] is False
     assert payload["download_attempted"] is False
@@ -109,7 +118,7 @@ def test_approved_run_downloads_exactly_one_mocked_object(monkeypatch, tmp_path)
         monkeypatch,
         [
             "--date",
-            "2003-09-10",
+            "2026-06-15",
             "--approve-local-quarantine-download",
             "--approval-phrase",
             cli.APPROVAL_PHRASE,
@@ -131,9 +140,9 @@ def test_approved_run_downloads_exactly_one_mocked_object(monkeypatch, tmp_path)
     assert payload["local_file_exists"] is True
     assert payload["local_file_size_bytes"] > 0
     assert payload["local_file_sha256"]
-    assert payload["local_quarantine_path"].endswith("polygon_stocks_day_aggs_2003-09-10.csv.gz")
+    assert payload["local_quarantine_path"].endswith("polygon_stocks_day_aggs_2026-06-15.csv.gz")
     assert fake.list_calls and len(fake.list_calls) >= 1
-    assert any(call.get("Key") == "us_stocks_sip/day_aggs_v1/2003/09/2003-09-10.csv.gz" for call in fake.get_calls)
+    assert any(call.get("Key") == "us_stocks_sip/day_aggs_v1/2026/06/2026-06-15.csv.gz" for call in fake.get_calls)
     assert not any("download_file" in call for call in fake.get_calls if isinstance(call, dict))
     assert payload["resolved_key_present"] is True
     assert payload["resolved_key_tail_matches_requested_date"] is True
@@ -150,14 +159,14 @@ def test_existing_file_skips_until_overwrite(monkeypatch, tmp_path) -> None:
     monkeypatch.setattr(cli.PolygonFlatFileAdapter, "boto3_available", staticmethod(lambda: True))
     monkeypatch.setattr(cli.PolygonFlatFileAdapter, "build_remote_listing_client", lambda self: fake)
     quarantine_dir = tmp_path / "quarantine"
-    path = quarantine_dir / "polygon_stocks_day_aggs_2003-09-10.csv.gz"
+    path = quarantine_dir / "polygon_stocks_day_aggs_2026-06-15.csv.gz"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(b"existing")
     payload = _run_cli(
         monkeypatch,
         [
             "--date",
-            "2003-09-10",
+            "2026-06-15",
             "--approve-local-quarantine-download",
             "--approval-phrase",
             cli.APPROVAL_PHRASE,
@@ -176,7 +185,7 @@ def test_overwrite_flag_allows_rewrite(monkeypatch, tmp_path) -> None:
     monkeypatch.setattr(cli.PolygonFlatFileAdapter, "boto3_available", staticmethod(lambda: True))
     monkeypatch.setattr(cli.PolygonFlatFileAdapter, "build_remote_listing_client", lambda self: fake)
     quarantine_dir = tmp_path / "quarantine"
-    path = quarantine_dir / "polygon_stocks_day_aggs_2003-09-10.csv.gz"
+    path = quarantine_dir / "polygon_stocks_day_aggs_2026-06-15.csv.gz"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_bytes(b"existing")
     original_size = path.stat().st_size
@@ -184,7 +193,7 @@ def test_overwrite_flag_allows_rewrite(monkeypatch, tmp_path) -> None:
         monkeypatch,
         [
             "--date",
-            "2003-09-10",
+            "2026-06-15",
             "--approve-local-quarantine-download",
             "--approval-phrase",
             cli.APPROVAL_PHRASE,
@@ -197,7 +206,7 @@ def test_overwrite_flag_allows_rewrite(monkeypatch, tmp_path) -> None:
     assert payload["local_file_exists"] is True
     assert payload["local_file_sha256"]
     assert path.stat().st_size != original_size
-    assert any(call.get("Key") == "us_stocks_sip/day_aggs_v1/2003/09/2003-09-10.csv.gz" for call in fake.get_calls)
+    assert any(call.get("Key") == "us_stocks_sip/day_aggs_v1/2026/06/2026-06-15.csv.gz" for call in fake.get_calls)
 
 
 def test_manifest_missing_prevents_download(monkeypatch, tmp_path) -> None:
@@ -209,7 +218,7 @@ def test_manifest_missing_prevents_download(monkeypatch, tmp_path) -> None:
         monkeypatch,
         [
             "--date",
-            "2003-09-10",
+            "2026-06-15",
             "--approve-local-quarantine-download",
             "--approval-phrase",
             cli.APPROVAL_PHRASE,
@@ -245,7 +254,7 @@ def test_forbidden_get_object_returns_safe_json(monkeypatch, tmp_path) -> None:
         monkeypatch,
         [
             "--date",
-            "2003-09-10",
+            "2026-06-15",
             "--approve-local-quarantine-download",
             "--approval-phrase",
             cli.APPROVAL_PHRASE,
@@ -264,7 +273,7 @@ def test_forbidden_get_object_returns_safe_json(monkeypatch, tmp_path) -> None:
     assert payload["remote_object_download_attempted"] is True
     assert payload["remote_download_status"] == "forbidden"
     assert payload["local_file_exists"] is False
-    assert not (quarantine_dir / "polygon_stocks_day_aggs_2003-09-10.csv.gz").exists()
+    assert not (quarantine_dir / "polygon_stocks_day_aggs_2026-06-15.csv.gz").exists()
     text = json.dumps(payload).lower()
     for forbidden in ["polygon-key", "polygon-secret", "endpoint.invalid", "prefix/2003", "us_stocks_sip/day_aggs_v1/2003/09/2003-09-10.csv.gz"]:
         assert forbidden not in text

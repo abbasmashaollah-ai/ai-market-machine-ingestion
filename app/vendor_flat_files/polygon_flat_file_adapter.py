@@ -229,11 +229,20 @@ class PolygonFlatFileAdapter:
     @staticmethod
     def redacted_csv_gzip_tail(value: str | date) -> str:
         if isinstance(value, str):
-            match = re.search(r"(?P<tail>\d{2}/\d{4}-\d{2}-\d{2}\.csv\.gz)$", value)
+            match = re.search(r"(?P<tail>\d{4}/\d{2}/\d{4}-\d{2}-\d{2}\.csv\.gz)$", value)
             if match:
                 return match.group("tail")
+            legacy_match = re.search(r"(?P<tail>\d{2}/\d{4}-\d{2}-\d{2}\.csv\.gz)$", value)
+            if legacy_match:
+                return legacy_match.group("tail")
         day = PolygonFlatFileAdapter._normalize_date(value)
-        return f"{day:%m/%Y-%m-%d.csv.gz}"
+        return f"{day:%Y/%m/%Y-%m-%d.csv.gz}"
+
+    @staticmethod
+    def _tail_matches_requested_date(tail: str, day: date) -> bool:
+        canonical_tail = f"{day:%Y/%m/%Y-%m-%d.csv.gz}"
+        legacy_tail = f"{day:%m/%Y-%m-%d.csv.gz}"
+        return tail == canonical_tail or tail == legacy_tail
 
     @staticmethod
     def stock_day_aggs_object_key(value: str | date) -> str:
@@ -255,18 +264,13 @@ class PolygonFlatFileAdapter:
         for day in dates:
             months.setdefault((day.year, day.month), []).append(day)
         for (year, month), month_dates in months.items():
-            lookup_prefix = f"us_stocks_sip/day_aggs_v1/{year:04d}/{month:02d}"
+            lookup_prefix = f"us_stocks_sip/day_aggs_v1/{year:04d}/{month:02d}/"
             response = client.list_objects_v2(
                 Bucket=self._env.get("POLYGON_FLAT_FILE_BUCKET"),
                 Prefix=lookup_prefix,
                 MaxKeys=max_days,
             )
             contents = response.get("Contents", []) if isinstance(response, dict) else []
-            observed_tails = {
-                self.redacted_csv_gzip_tail(str(obj.get("Key") or ""))
-                for obj in contents
-                if isinstance(obj, dict)
-            }
             observed_by_tail: dict[str, dict[str, str]] = {}
             for obj in contents:
                 if not isinstance(obj, dict):
@@ -303,6 +307,8 @@ class PolygonFlatFileAdapter:
 
     def download_single_date_object(self, *, value: str | date, local_path: str | Path, overwrite: bool = False) -> dict[str, Any]:
         path = Path(local_path)
+        day = self._normalize_date(value)
+        requested_tail = self.redacted_csv_gzip_tail(day)
         if path.exists() and not overwrite:
             return {
                 "downloaded": False,
@@ -310,7 +316,7 @@ class PolygonFlatFileAdapter:
                 "local_file_exists": True,
                 "local_file_size_bytes": path.stat().st_size,
                 "local_file_sha256": _sha256_file(path),
-                "redacted_key_tail": self.redacted_csv_gzip_tail(value),
+                "redacted_key_tail": requested_tail,
                 "resolved_key_present": False,
                 "resolved_key_tail_matches_requested_date": False,
                 "resolved_key_sha256_prefix": "",
@@ -330,7 +336,7 @@ class PolygonFlatFileAdapter:
                 "local_file_exists": False,
                 "local_file_size_bytes": 0,
                 "local_file_sha256": "",
-                "redacted_key_tail": self.redacted_csv_gzip_tail(value),
+                "redacted_key_tail": requested_tail,
                 "resolved_key_present": False,
                 "resolved_key_tail_matches_requested_date": False,
                 "resolved_key_sha256_prefix": "",
@@ -341,9 +347,9 @@ class PolygonFlatFileAdapter:
             }
         listed_key = str(resolved["Key"])
         resolved_key = listed_key
-        requested_tail = self.redacted_csv_gzip_tail(value)
         key_tail = self.redacted_csv_gzip_tail(resolved_key)
         key_hash = self.sha256_prefix(resolved_key)
+        tail_matches = self._tail_matches_requested_date(key_tail, day)
         client = self.build_remote_listing_client()
         try:
             response = client.get_object(Bucket=self._env.get("POLYGON_FLAT_FILE_BUCKET"), Key=resolved_key)
@@ -367,7 +373,7 @@ class PolygonFlatFileAdapter:
                 "local_file_sha256": "",
                 "redacted_key_tail": key_tail,
                 "resolved_key_present": True,
-                "resolved_key_tail_matches_requested_date": key_tail == requested_tail,
+                "resolved_key_tail_matches_requested_date": tail_matches,
                 "resolved_key_sha256_prefix": key_hash,
                 "listed_key_sha256_prefix": self.sha256_prefix(listed_key),
                 "resolved_key_matches_listed_key": resolved_key == listed_key,
@@ -385,7 +391,7 @@ class PolygonFlatFileAdapter:
             "local_file_sha256": _sha256_file(path) if path.exists() else "",
             "redacted_key_tail": key_tail,
             "resolved_key_present": True,
-            "resolved_key_tail_matches_requested_date": key_tail == requested_tail,
+            "resolved_key_tail_matches_requested_date": tail_matches,
             "resolved_key_sha256_prefix": key_hash,
             "listed_key_sha256_prefix": self.sha256_prefix(listed_key),
             "resolved_key_matches_listed_key": resolved_key == listed_key,

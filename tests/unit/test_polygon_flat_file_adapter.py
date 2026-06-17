@@ -42,7 +42,7 @@ class _FakeDownloadClient:
     def list_objects_v2(self, **kwargs: object) -> dict[str, object]:
         self.calls.append(kwargs)
         prefix = str(kwargs.get("Prefix") or "")
-        if prefix.endswith("us_stocks_sip/day_aggs_v1/2003/09"):
+        if prefix.endswith("us_stocks_sip/day_aggs_v1/2003/09/") or prefix.endswith("us_stocks_sip/day_aggs_v1/2026/06/"):
             return {
                 "Contents": [
                     {
@@ -50,7 +50,13 @@ class _FakeDownloadClient:
                         "Size": 17,
                         "LastModified": "x",
                         "ETag": "etag-1",
-                    }
+                    },
+                    {
+                        "Key": "us_stocks_sip/day_aggs_v1/2026/06/2026-06-15.csv.gz",
+                        "Size": 23,
+                        "LastModified": "x",
+                        "ETag": "etag-2",
+                    },
                 ]
             }
         return {"Contents": []}
@@ -69,7 +75,10 @@ class _FakeDownloadClient:
 
     def get_object(self, **kwargs: object) -> dict[str, object]:
         self.calls.append(kwargs)
-        if kwargs.get("Key") == "us_stocks_sip/day_aggs_v1/2003/09/2003-09-10.csv.gz":
+        if kwargs.get("Key") in {
+            "us_stocks_sip/day_aggs_v1/2003/09/2003-09-10.csv.gz",
+            "us_stocks_sip/day_aggs_v1/2026/06/2026-06-15.csv.gz",
+        }:
             payload = b"fake gzip bytes"
             return {"Body": self._Body(payload), "ContentLength": len(payload)}
         raise RuntimeError("unexpected key")
@@ -170,12 +179,13 @@ def test_adapter_classifies_client_error_403_safely() -> None:
 def test_date_range_and_manifest_tail_pattern_are_csv_gzip_based() -> None:
     assert PolygonFlatFileAdapter._date_range("2003-09-10", "2003-09-10", 25)[0].isoformat() == "2003-09-10"
     assert PolygonFlatFileAdapter._date_range("2026-01-02", "2026-01-02", 25)[0].isoformat() == "2026-01-02"
-    assert PolygonFlatFileAdapter.redacted_csv_gzip_tail("2003-09-10") == "09/2003-09-10.csv.gz"
-    assert PolygonFlatFileAdapter.redacted_csv_gzip_tail("2026-01-02") == "01/2026-01-02.csv.gz"
+    assert PolygonFlatFileAdapter.redacted_csv_gzip_tail("2003-09-10") == "2003/09/2003-09-10.csv.gz"
+    assert PolygonFlatFileAdapter.redacted_csv_gzip_tail("2026-01-02") == "2026/01/2026-01-02.csv.gz"
     assert f"us_stocks_sip/day_aggs_v1/{PolygonFlatFileAdapter._normalize_date('2003-09-10'):%Y/%m}" == "us_stocks_sip/day_aggs_v1/2003/09"
     assert f"us_stocks_sip/day_aggs_v1/{PolygonFlatFileAdapter._normalize_date('2026-01-02'):%Y/%m}" == "us_stocks_sip/day_aggs_v1/2026/01"
-    assert PolygonFlatFileAdapter.redacted_csv_gzip_tail("us_stocks_sip/day_aggs_v1/2003/09/2003-09-10.csv.gz") == "09/2003-09-10.csv.gz"
-    assert PolygonFlatFileAdapter.redacted_csv_gzip_tail("us_stocks_sip/day_aggs_v1/2026/01/2026-01-02.csv.gz") == "01/2026-01-02.csv.gz"
+    assert PolygonFlatFileAdapter.redacted_csv_gzip_tail("us_stocks_sip/day_aggs_v1/2003/09/2003-09-10.csv.gz") == "2003/09/2003-09-10.csv.gz"
+    assert PolygonFlatFileAdapter.redacted_csv_gzip_tail("us_stocks_sip/day_aggs_v1/2026/01/2026-01-02.csv.gz") == "2026/01/2026-01-02.csv.gz"
+    assert PolygonFlatFileAdapter.redacted_csv_gzip_tail("us_stocks_sip/day_aggs_v1/2026/06/2026-06-15.csv.gz") == "2026/06/2026-06-15.csv.gz"
     assert PolygonFlatFileAdapter.stock_day_aggs_object_key("2003-09-10") == "us_stocks_sip/day_aggs_v1/2003/09/2003-09-10.csv.gz"
     assert PolygonFlatFileAdapter.stock_day_aggs_object_key("2026-01-02") == "us_stocks_sip/day_aggs_v1/2026/01/2026-01-02.csv.gz"
     assert PolygonFlatFileAdapter.sha256_prefix("us_stocks_sip/day_aggs_v1/2003/09/2003-09-10.csv.gz") == PolygonFlatFileAdapter.sha256_prefix("us_stocks_sip/day_aggs_v1/2003/09/2003-09-10.csv.gz")
@@ -199,7 +209,7 @@ def test_download_single_date_object_writes_local_file_and_sha256(monkeypatch, t
     assert result["local_file_exists"] is True
     assert result["local_file_size_bytes"] > 0
     assert result["local_file_sha256"]
-    assert result["redacted_key_tail"] == "09/2003-09-10.csv.gz"
+    assert result["redacted_key_tail"] == "2003/09/2003-09-10.csv.gz"
     assert result["content_length_present"] is True
     assert result["resolved_key_present"] is True
     assert result["resolved_key_tail_matches_requested_date"] is True
