@@ -27,6 +27,24 @@ class _FakeClient:
         return {"Contents": []}
 
 
+class _BasenameOnlyClient(_FakeClient):
+    def list_objects_v2(self, **kwargs: object) -> dict[str, object]:
+        self.calls.append(kwargs)
+        prefix = str(kwargs.get("Prefix") or "")
+        if prefix.endswith("us_stocks_sip/day_aggs_v1/2026/06/"):
+            return {"Contents": [{"Key": "2026-06-15.csv.gz", "Size": 103}]}
+        return {"Contents": []}
+
+
+class _WrongDateClient(_FakeClient):
+    def list_objects_v2(self, **kwargs: object) -> dict[str, object]:
+        self.calls.append(kwargs)
+        prefix = str(kwargs.get("Prefix") or "")
+        if prefix.endswith("us_stocks_sip/day_aggs_v1/2026/06/"):
+            return {"Contents": [{"Key": "2026-06-16.csv.gz", "Size": 103}]}
+        return {"Contents": []}
+
+
 def _run_cli(monkeypatch, argv: list[str], env: dict[str, str] | None = None) -> dict[str, object]:
     for name in cli.REQUIRED_CONFIG_NAMES:
         monkeypatch.delenv(name, raising=False)
@@ -102,6 +120,43 @@ def test_mocked_listing_returns_redacted_manifest_entries(monkeypatch) -> None:
     assert all("manifest.json" not in json.dumps(entry).lower() for entry in entries)
     assert any(str(call.get("Prefix") or "").endswith("us_stocks_sip/day_aggs_v1/2026/06/") for call in fake.calls)
     assert any(entry["redacted_key_tail"] == "2026/06/2026-06-15.csv.gz" and entry["object_present"] is True for entry in entries)
+
+
+def test_basename_only_listing_is_matched(monkeypatch) -> None:
+    fake = _BasenameOnlyClient()
+    monkeypatch.setattr(cli.PolygonFlatFileAdapter, "boto3_available", staticmethod(lambda: True))
+    monkeypatch.setattr(cli.PolygonFlatFileAdapter, "build_remote_listing_client", lambda self: fake)
+    adapter = cli.PolygonFlatFileAdapter(
+        {
+            "POLYGON_FLAT_FILE_ACCESS_KEY_ID": "polygon-key",
+            "POLYGON_FLAT_FILE_SECRET_ACCESS_KEY": "polygon-secret",
+            "POLYGON_FLAT_FILE_ENDPOINT": "https://endpoint.invalid",
+            "POLYGON_FLAT_FILE_BUCKET": "bucket",
+            "POLYGON_FLAT_FILE_PREFIX": "prefix",
+        }
+    )
+    entries = adapter.list_remote_manifest_objects(start_date="2026-06-15", end_date="2026-06-15", max_days=5)
+    assert entries[0]["redacted_key_tail"] == "2026/06/2026-06-15.csv.gz"
+    assert entries[0]["object_present"] is True
+    assert any(call.get("Prefix") == "us_stocks_sip/day_aggs_v1/2026/06/" for call in fake.calls)
+
+
+def test_wrong_date_basename_does_not_match(monkeypatch) -> None:
+    fake = _WrongDateClient()
+    monkeypatch.setattr(cli.PolygonFlatFileAdapter, "boto3_available", staticmethod(lambda: True))
+    monkeypatch.setattr(cli.PolygonFlatFileAdapter, "build_remote_listing_client", lambda self: fake)
+    adapter = cli.PolygonFlatFileAdapter(
+        {
+            "POLYGON_FLAT_FILE_ACCESS_KEY_ID": "polygon-key",
+            "POLYGON_FLAT_FILE_SECRET_ACCESS_KEY": "polygon-secret",
+            "POLYGON_FLAT_FILE_ENDPOINT": "https://endpoint.invalid",
+            "POLYGON_FLAT_FILE_BUCKET": "bucket",
+            "POLYGON_FLAT_FILE_PREFIX": "prefix",
+        }
+    )
+    entries = adapter.list_remote_manifest_objects(start_date="2026-06-15", end_date="2026-06-15", max_days=5)
+    assert entries[0]["object_present"] is False
+    assert entries[0]["redacted_key_tail"] == "2026/06/2026-06-15.csv.gz"
 
 
 def test_detects_known_visible_object_by_redacted_tail(monkeypatch) -> None:

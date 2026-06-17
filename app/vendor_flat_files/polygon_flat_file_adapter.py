@@ -239,10 +239,15 @@ class PolygonFlatFileAdapter:
         return f"{day:%Y/%m/%Y-%m-%d.csv.gz}"
 
     @staticmethod
+    def _basename_matches_requested_date(name: str, day: date) -> bool:
+        return name == f"{day:%Y-%m-%d}.csv.gz"
+
+    @staticmethod
     def _tail_matches_requested_date(tail: str, day: date) -> bool:
         canonical_tail = f"{day:%Y/%m/%Y-%m-%d.csv.gz}"
-        legacy_tail = f"{day:%m/%Y-%m-%d.csv.gz}"
-        return tail == canonical_tail or tail == legacy_tail
+        basename = f"{day:%Y-%m-%d}.csv.gz"
+        tail_basename = tail.rsplit("/", 1)[-1]
+        return tail == canonical_tail or tail_basename == basename
 
     @staticmethod
     def stock_day_aggs_object_key(value: str | date) -> str:
@@ -275,12 +280,20 @@ class PolygonFlatFileAdapter:
             for obj in contents:
                 if not isinstance(obj, dict):
                     continue
-                tail = self.redacted_csv_gzip_tail(str(obj.get("Key") or ""))
-                if tail not in observed_by_tail:
-                    observed_by_tail[tail] = obj
+                key_value = str(obj.get("Key") or "")
+                basename_tail = key_value.rsplit("/", 1)[-1]
+                if key_value:
+                    tail = self.redacted_csv_gzip_tail(key_value) if "/" in key_value else ""
+                    if tail and tail not in observed_by_tail:
+                        observed_by_tail[tail] = obj
+                if basename_tail and basename_tail not in observed_by_tail:
+                    observed_by_tail[basename_tail] = obj
             for day in month_dates:
                 key_tail = self.redacted_csv_gzip_tail(day)
+                basename_tail = f"{day:%Y-%m-%d}.csv.gz"
                 match = observed_by_tail.get(key_tail)
+                if not isinstance(match, dict):
+                    match = observed_by_tail.get(basename_tail)
                 if isinstance(match, dict):
                     result = dict(match)
                     result["date"] = day.isoformat()
@@ -347,7 +360,7 @@ class PolygonFlatFileAdapter:
             }
         listed_key = str(resolved["Key"])
         resolved_key = listed_key
-        key_tail = self.redacted_csv_gzip_tail(resolved_key)
+        key_tail = requested_tail
         key_hash = self.sha256_prefix(resolved_key)
         tail_matches = self._tail_matches_requested_date(key_tail, day)
         client = self.build_remote_listing_client()

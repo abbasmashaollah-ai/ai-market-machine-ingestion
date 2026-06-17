@@ -186,6 +186,7 @@ def test_date_range_and_manifest_tail_pattern_are_csv_gzip_based() -> None:
     assert PolygonFlatFileAdapter.redacted_csv_gzip_tail("us_stocks_sip/day_aggs_v1/2003/09/2003-09-10.csv.gz") == "2003/09/2003-09-10.csv.gz"
     assert PolygonFlatFileAdapter.redacted_csv_gzip_tail("us_stocks_sip/day_aggs_v1/2026/01/2026-01-02.csv.gz") == "2026/01/2026-01-02.csv.gz"
     assert PolygonFlatFileAdapter.redacted_csv_gzip_tail("us_stocks_sip/day_aggs_v1/2026/06/2026-06-15.csv.gz") == "2026/06/2026-06-15.csv.gz"
+    assert PolygonFlatFileAdapter._basename_matches_requested_date("2026-06-15.csv.gz", PolygonFlatFileAdapter._normalize_date("2026-06-15")) is True
     assert PolygonFlatFileAdapter.stock_day_aggs_object_key("2003-09-10") == "us_stocks_sip/day_aggs_v1/2003/09/2003-09-10.csv.gz"
     assert PolygonFlatFileAdapter.stock_day_aggs_object_key("2026-01-02") == "us_stocks_sip/day_aggs_v1/2026/01/2026-01-02.csv.gz"
     assert PolygonFlatFileAdapter.sha256_prefix("us_stocks_sip/day_aggs_v1/2003/09/2003-09-10.csv.gz") == PolygonFlatFileAdapter.sha256_prefix("us_stocks_sip/day_aggs_v1/2003/09/2003-09-10.csv.gz")

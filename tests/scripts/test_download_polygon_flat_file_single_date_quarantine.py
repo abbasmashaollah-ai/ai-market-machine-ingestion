@@ -42,12 +42,6 @@ class _FakeClient:
             }
         return {"Contents": []}
 
-    def download_file(self, **kwargs: object) -> None:
-        self.get_calls.append(kwargs)
-        path = Path(str(kwargs["Filename"]))
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(b"fake gzip bytes")
-
     class _Body:
         def __init__(self, payload: bytes) -> None:
             self.payload = payload
@@ -66,6 +60,24 @@ class _FakeClient:
             payload = b"fake gzip bytes"
             return {"Body": self._Body(payload), "ContentLength": len(payload)}
         raise RuntimeError("unexpected key")
+
+
+class _BasenameOnlyClient(_FakeClient):
+    def list_objects_v2(self, **kwargs: object) -> dict[str, object]:
+        self.list_calls.append(kwargs)
+        prefix = str(kwargs.get("Prefix") or "")
+        if not self.has_object:
+            return {"Contents": []}
+        if prefix.endswith("us_stocks_sip/day_aggs_v1/2026/06/"):
+            return {"Contents": [{"Key": "2026-06-15.csv.gz", "Size": 19, "LastModified": "x", "ETag": "etag-2"}]}
+        return {"Contents": []}
+
+    def get_object(self, **kwargs: object) -> dict[str, object]:
+        self.get_calls.append(kwargs)
+        if kwargs.get("Key") == "2026-06-15.csv.gz":
+            payload = b"fake gzip bytes"
+            return {"Body": self._Body(payload), "ContentLength": len(payload)}
+        return super().get_object(**kwargs)
 
 def _run_cli(monkeypatch, argv: list[str], env: dict[str, str] | None = None) -> dict[str, object]:
     for name in cli.REQUIRED_CONFIG_NAMES:
@@ -268,6 +280,37 @@ def test_forbidden_get_object_returns_safe_json(monkeypatch, tmp_path) -> None:
     text = json.dumps(payload).lower()
     for forbidden in ["polygon-key", "polygon-secret", "endpoint.invalid", "prefix/2026", "us_stocks_sip/day_aggs_v1/2026/06/2026-06-15.csv.gz"]:
         assert forbidden not in text
+
+
+def test_basename_only_listing_downloads_exact_listed_key(monkeypatch, tmp_path) -> None:
+    fake = _BasenameOnlyClient(has_object=True)
+    monkeypatch.setattr(cli.PolygonFlatFileAdapter, "boto3_available", staticmethod(lambda: True))
+    monkeypatch.setattr(cli.PolygonFlatFileAdapter, "build_remote_listing_client", lambda self: fake)
+    quarantine_dir = tmp_path / "quarantine"
+    payload = _run_cli(
+        monkeypatch,
+        [
+            "--date",
+            "2026-06-15",
+            "--approve-local-quarantine-download",
+            "--approval-phrase",
+            cli.APPROVAL_PHRASE,
+            "--quarantine-dir",
+            str(quarantine_dir),
+        ],
+        {
+            "POLYGON_FLAT_FILE_ACCESS_KEY_ID": "polygon-key",
+            "POLYGON_FLAT_FILE_SECRET_ACCESS_KEY": "polygon-secret",
+            "POLYGON_FLAT_FILE_ENDPOINT": "https://endpoint.invalid",
+            "POLYGON_FLAT_FILE_BUCKET": "bucket",
+            "POLYGON_FLAT_FILE_PREFIX": "prefix",
+        },
+    )
+    assert payload["download_attempted"] is True
+    assert payload["resolved_key_present"] is True
+    assert payload["resolved_key_tail_matches_requested_date"] is True
+    assert payload["resolved_key_matches_listed_key"] is True
+    assert any(call.get("Key") == "2026-06-15.csv.gz" for call in fake.get_calls)
 
 
 def test_source_scan_blocks_decompression_parse_export_db_scheduler_and_mutation() -> None:

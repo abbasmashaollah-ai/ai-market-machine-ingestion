@@ -88,8 +88,8 @@ def _safe_payload(*, enabled: bool, start_date: str, end_date: str, max_days_req
                         "etag_present": bool(entry.get("ETag")),
                         "resolved_key_present": key_present,
                         "resolved_key_tail_matches_requested_date": bool(day and tail.endswith(f"{day}.csv.gz")),
-                        "resolved_key_sha256_prefix": adapter.sha256_prefix(str(entry.get("Key") or "")) if key_present else "",
-                        "listed_key_sha256_prefix": adapter.sha256_prefix(str(entry.get("Key") or "")) if key_present else "",
+                        "resolved_key_sha256_prefix": adapter.sha256_prefix(tail) if key_present else "",
+                        "listed_key_sha256_prefix": adapter.sha256_prefix(tail) if key_present else "",
                         "resolved_key_matches_listed_key": key_present,
                     }
                 )
