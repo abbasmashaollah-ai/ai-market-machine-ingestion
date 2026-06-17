@@ -88,7 +88,7 @@ def _generated_artifact_flags() -> tuple[bool, bool]:
     status_lines = _git_status_short()
     tracked_paths = set(_git_ls_files())
     for rel in tracked_paths:
-        if rel.startswith("outputs/"):
+        if rel.startswith("outputs/") and Path(rel).name != ".gitkeep":
             tracked = True
             break
     for line in status_lines:

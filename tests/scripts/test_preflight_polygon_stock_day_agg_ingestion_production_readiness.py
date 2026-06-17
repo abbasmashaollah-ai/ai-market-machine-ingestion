@@ -24,6 +24,18 @@ def _payload(monkeypatch, *, missing: set[str] | None = None, tracked: bool = Fa
     return cli.build_payload()
 
 
+def _payload_with_git(monkeypatch, tracked_files: list[str], status_lines: list[str]) -> dict[str, object]:
+    monkeypatch.setattr(cli, "_exists", lambda paths: list(paths))
+    monkeypatch.setattr(cli, "_scan_for_blockers", lambda: {
+        "production_db_write_detected": False,
+        "scheduler_activation_detected": False,
+        "data_repo_mutation_detected": False,
+    })
+    monkeypatch.setattr(cli, "_git_ls_files", lambda *args: tracked_files)
+    monkeypatch.setattr(cli, "_git_status_short", lambda: status_lines)
+    return cli.build_payload()
+
+
 def test_complete_evidence_returns_ready_for_operator_review(monkeypatch) -> None:
     payload = _payload(monkeypatch)
     assert payload["ingestion_readiness_status"] == "READY_FOR_OPERATOR_REVIEW"
@@ -53,6 +65,26 @@ def test_production_db_write_or_scheduler_activation_returns_blocked(monkeypatch
     assert payload["production_db_write_detected"] is True
     assert payload["scheduler_activation_detected"] is True
     assert payload["data_repo_mutation_detected"] is True
+    assert payload["ingestion_readiness_status"] == "BLOCKED"
+
+
+def test_gitkeep_placeholder_does_not_block_readiness(monkeypatch) -> None:
+    payload = _payload_with_git(
+        monkeypatch,
+        tracked_files=["outputs/dry_runs/.gitkeep"],
+        status_lines=[],
+    )
+    assert payload["generated_artifacts_tracked"] is False
+    assert payload["ingestion_readiness_status"] == "READY_FOR_OPERATOR_REVIEW"
+
+
+def test_tracked_output_file_still_blocks_readiness(monkeypatch) -> None:
+    payload = _payload_with_git(
+        monkeypatch,
+        tracked_files=["outputs/something/data.json"],
+        status_lines=[],
+    )
+    assert payload["generated_artifacts_tracked"] is True
     assert payload["ingestion_readiness_status"] == "BLOCKED"
 
 
