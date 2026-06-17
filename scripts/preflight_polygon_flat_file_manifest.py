@@ -35,6 +35,13 @@ def _present_names(env: dict[str, str], names: tuple[str, ...]) -> list[str]:
     return [name for name in names if env.get(name)]
 
 
+def _expected_filename_and_tail(start_date: str, end_date: str) -> tuple[str | None, str | None]:
+    if start_date != end_date:
+        return None, None
+    day = date.fromisoformat(start_date)
+    return f"{day:%Y-%m-%d}.csv.gz", f"{day:%Y/%m/%Y-%m-%d.csv.gz}"
+
+
 def _safe_payload(*, enabled: bool, start_date: str, end_date: str, max_days_requested: int) -> dict[str, object]:
     env = dict(os.environ)
     presence = detect_config_presence(env)
@@ -56,6 +63,7 @@ def _safe_payload(*, enabled: bool, start_date: str, end_date: str, max_days_req
         config_classification = "missing"
 
     date_count_effective = min(max(max_days_requested, 1), 25)
+    expected_filename, expected_tail = _expected_filename_and_tail(start_date, end_date)
     adapter = PolygonFlatFileAdapter(env=env)
     boto3_available = adapter.boto3_available()
     remote_object_list_attempted = False
@@ -77,20 +85,25 @@ def _safe_payload(*, enabled: bool, start_date: str, end_date: str, max_days_req
             for entry in raw_entries:
                 day = str(entry.get("date") or "")
                 tail = str(entry.get("redacted_key_tail") or "")
-                key_present = bool(entry.get("Key"))
+                key_present = bool(entry.get("object_present", False))
                 manifest_entries.append(
                     {
                         "date": day,
                         "redacted_key_tail": tail or "<redacted>",
-                        "object_present": bool(entry.get("object_present", False)),
+                        "object_present": key_present,
                         "size_bytes": entry.get("Size"),
                         "last_modified_present": bool(entry.get("LastModified")),
                         "etag_present": bool(entry.get("ETag")),
                         "resolved_key_present": key_present,
-                        "resolved_key_tail_matches_requested_date": bool(day and tail.endswith(f"{day}.csv.gz")),
+                        "resolved_key_tail_matches_requested_date": bool(entry.get("remote_list_suffix_match") or entry.get("remote_list_basename_match")),
                         "resolved_key_sha256_prefix": adapter.sha256_prefix(tail) if key_present else "",
                         "listed_key_sha256_prefix": adapter.sha256_prefix(tail) if key_present else "",
                         "resolved_key_matches_listed_key": key_present,
+                        "remote_list_expected_filename": entry.get("expected_filename"),
+                        "remote_list_expected_tail": entry.get("expected_tail"),
+                        "remote_list_csv_gz_object_count_seen": int(entry.get("remote_list_csv_gz_object_count_seen") or 0),
+                        "remote_list_basename_match": bool(entry.get("remote_list_basename_match", False)),
+                        "remote_list_suffix_match": bool(entry.get("remote_list_suffix_match", False)),
                     }
                 )
         except Exception as exc:
@@ -157,6 +170,11 @@ def _safe_payload(*, enabled: bool, start_date: str, end_date: str, max_days_req
         "manifest_object_count_present": present_count,
         "manifest_object_count_missing": missing_count,
         "remote_list_object_count_seen": len(manifest_entries),
+        "remote_list_csv_gz_object_count_seen": sum(int(entry.get("remote_list_csv_gz_object_count_seen") or 0) for entry in manifest_entries),
+        "remote_list_basename_match_count": sum(1 for entry in manifest_entries if entry.get("remote_list_basename_match")),
+        "remote_list_suffix_match_count": sum(1 for entry in manifest_entries if entry.get("remote_list_suffix_match")),
+        "remote_list_expected_filename": expected_filename,
+        "remote_list_expected_tail": expected_tail,
         "manifest_entries": manifest_entries,
         "expected_dataset_type": EXPECTED_FLAT_FILE_DATASET_TYPE,
         "benchmark_symbol": BENCHMARK_SYMBOL,

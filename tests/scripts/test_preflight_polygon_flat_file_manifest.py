@@ -21,6 +21,7 @@ class _FakeClient:
         if prefix.endswith("us_stocks_sip/day_aggs_v1/2026/06/"):
             return {
                 "Contents": [
+                    {"Key": "us_stocks_sip/day_aggs_v1/2026/06/", "Size": 0},
                     {"Key": "us_stocks_sip/day_aggs_v1/2026/06/2026-06-15.csv.gz", "Size": 103, "LastModified": "x", "ETag": "etag-3"},
                 ]
             }
@@ -42,6 +43,20 @@ class _WrongDateClient(_FakeClient):
         prefix = str(kwargs.get("Prefix") or "")
         if prefix.endswith("us_stocks_sip/day_aggs_v1/2026/06/"):
             return {"Contents": [{"Key": "2026-06-16.csv.gz", "Size": 103}]}
+        return {"Contents": []}
+
+
+class _MarkerThenFileClient(_FakeClient):
+    def list_objects_v2(self, **kwargs: object) -> dict[str, object]:
+        self.calls.append(kwargs)
+        prefix = str(kwargs.get("Prefix") or "")
+        if prefix.endswith("us_stocks_sip/day_aggs_v1/2026/06/"):
+            return {
+                "Contents": [
+                    {"Key": "us_stocks_sip/day_aggs_v1/2026/06/", "Size": 0},
+                    {"Key": "us_stocks_sip/day_aggs_v1/2026/06/2026-06-15.csv.gz", "Size": 103},
+                ]
+            }
         return {"Contents": []}
 
 
@@ -194,6 +209,25 @@ def test_missing_boto3_is_safe(monkeypatch) -> None:
     assert payload["remote_object_list_attempted"] is False
     assert payload["remote_list_object_count_seen"] == 0
     assert any("boto3" in blocker for blocker in payload["blockers"])
+
+
+def test_month_listing_uses_depth_not_one(monkeypatch) -> None:
+    fake = _MarkerThenFileClient()
+    monkeypatch.setattr(cli.PolygonFlatFileAdapter, "boto3_available", staticmethod(lambda: True))
+    monkeypatch.setattr(cli.PolygonFlatFileAdapter, "build_remote_listing_client", lambda self: fake)
+    adapter = cli.PolygonFlatFileAdapter(
+        {
+            "POLYGON_FLAT_FILE_ACCESS_KEY_ID": "polygon-key",
+            "POLYGON_FLAT_FILE_SECRET_ACCESS_KEY": "polygon-secret",
+            "POLYGON_FLAT_FILE_ENDPOINT": "https://endpoint.invalid",
+            "POLYGON_FLAT_FILE_BUCKET": "bucket",
+            "POLYGON_FLAT_FILE_PREFIX": "prefix",
+        }
+    )
+    entries = adapter.list_remote_manifest_objects(start_date="2026-06-15", end_date="2026-06-15", max_days=1)
+    assert entries[0]["object_present"] is True
+    assert any(call.get("MaxKeys") == 100 for call in fake.calls)
+    assert any(entry["remote_list_csv_gz_object_count_seen"] == 1 for entry in entries)
 
 
 def test_source_scan_blocks_download_read_export_db_scheduler_and_mutation() -> None:

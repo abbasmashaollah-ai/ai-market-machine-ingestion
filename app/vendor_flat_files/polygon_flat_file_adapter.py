@@ -261,6 +261,10 @@ class PolygonFlatFileAdapter:
         payload = value if isinstance(value, bytes) else value.encode("utf-8")
         return hashlib.sha256(payload).hexdigest()[:prefix_len]
 
+    @staticmethod
+    def _month_listing_max_keys(requested: int) -> int:
+        return min(max(requested, 100), 250)
+
     def list_remote_manifest_objects(self, *, start_date: str | date, end_date: str | date, max_days: int) -> list[dict[str, str]]:
         client = self.build_remote_listing_client()
         dates = self._date_range(start_date, end_date, max_days)
@@ -273,49 +277,102 @@ class PolygonFlatFileAdapter:
             response = client.list_objects_v2(
                 Bucket=self._env.get("POLYGON_FLAT_FILE_BUCKET"),
                 Prefix=lookup_prefix,
-                MaxKeys=max_days,
+                MaxKeys=self._month_listing_max_keys(max_days),
             )
             contents = response.get("Contents", []) if isinstance(response, dict) else []
             observed_by_tail: dict[str, dict[str, str]] = {}
+            csv_gz_count = 0
             for obj in contents:
                 if not isinstance(obj, dict):
                     continue
                 key_value = str(obj.get("Key") or "")
+                if not key_value.endswith(".csv.gz"):
+                    continue
+                csv_gz_count += 1
                 basename_tail = key_value.rsplit("/", 1)[-1]
-                if key_value:
-                    tail = self.redacted_csv_gzip_tail(key_value) if "/" in key_value else ""
-                    if tail and tail not in observed_by_tail:
-                        observed_by_tail[tail] = obj
+                safe_tail = "/".join(key_value.split("/")[-3:]) if key_value.count("/") >= 2 else basename_tail
+                tail = self.redacted_csv_gzip_tail(key_value) if "/" in key_value else ""
+                if tail and tail not in observed_by_tail:
+                    observed_by_tail[tail] = obj
                 if basename_tail and basename_tail not in observed_by_tail:
                     observed_by_tail[basename_tail] = obj
+                if safe_tail and safe_tail not in observed_by_tail:
+                    observed_by_tail[safe_tail] = obj
             for day in month_dates:
-                key_tail = self.redacted_csv_gzip_tail(day)
-                basename_tail = f"{day:%Y-%m-%d}.csv.gz"
+                expected_tail = f"{day:%Y/%m/%Y-%m-%d.csv.gz}"
+                expected_filename = f"{day:%Y-%m-%d}.csv.gz"
+                key_tail = expected_tail
+                basename_tail = expected_filename
                 match = observed_by_tail.get(key_tail)
                 if not isinstance(match, dict):
                     match = observed_by_tail.get(basename_tail)
+                if not isinstance(match, dict):
+                    match = observed_by_tail.get(expected_tail)
                 if isinstance(match, dict):
-                    result = dict(match)
-                    result["date"] = day.isoformat()
-                    result["redacted_key_tail"] = key_tail
-                    result["object_present"] = True
+                    result = {
+                        "date": day.isoformat(),
+                        "redacted_key_tail": expected_tail,
+                        "object_present": True,
+                        "expected_filename": expected_filename,
+                        "expected_tail": expected_tail,
+                        "remote_list_csv_gz_object_count_seen": csv_gz_count,
+                        "remote_list_basename_match": basename_tail in observed_by_tail,
+                        "remote_list_suffix_match": expected_tail in observed_by_tail or key_tail in observed_by_tail,
+                        "Size": match.get("Size"),
+                        "LastModified": match.get("LastModified"),
+                        "ETag": match.get("ETag"),
+                    }
                     results.append(result)
                 else:
                     results.append(
                         {
                             "date": day.isoformat(),
-                            "redacted_key_tail": key_tail,
+                            "redacted_key_tail": expected_tail,
                             "object_present": False,
+                            "expected_filename": expected_filename,
+                            "expected_tail": expected_tail,
+                            "remote_list_csv_gz_object_count_seen": csv_gz_count,
+                            "remote_list_basename_match": basename_tail in observed_by_tail,
+                            "remote_list_suffix_match": expected_tail in observed_by_tail,
                         }
                     )
         return results
 
     def resolve_remote_manifest_object_for_date(self, value: str | date) -> dict[str, Any] | None:
         day = PolygonFlatFileAdapter._normalize_date(value)
-        entries = self.list_remote_manifest_objects(start_date=day, end_date=day, max_days=1)
-        for entry in entries:
-            if entry.get("date") == day.isoformat() and entry.get("object_present") is True:
-                return entry
+        client = self.build_remote_listing_client()
+        lookup_prefix = f"us_stocks_sip/day_aggs_v1/{day:%Y/%m}/"
+        response = client.list_objects_v2(
+            Bucket=self._env.get("POLYGON_FLAT_FILE_BUCKET"),
+            Prefix=lookup_prefix,
+            MaxKeys=self._month_listing_max_keys(100),
+        )
+        contents = response.get("Contents", []) if isinstance(response, dict) else []
+        expected_tail = f"{day:%Y/%m/%Y-%m-%d.csv.gz}"
+        expected_filename = f"{day:%Y-%m-%d}.csv.gz"
+        for obj in contents:
+            if not isinstance(obj, dict):
+                continue
+            key_value = str(obj.get("Key") or "")
+            if not key_value.endswith(".csv.gz"):
+                continue
+            basename_tail = key_value.rsplit("/", 1)[-1]
+            safe_tail = "/".join(key_value.split("/")[-3:]) if key_value.count("/") >= 2 else basename_tail
+            if basename_tail == expected_filename or key_value.endswith(expected_tail) or safe_tail == expected_tail:
+                result = {
+                    "date": day.isoformat(),
+                    "redacted_key_tail": expected_tail,
+                    "object_present": True,
+                    "expected_filename": expected_filename,
+                    "expected_tail": expected_tail,
+                    "remote_list_basename_match": basename_tail == expected_filename,
+                    "remote_list_suffix_match": key_value.endswith(expected_tail) or safe_tail == expected_tail,
+                    "_resolved_key_internal": key_value,
+                    "Size": obj.get("Size"),
+                    "LastModified": obj.get("LastModified"),
+                    "ETag": obj.get("ETag"),
+                }
+                return result
         return None
 
     def download_single_date_object(self, *, value: str | date, local_path: str | Path, overwrite: bool = False) -> dict[str, Any]:
@@ -342,7 +399,8 @@ class PolygonFlatFileAdapter:
         if not self.boto3_available():
             raise RuntimeError("boto3 is required for remote download preflight")
         resolved = self.resolve_remote_manifest_object_for_date(value)
-        if not resolved or not resolved.get("object_present") or not resolved.get("Key"):
+        resolved_key_value = str(resolved.get("_resolved_key_internal") or resolved.get("Key") or "") if resolved else ""
+        if not resolved or not resolved.get("object_present") or not resolved_key_value:
             return {
                 "downloaded": False,
                 "skipped_existing": False,
@@ -357,8 +415,8 @@ class PolygonFlatFileAdapter:
                 "resolved_key_matches_listed_key": False,
                 "content_length_present": False,
                 "local_quarantine_path": str(path),
-            }
-        listed_key = str(resolved["Key"])
+        }
+        listed_key = resolved_key_value
         resolved_key = listed_key
         key_tail = requested_tail
         key_hash = self.sha256_prefix(resolved_key)

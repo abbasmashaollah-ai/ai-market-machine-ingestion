@@ -32,6 +32,7 @@ class _FakeClient:
         if prefix.endswith("us_stocks_sip/day_aggs_v1/2026/06/"):
             return {
                 "Contents": [
+                    {"Key": "us_stocks_sip/day_aggs_v1/2026/06/", "Size": 0},
                     {
                         "Key": "us_stocks_sip/day_aggs_v1/2026/06/2026-06-15.csv.gz",
                         "Size": 19,
@@ -155,6 +156,35 @@ def test_approved_run_downloads_exactly_one_mocked_object(monkeypatch, tmp_path)
     text = json.dumps(payload).lower()
     for forbidden in ["polygon-key", "polygon-secret", "endpoint.invalid", "prefix/2026", "us_stocks_sip/day_aggs_v1/2026/06/2026-06-15.csv.gz"]:
         assert forbidden not in text
+
+
+def test_marker_entry_before_csv_still_downloads(monkeypatch, tmp_path) -> None:
+    fake = _FakeClient(has_object=True)
+    monkeypatch.setattr(cli.PolygonFlatFileAdapter, "boto3_available", staticmethod(lambda: True))
+    monkeypatch.setattr(cli.PolygonFlatFileAdapter, "build_remote_listing_client", lambda self: fake)
+    quarantine_dir = tmp_path / "quarantine"
+    payload = _run_cli(
+        monkeypatch,
+        [
+            "--date",
+            "2026-06-15",
+            "--approve-local-quarantine-download",
+            "--approval-phrase",
+            cli.APPROVAL_PHRASE,
+            "--quarantine-dir",
+            str(quarantine_dir),
+        ],
+        {
+            "POLYGON_FLAT_FILE_ACCESS_KEY_ID": "polygon-key",
+            "POLYGON_FLAT_FILE_SECRET_ACCESS_KEY": "polygon-secret",
+            "POLYGON_FLAT_FILE_ENDPOINT": "https://endpoint.invalid",
+            "POLYGON_FLAT_FILE_BUCKET": "bucket",
+            "POLYGON_FLAT_FILE_PREFIX": "prefix",
+        },
+    )
+    assert payload["download_attempted"] is True
+    assert payload["resolved_key_present"] is True
+    assert any(call.get("Key") == "us_stocks_sip/day_aggs_v1/2026/06/2026-06-15.csv.gz" for call in fake.get_calls)
 
 
 def test_existing_file_skips_until_overwrite(monkeypatch, tmp_path) -> None:
