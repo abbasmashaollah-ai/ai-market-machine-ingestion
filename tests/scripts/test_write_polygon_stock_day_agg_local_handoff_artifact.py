@@ -41,7 +41,8 @@ def test_default_no_approval_blocks_and_writes_nothing(tmp_path) -> None:
     assert payload["local_handoff_write_authorized"] is False
     assert payload["output_summary_exists"] is False
     assert payload["output_rows_exists"] is False
-    assert not output_dir.exists()
+    assert not Path(payload["output_summary_path"]).exists()
+    assert not Path(payload["output_rows_path"]).exists()
     assert payload["vendor_call_attempted"] is False
     assert payload["download_attempted"] is False
     assert payload["db_write_attempted"] is False
@@ -57,7 +58,7 @@ def test_wrong_approval_phrase_blocks_and_writes_nothing(tmp_path) -> None:
         header=["ticker", "window_start", "open", "high", "low", "close", "volume", "transactions"],
         rows=[["SPY", "2026-06-15", "1", "2", "0.5", "1.5", "10", "1"]],
     )
-    output_dir = tmp_path / "handoff_candidates" / "polygon_stock_day_aggs"
+    output_dir = Path("outputs") / "handoff_candidates" / "polygon_stock_day_aggs"
     payload = _run_cli(
         [
             "--file",
