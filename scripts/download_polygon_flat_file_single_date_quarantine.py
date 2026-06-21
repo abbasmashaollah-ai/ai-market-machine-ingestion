@@ -34,7 +34,15 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _safe_payload(*, enabled: bool, approval_phrase: str, value: str, quarantine_dir: str, overwrite_local_file: bool) -> dict[str, object]:
+def _safe_payload(
+    *,
+    enabled: bool,
+    approval_phrase: str,
+    value: str,
+    quarantine_dir: str,
+    overwrite_local_file: bool,
+    required_approval_phrase: str = APPROVAL_PHRASE,
+) -> dict[str, object]:
     env = dict(os.environ)
     presence = detect_config_presence(env)
     polygon_names = [name for name in REQUIRED_CONFIG_NAMES if name.startswith("POLYGON_FLAT_FILE") and env.get(name)]
@@ -45,10 +53,10 @@ def _safe_payload(*, enabled: bool, approval_phrase: str, value: str, quarantine
         "production handoff generation is not authorized",
         "no decompression, parsing, export, DB writes, ingestion, scheduler activation, or production mutation are permitted",
     ]
-    local_quarantine_download_enabled = bool(enabled and approval_phrase == APPROVAL_PHRASE)
+    local_quarantine_download_enabled = bool(enabled and approval_phrase == required_approval_phrase)
     if not enabled:
         blockers.append("local quarantine download is disabled by default")
-    elif approval_phrase != APPROVAL_PHRASE:
+    elif approval_phrase != required_approval_phrase:
         blockers.append("approval phrase does not match")
     if path.exists() and not overwrite_local_file:
         blockers.append("local file already exists and overwrite is not approved")
@@ -232,6 +240,7 @@ def main(argv: list[str] | None = None) -> int:
         value=args.date,
         quarantine_dir=args.quarantine_dir,
         overwrite_local_file=bool(args.overwrite_local_file),
+        required_approval_phrase=APPROVAL_PHRASE,
     )
     safe_json = json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True)
     if args.output_file:
