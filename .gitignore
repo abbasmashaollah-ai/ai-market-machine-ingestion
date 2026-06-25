@@ -14,6 +14,7 @@ Thumbs.db
 # Local project docs
 docs/*
 !docs/news_sentiment_handoff_acceptance_boundary_resolution.md
+!docs/news_sentiment_deferred_helper_resolution.md
 .idea/
 
 # Keep README tracked
@@ -33,3 +34,4 @@ outputs/quarantine/
 # Local docs tests
 tests/docs/*
 !tests/docs/test_news_sentiment_handoff_acceptance_boundary_resolution.py
+!tests/docs/test_news_sentiment_deferred_helper_resolution.py

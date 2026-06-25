@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import json
 from pathlib import Path
 from unittest.mock import patch
@@ -11,10 +12,19 @@ from app.handoff.news_sentiment_handoff import (
     validate_news_sentiment_record,
     write_news_sentiment_handoff_jsonl,
 )
+from app.warehouse.news_sentiment_handoff_acceptance import import_news_sentiment_handoff_jsonl
 
 
 def _record() -> dict[str, object]:
     return dict(DEFAULT_FIXTURE_RECORDS[0])
+
+
+def test_helper_has_no_data_orm_dependency() -> None:
+    import app.warehouse.news_sentiment_handoff_acceptance as helper_module
+
+    source = inspect.getsource(helper_module)
+    assert "app.database" not in source
+    assert "sqlalchemy.orm" not in source
 
 
 def test_round_trip_handoff_jsonl_uses_ingestion_owned_handoff_contract(tmp_path: Path) -> None:
@@ -103,3 +113,13 @@ def test_no_internal_commit_or_vendor_calls_are_performed(tmp_path: Path) -> Non
     assert '"records_written": 3' in printed
     assert '"no_vendor_calls": true' in printed
     assert '"no_db_writes": true' in printed
+
+
+def test_boundary_helper_can_parse_and_report_without_db_writes(tmp_path: Path) -> None:
+    input_path = tmp_path / "news.jsonl"
+    input_path.write_text(json.dumps(dict(DEFAULT_FIXTURE_RECORDS[0])) + "\n", encoding="utf-8")
+    summary = import_news_sentiment_handoff_jsonl(input_path)
+    assert summary.records_parsed == 1
+    assert summary.records_accepted == 1
+    assert summary.records_written == 0
+    assert summary.records_rejected == 0

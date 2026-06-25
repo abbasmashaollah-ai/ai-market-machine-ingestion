@@ -11,7 +11,7 @@ def test_news_sentiment_handoff_acceptance_boundary_resolution_doc_has_required_
         "## Boundary Decision",
         "## Runtime File Ownership",
         "## Test Ownership",
-        "## Why Deferred",
+        "## Why This Is Compliant",
         "## Generated Outputs",
         "## Recommended Next Step",
         "## Readiness",
