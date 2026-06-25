@@ -25,3 +25,6 @@ main.py
 
 # Local options quarantine outputs
 outputs/quarantine/options_flat_files/*.csv.gz
+outputs/handoff_candidates/
+outputs/intake_packages/
+outputs/quarantine/
