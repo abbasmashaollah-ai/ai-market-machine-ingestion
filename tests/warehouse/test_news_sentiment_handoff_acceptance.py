@@ -72,6 +72,19 @@ def test_validation_rejections_do_not_require_database_access() -> None:
     assert "headline is required" in result.rejection_reasons
 
 
+def test_validation_rejections_require_mandatory_evidence_fields() -> None:
+    for field, expected_reason in [
+        ("source_sha256", "source_sha256 is required"),
+        ("source_file_name", "source_file_name is required"),
+        ("source_file_path", "source_file_path is required"),
+    ]:
+        record = _record()
+        record.pop(field)
+        result = validate_news_sentiment_record(record)
+        assert result.accepted is False
+        assert expected_reason in result.rejection_reasons
+
+
 def test_strategy_fields_are_rejected_without_strategy_logic() -> None:
     record = _record()
     record["buy_signal"] = True

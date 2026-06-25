@@ -359,6 +359,12 @@ def validate_news_sentiment_record(record: Mapping[str, Any]) -> NewsSentimentHa
         rejection_reasons.append("source_domain is required")
     if not producer_run_id:
         rejection_reasons.append("producer_run_id is required")
+    if not source_sha256:
+        rejection_reasons.append("source_sha256 is required")
+    if not source_file_name:
+        rejection_reasons.append("source_file_name is required")
+    if not source_file_path:
+        rejection_reasons.append("source_file_path is required")
     if not (vendor_article_id or url or canonical_url or news_id):
         rejection_reasons.append("one of vendor_article_id, url, canonical_url, or news_id is required")
     if url and not _url_is_safe(url):

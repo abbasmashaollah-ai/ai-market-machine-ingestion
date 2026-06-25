@@ -57,6 +57,12 @@ def _deterministic_news_id(*parts: str | None) -> str:
     return f"news-{digest.hexdigest()[:24]}"
 
 
+def _deterministic_source_sha256(raw_record: Mapping[str, Any]) -> str:
+    digest = hashlib.sha256()
+    digest.update(json.dumps(dict(raw_record), ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8"))
+    return digest.hexdigest()
+
+
 def _source_domain_from_url(url: str | None) -> str | None:
     if not url:
         return None
@@ -124,9 +130,9 @@ def normalize_fixture_news_record(
         "raw_sentiment_score": float(sentiment_score) if sentiment_score is not None else None,
         "raw_sentiment_label": sentiment_label,
         "sentiment_source": "fixture_vendor",
-        "source_sha256": _safe_text(raw_record.get("source_sha256")),
-        "source_file_name": _safe_text(raw_record.get("source_file_name")),
-        "source_file_path": None,
+        "source_sha256": _safe_text(raw_record.get("source_sha256")) or _deterministic_source_sha256(raw_record),
+        "source_file_name": _safe_text(raw_record.get("source_file_name")) or "news_sentiment_fixture_sample.json",
+        "source_file_path": _safe_text(raw_record.get("source_file_path")) or "tests/fixtures/news_sentiment_fixture_sample.json",
         "lineage": tuple(["fixture", batch_metadata.source_dataset]),
         "warnings": tuple(["fixture-normalized"]),
     }
