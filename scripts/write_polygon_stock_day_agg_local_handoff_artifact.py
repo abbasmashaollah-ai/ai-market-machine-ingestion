@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from collections import Counter
@@ -24,6 +25,11 @@ from scripts.preview_normalize_polygon_stock_day_agg_quarantine_file import (
 DEFAULT_INPUT_PATH = Path("outputs/quarantine/polygon_flat_files/polygon_stocks_day_aggs_2026-06-15.csv.gz")
 ALLOWED_OUTPUT_ROOT = Path("outputs/handoff_candidates/polygon_stock_day_aggs")
 APPROVAL_PHRASE = "APPROVE POLYGON STOCK DAY AGG LOCAL HANDOFF ARTIFACT WRITE"
+DATASET = "ohlcv_equity_daily"
+SOURCE_VENDOR = "polygon_massive_flat_files"
+SOURCE_DATASET = "polygon_stocks_day_aggs"
+ASSET_TYPE = "equity_or_etf_unknown_at_ingestion"
+UNKNOWN_ADJUSTMENT_STATUS = "unknown_or_vendor_default"
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -45,6 +51,46 @@ def _validate_output_dir(output_dir: Path) -> tuple[bool, str]:
         return False, f"output_dir must be within {ALLOWED_OUTPUT_ROOT.as_posix()}"
     except Exception:
         return False, "output_dir could not be resolved safely"
+
+
+def _hash_key(*parts: object) -> str:
+    seed = "|".join(str(part) for part in parts)
+    return hashlib.sha256(seed.encode("utf-8")).hexdigest()
+
+
+def _adjustment_fields(adjusted_status: object) -> tuple[bool, str]:
+    status = str(adjusted_status or UNKNOWN_ADJUSTMENT_STATUS).strip().lower()
+    if status == "adjusted":
+        return True, "adjusted"
+    if status == "unadjusted":
+        return False, "unadjusted"
+    return False, UNKNOWN_ADJUSTMENT_STATUS
+
+
+def _lineage_id(*, requested_date: str, source_file_sha256: object, source_quarantine_path: Path) -> str:
+    digest = _hash_key(SOURCE_VENDOR, SOURCE_DATASET, requested_date, source_file_sha256, source_quarantine_path)
+    return f"ohlcv-lineage-v1:{digest}"
+
+
+def _idempotency_key(
+    *,
+    symbol: object,
+    trade_date: object,
+    adjusted: bool,
+    adjustment_status: str,
+    source_file_sha256: object,
+    lineage_id: str,
+) -> str:
+    return _hash_key(
+        SOURCE_VENDOR,
+        SOURCE_DATASET,
+        source_file_sha256,
+        lineage_id,
+        symbol,
+        trade_date,
+        adjusted,
+        adjustment_status,
+    )
 
 
 def write_polygon_stock_day_agg_local_handoff_artifact(
@@ -100,6 +146,13 @@ def write_polygon_stock_day_agg_local_handoff_artifact(
         requested_date=requested_date,
         sample_limit=5,
     )
+    source_file_sha256 = normalization.get("local_file_sha256", "")
+    source_file_size_bytes = normalization.get("local_file_size_bytes", 0)
+    lineage_id = _lineage_id(
+        requested_date=requested_date,
+        source_file_sha256=source_file_sha256,
+        source_quarantine_path=input_path,
+    )
     header_fields, raw_rows = _read_rows(input_path)
     aliases = _header_aliases(header_fields)
     candidate_rows: list[dict[str, Any]] = []
@@ -109,12 +162,21 @@ def write_polygon_stock_day_agg_local_handoff_artifact(
         if normalized_row is None:
             rejection_counter.update(reasons)
             continue
+        adjusted, adjustment_status = _adjustment_fields(normalized_row["adjusted_status"])
+        idempotency_key = _idempotency_key(
+            symbol=normalized_row["symbol"],
+            trade_date=normalized_row["trade_date"],
+            adjusted=adjusted,
+            adjustment_status=adjustment_status,
+            source_file_sha256=source_file_sha256,
+            lineage_id=lineage_id,
+        )
         candidate_rows.append(
             {
-                "dataset": "ohlcv_equity_daily",
-                "source_vendor": "polygon_massive_flat_files",
-                "source_dataset": "polygon_stocks_day_aggs",
-                "asset_type": "equity_or_etf_unknown_at_ingestion",
+                "dataset": DATASET,
+                "source_vendor": SOURCE_VENDOR,
+                "source_dataset": SOURCE_DATASET,
+                "asset_type": ASSET_TYPE,
                 "symbol": normalized_row["symbol"],
                 "trade_date": normalized_row["trade_date"],
                 "open": normalized_row["open"],
@@ -123,10 +185,14 @@ def write_polygon_stock_day_agg_local_handoff_artifact(
                 "close": normalized_row["close"],
                 "volume": normalized_row["volume"],
                 "transactions": normalized_row["transactions"],
-                "adjusted_status": normalized_row["adjusted_status"],
-                "source_file_sha256": normalization.get("local_file_sha256", ""),
-                "source_file_size_bytes": normalization.get("local_file_size_bytes", 0),
+                "adjusted": adjusted,
+                "adjustment_status": adjustment_status,
+                "adjusted_status": adjustment_status,
+                "source_file_sha256": source_file_sha256,
+                "source_file_size_bytes": source_file_size_bytes,
                 "source_quarantine_path": str(input_path),
+                "lineage_id": lineage_id,
+                "idempotency_key": idempotency_key,
                 "preview_or_local_handoff_only": True,
             }
         )
@@ -140,12 +206,15 @@ def write_polygon_stock_day_agg_local_handoff_artifact(
 
     summary_payload = {
         "requested_date": requested_date,
-        "dataset": "ohlcv_equity_daily",
-        "source_vendor": "polygon_massive_flat_files",
-        "source_dataset": "polygon_stocks_day_aggs",
-        "source_file_sha256": normalization.get("local_file_sha256", ""),
-        "source_file_size_bytes": normalization.get("local_file_size_bytes", 0),
+        "dataset": DATASET,
+        "source_vendor": SOURCE_VENDOR,
+        "source_dataset": SOURCE_DATASET,
+        "source_file_sha256": source_file_sha256,
+        "source_file_size_bytes": source_file_size_bytes,
         "source_quarantine_path": str(input_path),
+        "lineage_id": lineage_id,
+        "lineage_id_derivation": "sha256(source_vendor|source_dataset|requested_date|source_file_sha256|source_quarantine_path)",
+        "idempotency_key_derivation": "sha256(source_vendor|source_dataset|source_file_sha256|lineage_id|symbol|trade_date|adjusted|adjustment_status)",
         "row_count_raw": len(raw_rows),
         "row_count_written": len(candidate_rows),
         "rejected_row_count": len(raw_rows) - len(candidate_rows),
@@ -174,9 +243,10 @@ def write_polygon_stock_day_agg_local_handoff_artifact(
             "output_rows_exists": rows_path.exists(),
             "row_count_written": len(candidate_rows),
             "rejected_row_count": len(raw_rows) - len(candidate_rows),
-            "candidate_dataset": "ohlcv_equity_daily",
-            "candidate_source_vendor": "polygon_massive_flat_files",
-            "candidate_source_dataset": "polygon_stocks_day_aggs",
+            "candidate_dataset": DATASET,
+            "candidate_source_vendor": SOURCE_VENDOR,
+            "candidate_source_dataset": SOURCE_DATASET,
+            "lineage_id": lineage_id,
             "benchmark_symbol_present": normalization.get("benchmark_symbol_present", False),
             "required_sector_symbols_present": normalization.get("required_sector_symbols_present", []),
             "required_sector_symbols_missing": normalization.get("required_sector_symbols_missing", SECTOR_SYMBOLS),

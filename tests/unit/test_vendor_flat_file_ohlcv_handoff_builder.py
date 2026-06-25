@@ -35,6 +35,9 @@ def test_builds_canonical_records_from_parsed_equities_fixture_result() -> None:
     assert result.records[0]["manifest_path"].endswith("manifest.json")
     assert result.records[0]["lineage_id"] == "fixture-lineage-equities-2026-01-15"
     assert result.records[0]["source_file_sha256"] == parsed.source_file_sha256
+    assert result.records[0]["trade_date"] == result.records[0]["observation_date"]
+    assert result.records[0]["source_vendor"] == result.records[0]["vendor"]
+    assert result.records[0]["adjustment_status"] in {"adjusted", "unadjusted"}
 
 
 def test_builds_canonical_records_from_parsed_etf_fixture_result() -> None:
@@ -54,6 +57,30 @@ def test_idempotency_key_deterministic_across_repeated_calls() -> None:
 
     assert first.records[0]["idempotency_key"] == second.records[0]["idempotency_key"]
     assert first.idempotency_key_prefixes == second.idempotency_key_prefixes
+
+
+def test_missing_adjustment_status_defaults_to_unknown_or_vendor_default() -> None:
+    parsed = _equities_parsed()
+    mutated_rows = []
+    for row in parsed.rows:
+        updated = dict(row)
+        updated.pop("adjusted", None)
+        updated.pop("adjustment_status", None)
+        updated.pop("adjusted_status", None)
+        mutated_rows.append(updated)
+    mutated = type(parsed)(
+        parse_status=parsed.parse_status,
+        rows=tuple(mutated_rows),
+        row_count=parsed.row_count,
+        symbols=parsed.symbols,
+        warnings=parsed.warnings,
+        errors=parsed.errors,
+        manifest=parsed.manifest,
+        source_file_sha256=parsed.source_file_sha256,
+    )
+    result = build_ohlcv_handoff(mutated)
+    assert result.records[0]["adjusted"] is False
+    assert result.records[0]["adjustment_status"] == "unknown_or_vendor_default"
 
 
 def test_idempotency_key_changes_when_source_file_sha_changes() -> None:

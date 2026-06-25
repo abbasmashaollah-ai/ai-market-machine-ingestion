@@ -55,15 +55,24 @@ def _convert_parser_error(error: LocalFlatFileParseError) -> LocalOhlcvHandoffEr
 
 def _idempotency_key(
     *,
-    vendor: str,
+    source_vendor: str,
     asset_class: str,
     symbol: str,
-    observation_date: str,
+    trade_date: str,
     dataset_version: str,
     source_file_sha256: str,
+    adjustment_status: str,
 ) -> str:
-    seed = "|".join([vendor, asset_class, symbol, observation_date, dataset_version, source_file_sha256])
+    seed = "|".join([source_vendor, asset_class, symbol, trade_date, dataset_version, source_file_sha256, adjustment_status])
     return _hash_text(seed)
+
+
+def _adjustment_status(adjusted: object) -> str:
+    if adjusted is True:
+        return "adjusted"
+    if adjusted is False:
+        return "unadjusted"
+    return "unknown_or_vendor_default"
 
 
 def build_ohlcv_handoff(
@@ -84,7 +93,7 @@ def build_ohlcv_handoff(
     source_file_name = str(manifest.get("source_file_name") or "")
     lineage_id = str(manifest.get("lineage_id") or "")
     source_file_sha256 = str(parsed.source_file_sha256 or manifest.get("source_file_sha256") or "")
-    vendor = str(manifest.get("vendor") or "polygon")
+    source_vendor = str(manifest.get("source_vendor") or manifest.get("vendor") or "polygon")
 
     if not source_file_sha256:
         errors.append(LocalOhlcvHandoffError(code="HANDOFF_BLOCKED_CHECKSUM_MISSING", message="source_file_sha256 missing"))
@@ -109,19 +118,27 @@ def build_ohlcv_handoff(
     for row in parsed.rows:
         symbol = str(row.get("symbol") or "").upper()
         observation_date = str(row.get("observation_date") or "")
+        trade_date = str(row.get("trade_date") or observation_date)
         source_hash = str(row.get("source_file_sha256") or source_file_sha256)
+        row_source_vendor = str(row.get("source_vendor") or row.get("vendor") or source_vendor)
+        adjustment_status = str(row.get("adjustment_status") or row.get("adjusted_status") or _adjustment_status(row.get("adjusted")))
+        adjusted = row.get("adjusted")
+        if adjusted is None and adjustment_status == "unknown_or_vendor_default":
+            adjusted = False
         key = _idempotency_key(
-            vendor=str(row.get("vendor") or vendor),
+            source_vendor=row_source_vendor,
             asset_class=str(row.get("asset_class") or asset_class),
             symbol=symbol,
-            observation_date=observation_date,
+            trade_date=trade_date,
             dataset_version=str(row.get("dataset_version") or dataset_version),
             source_file_sha256=source_hash,
+            adjustment_status=adjustment_status,
         )
         prefixes.append(_prefix(key))
         record = {
             "symbol": symbol,
             "observation_date": observation_date,
+            "trade_date": trade_date,
             "open": row.get("open"),
             "high": row.get("high"),
             "low": row.get("low"),
@@ -129,8 +146,11 @@ def build_ohlcv_handoff(
             "volume": row.get("volume"),
             "vwap": row.get("vwap"),
             "transactions": row.get("transactions"),
-            "adjusted": row.get("adjusted"),
-            "vendor": str(row.get("vendor") or vendor),
+            "adjusted": adjusted,
+            "adjustment_status": adjustment_status,
+            "adjusted_status": adjustment_status,
+            "vendor": row_source_vendor,
+            "source_vendor": row_source_vendor,
             "asset_class": str(row.get("asset_class") or asset_class),
             "source_schema_version": source_schema_version or str(row.get("schema_version") or ""),
             "canonical_schema_version": CANONICAL_SCHEMA_VERSION,
