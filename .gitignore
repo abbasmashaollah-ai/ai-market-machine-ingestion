@@ -12,7 +12,8 @@ venv/
 Thumbs.db
 
 # Local project docs
-docs/
+docs/*
+!docs/news_sentiment_handoff_acceptance_boundary_resolution.md
 .idea/
 
 # Keep README tracked
@@ -28,3 +29,7 @@ outputs/quarantine/options_flat_files/*.csv.gz
 outputs/handoff_candidates/
 outputs/intake_packages/
 outputs/quarantine/
+
+# Local docs tests
+tests/docs/*
+!tests/docs/test_news_sentiment_handoff_acceptance_boundary_resolution.py
