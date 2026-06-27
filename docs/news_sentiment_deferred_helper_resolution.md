@@ -1,10 +1,10 @@
-# News/Sentiment Deferred Helper Resolution
+# News/Sentiment Helper Boundary Resolution
 
 ## Boundary Decision
-The deferred News/Sentiment helper has been refactored into ingestion-owned handoff behavior only. It no longer imports `app.database.*` or data-repo ORM models.
+The News/Sentiment helper is ingestion-owned handoff behavior only. It no longer imports `app.database.*` or data-repo ORM models.
 
 ## Runtime File Ownership
-`app/warehouse/news_sentiment_handoff_acceptance.py` is now an ingestion-owned JSONL parsing, validation, and quarantine helper.
+`app/warehouse/news_sentiment_handoff_acceptance.py` is an ingestion-owned JSONL parsing, validation, and quarantine helper.
 
 ## Test Ownership
 `tests/warehouse/test_news_sentiment_handoff_acceptance.py` remains ingestion-owned and continues to verify handoff behavior without data ORM dependencies.
@@ -24,4 +24,4 @@ The deferred News/Sentiment helper has been refactored into ingestion-owned hand
 - The helper now stays within the ingestion boundary.
 
 ## Readiness
-The helper can now be committed as ingestion-owned source alongside its tests.
+The helper is ingestion-owned source alongside its tests.
