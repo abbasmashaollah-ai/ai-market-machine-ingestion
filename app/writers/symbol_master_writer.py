@@ -4,7 +4,7 @@ from collections import OrderedDict
 from datetime import datetime, timezone
 from typing import Callable, Protocol
 
-from app.normalization.symbol_master import NormalizedSymbolMasterRecord
+from app.normalization.symbol_master import NormalizedSymbolMasterRecord, build_symbol_identity_idempotency_key
 from app.writers.canonical_writer import CanonicalWriter, WriteStatus, WriterResult
 
 
@@ -114,6 +114,15 @@ class SymbolMasterWriter:
             unique[key] = record
         return list(unique.values()), skipped
 
+    def _idempotency_key(self, record: NormalizedSymbolMasterRecord) -> str | None:
+        return build_symbol_identity_idempotency_key(
+            record.source_vendor or record.vendor,
+            record.source_dataset,
+            record.source_sha256,
+            record.asset_type,
+            record.symbol,
+        )
+
     def write(self, records: list[NormalizedSymbolMasterRecord]) -> WriterResult:
         if not records:
             return WriterResult(writer_name=self.writer_name, status=WriteStatus.SKIPPED, skipped_count=0)
@@ -122,6 +131,7 @@ class SymbolMasterWriter:
             connection = self._connection()
             columns_present = self._contract(connection)
             unique_records, skipped = self._dedupe(records)
+            idempotency_keys = [key for key in (self._idempotency_key(record) for record in unique_records) if key]
             columns = [
                 "symbol",
                 "vendor",
@@ -186,6 +196,11 @@ class SymbolMasterWriter:
                 status=WriteStatus.SUCCESS,
                 written_count=len(unique_records),
                 skipped_count=skipped,
+                details={
+                    "idempotency_keys": tuple(idempotency_keys),
+                    "idempotency_key_formula": "sha256(source_vendor|source_dataset|source_sha256|asset_type|symbol)",
+                    "idempotency_key_storage": "preserved_in_writer_result_only",
+                },
             )
         except Exception as exc:
             if connection is not None and hasattr(connection, "rollback"):

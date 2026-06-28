@@ -20,6 +20,12 @@ DEFAULT_SAMPLE_SOURCE = (
         symbol="AAPL",
         active=True,
         vendor="fmp",
+        source_vendor="fmp",
+        source_dataset="symbol_master",
+        source_sha256="fixture-source-sha256-aapl",
+        source_file_name="symbol_master_fixture_aapl.json",
+        source_file_path="fixtures/symbol_master/symbol_master_fixture_aapl.json",
+        producer_run_id="symbol-master-fixture-run-001",
         vendor_symbol="AAPL",
         asset_type="equity",
         exchange="NASDAQ",
@@ -32,6 +38,12 @@ DEFAULT_SAMPLE_SOURCE = (
         symbol="SPY",
         active=True,
         vendor="polygon",
+        source_vendor="polygon",
+        source_dataset="symbol_master",
+        source_sha256="fixture-source-sha256-spy",
+        source_file_name="symbol_master_fixture_spy.json",
+        source_file_path="fixtures/symbol_master/symbol_master_fixture_spy.json",
+        producer_run_id="symbol-master-fixture-run-001",
         vendor_symbol="SPY",
         asset_type="etf",
         exchange="NYSEARCA",
@@ -44,6 +56,12 @@ DEFAULT_SAMPLE_SOURCE = (
         symbol="VIX",
         active=False,
         vendor="polygon",
+        source_vendor="polygon",
+        source_dataset="symbol_master",
+        source_sha256="fixture-source-sha256-vix",
+        source_file_name="symbol_master_fixture_vix.json",
+        source_file_path="fixtures/symbol_master/symbol_master_fixture_vix.json",
+        producer_run_id="symbol-master-fixture-run-001",
         vendor_symbol="I:VIX",
         asset_type="index",
         exchange="CBOE",
@@ -127,6 +145,14 @@ def build_confirmed_write_summary(source_records: tuple[SymbolMasterSourceRecord
         "vendor_source": "sample_fixture",
         "normalized_records": tuple(normalized_records),
         "source_errors": tuple(tuple(errors) for errors in source_errors),
+        "idempotency_keys": tuple(
+            key
+            for key in (
+                writer._idempotency_key(record)  # noqa: SLF001 - local dry-run alignment helper
+                for record in valid_records
+            )
+            if key
+        ),
         "rows_written": write_result.written_count,
         "rows_skipped": write_result.skipped_count,
         "write_confirmed": write_result.succeeded,

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from hashlib import sha256
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
@@ -10,6 +11,12 @@ class NormalizedSymbolMasterRecord:
     active: bool | None
     source: str | None = None
     vendor: str | None = None
+    source_vendor: str | None = None
+    source_dataset: str | None = None
+    source_sha256: str | None = None
+    source_file_name: str | None = None
+    source_file_path: str | None = None
+    producer_run_id: str | None = None
     vendor_symbol: str | None = None
     asset_type: str | None = None
     exchange: str | None = None
@@ -26,6 +33,12 @@ class SymbolMasterSourceRecord:
     symbol: str | None
     active: bool | None
     vendor: str | None = None
+    source_vendor: str | None = None
+    source_dataset: str | None = None
+    source_sha256: str | None = None
+    source_file_name: str | None = None
+    source_file_path: str | None = None
+    producer_run_id: str | None = None
     vendor_symbol: str | None = None
     asset_type: str | None = None
     exchange: str | None = None
@@ -55,6 +68,12 @@ def normalize_symbol_record(source: SymbolMasterSourceRecord) -> NormalizedSymbo
         symbol=_normalize_text(source.symbol),
         source=_normalize_text(source.symbol),
         vendor=_normalize_text(source.vendor),
+        source_vendor=_normalize_text(source.source_vendor or source.vendor),
+        source_dataset=_normalize_text(source.source_dataset),
+        source_sha256=_normalize_text(source.source_sha256),
+        source_file_name=_normalize_text(source.source_file_name),
+        source_file_path=_normalize_text(source.source_file_path),
+        producer_run_id=_normalize_text(source.producer_run_id),
         vendor_symbol=_normalize_text(source.vendor_symbol),
         name=_normalize_text(source.name),
         currency=_normalize_text(source.currency),
@@ -76,6 +95,18 @@ def validate_source_record(source: SymbolMasterSourceRecord) -> list[str]:
         errors.append("active is required")
     if source.vendor is not None and not source.vendor.strip():
         errors.append("vendor cannot be empty")
+    if source.source_vendor is not None and not source.source_vendor.strip():
+        errors.append("source_vendor cannot be empty")
+    if source.source_dataset is not None and not source.source_dataset.strip():
+        errors.append("source_dataset cannot be empty")
+    if source.source_sha256 is not None and not source.source_sha256.strip():
+        errors.append("source_sha256 cannot be empty")
+    if source.source_file_name is not None and not source.source_file_name.strip():
+        errors.append("source_file_name cannot be empty")
+    if source.source_file_path is not None and not source.source_file_path.strip():
+        errors.append("source_file_path cannot be empty")
+    if source.producer_run_id is not None and not source.producer_run_id.strip():
+        errors.append("producer_run_id cannot be empty")
     if source.vendor_symbol is not None and not source.vendor_symbol.strip():
         errors.append("vendor_symbol cannot be empty")
     if source.vendor_symbol and not source.vendor:
@@ -95,6 +126,18 @@ def validate_symbol_record(record: NormalizedSymbolMasterRecord) -> list[str]:
         errors.append("active is required")
     if record.vendor is not None and not record.vendor.strip():
         errors.append("vendor cannot be empty")
+    if record.source_vendor is not None and not record.source_vendor.strip():
+        errors.append("source_vendor cannot be empty")
+    if record.source_dataset is not None and not record.source_dataset.strip():
+        errors.append("source_dataset cannot be empty")
+    if record.source_sha256 is not None and not record.source_sha256.strip():
+        errors.append("source_sha256 cannot be empty")
+    if record.source_file_name is not None and not record.source_file_name.strip():
+        errors.append("source_file_name cannot be empty")
+    if record.source_file_path is not None and not record.source_file_path.strip():
+        errors.append("source_file_path cannot be empty")
+    if record.producer_run_id is not None and not record.producer_run_id.strip():
+        errors.append("producer_run_id cannot be empty")
     if record.vendor_symbol is not None and not record.vendor_symbol.strip():
         errors.append("vendor_symbol cannot be empty")
     if record.vendor_symbol and not record.vendor:
@@ -104,3 +147,17 @@ def validate_symbol_record(record: NormalizedSymbolMasterRecord) -> list[str]:
     if record.exchange is not None and not record.exchange.strip():
         errors.append("exchange cannot be empty")
     return errors
+
+
+def build_symbol_identity_idempotency_key(
+    source_vendor: str | None,
+    source_dataset: str | None,
+    source_sha256: str | None,
+    asset_type: str | None,
+    symbol: str | None,
+) -> str | None:
+    components = [source_vendor, source_dataset, source_sha256, asset_type, symbol]
+    if any(component is None or not str(component).strip() for component in components):
+        return None
+    joined = "|".join(str(component).strip() for component in components)
+    return sha256(joined.encode("utf-8")).hexdigest()
