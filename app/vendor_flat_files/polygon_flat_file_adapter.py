@@ -1,15 +1,23 @@
 from __future__ import annotations
 
+import os
 from datetime import date, datetime, timedelta
+import http.client
 import importlib.util
 import re
+import ssl
+import socket
 from dataclasses import dataclass
+from urllib.parse import urlparse
 from pathlib import Path
 from typing import Any
 
 try:
+    from botocore.config import Config
     from botocore.exceptions import BotoCoreError, ClientError, EndpointConnectionError
 except Exception:  # pragma: no cover - botocore is installed in normal runs, but keep import-safe.
+    Config = None  # type: ignore[assignment]
+
     class _MissingBotocoreError(Exception):
         pass
 
@@ -190,12 +198,100 @@ class PolygonFlatFileAdapter:
             raise RuntimeError("boto3 is required for remote listing preflight")
         import boto3
 
+        endpoint_url = self._env.get("POLYGON_FLAT_FILE_ENDPOINT")
+        if endpoint_url:
+            endpoint_url = endpoint_url.strip().rstrip("/")
+        access_key_id = self._env.get("POLYGON_FLAT_FILE_ACCESS_KEY_ID")
+        secret_access_key = self._env.get("POLYGON_FLAT_FILE_SECRET_ACCESS_KEY")
+        region_name = (self._env.get("POLYGON_FLAT_FILE_REGION") or "us-east-1").strip() or "us-east-1"
+        client_config = None
+        if Config is not None:
+            s3_config: dict[str, Any] = {"signature_version": "s3v4"}
+            if self._force_path_style_addressing():
+                s3_config["s3"] = {"addressing_style": "path"}
+            client_config = Config(**s3_config)
+        session = boto3.Session(
+            aws_access_key_id=access_key_id,
+            aws_secret_access_key=secret_access_key,
+            region_name=region_name,
+        )
+        return session.client(
+            "s3",
+            endpoint_url=endpoint_url,
+            config=client_config,
+        )
+
+    def build_remote_listing_client_env_driven(self) -> Any:
+        if not self.boto3_available():
+            raise RuntimeError("boto3 is required for remote listing preflight")
+        import boto3
+
+        endpoint_url = self._env.get("POLYGON_FLAT_FILE_ENDPOINT")
+        if endpoint_url:
+            endpoint_url = endpoint_url.strip().rstrip("/")
+        region_name = (self._env.get("POLYGON_FLAT_FILE_REGION") or "us-east-1").strip() or "us-east-1"
+        client_config = None
+        if Config is not None:
+            s3_config: dict[str, Any] = {"signature_version": "s3v4"}
+            if self._force_path_style_addressing():
+                s3_config["s3"] = {"addressing_style": "path"}
+            client_config = Config(**s3_config)
         return boto3.client(
             "s3",
             aws_access_key_id=self._env.get("POLYGON_FLAT_FILE_ACCESS_KEY_ID"),
             aws_secret_access_key=self._env.get("POLYGON_FLAT_FILE_SECRET_ACCESS_KEY"),
-            endpoint_url=self._env.get("POLYGON_FLAT_FILE_ENDPOINT"),
+            endpoint_url=endpoint_url,
+            region_name=region_name,
+            config=client_config,
         )
+
+    def _force_path_style_addressing(self) -> bool:
+        raw_value = self._env.get("POLYGON_FLAT_FILE_FORCE_PATH_STYLE", "")
+        return raw_value.strip().lower() in {"1", "true", "yes", "on"}
+
+    def client_mode_diagnostics(self) -> dict[str, object]:
+        return {
+            "explicit_session_client_mode": True,
+            "environment_driven_client_mode": True,
+            "path_style_addressing_used": self._force_path_style_addressing(),
+            "endpoint_contains_quotes": self._env.get("POLYGON_FLAT_FILE_ENDPOINT", "").strip().startswith(("'", '"'))
+            or self._env.get("POLYGON_FLAT_FILE_ENDPOINT", "").strip().endswith(("'", '"')),
+            "bucket_contains_quotes": self._env.get("POLYGON_FLAT_FILE_BUCKET", "").strip().startswith(("'", '"'))
+            or self._env.get("POLYGON_FLAT_FILE_BUCKET", "").strip().endswith(("'", '"')),
+            "prefix_contains_quotes": self._env.get("POLYGON_FLAT_FILE_PREFIX", "").strip().startswith(("'", '"'))
+            or self._env.get("POLYGON_FLAT_FILE_PREFIX", "").strip().endswith(("'", '"')),
+            "access_key_contains_quotes": self._env.get("POLYGON_FLAT_FILE_ACCESS_KEY_ID", "").strip().startswith(("'", '"'))
+            or self._env.get("POLYGON_FLAT_FILE_ACCESS_KEY_ID", "").strip().endswith(("'", '"')),
+            "secret_key_contains_quotes": self._env.get("POLYGON_FLAT_FILE_SECRET_ACCESS_KEY", "").strip().startswith(("'", '"'))
+            or self._env.get("POLYGON_FLAT_FILE_SECRET_ACCESS_KEY", "").strip().endswith(("'", '"')),
+            "access_key_length": len(self._env.get("POLYGON_FLAT_FILE_ACCESS_KEY_ID", "").strip().strip("'\"")),
+            "secret_key_length": len(self._env.get("POLYGON_FLAT_FILE_SECRET_ACCESS_KEY", "").strip().strip("'\"")),
+            "access_key_contains_whitespace": any(ch.isspace() for ch in self._env.get("POLYGON_FLAT_FILE_ACCESS_KEY_ID", "")),
+            "secret_key_contains_whitespace": any(ch.isspace() for ch in self._env.get("POLYGON_FLAT_FILE_SECRET_ACCESS_KEY", "")),
+            "endpoint_contains_whitespace": any(ch.isspace() for ch in self._env.get("POLYGON_FLAT_FILE_ENDPOINT", "")),
+            "bucket_contains_whitespace": any(ch.isspace() for ch in self._env.get("POLYGON_FLAT_FILE_BUCKET", "")),
+            "prefix_contains_whitespace": any(ch.isspace() for ch in self._env.get("POLYGON_FLAT_FILE_PREFIX", "")),
+            "required_env_var_values_quoted": [
+                name for name in REQUIRED_CONFIG_NAMES if self._env.get(name, "").strip().startswith(("'", '"')) or self._env.get(name, "").strip().endswith(("'", '"'))
+            ],
+        }
+
+    def compare_client_mode_construction(self) -> dict[str, object]:
+        result = {
+            "explicit_session_client_build_status": "not_attempted",
+            "environment_driven_client_build_status": "not_attempted",
+        }
+        try:
+            self.build_remote_listing_client()
+            result["explicit_session_client_build_status"] = "built"
+        except Exception as exc:
+            result["explicit_session_client_build_status"] = self.classify_value_error(exc) if exc.__class__.__name__ == "ValueError" else exc.__class__.__name__
+        try:
+            self.build_remote_listing_client_env_driven()
+            result["environment_driven_client_build_status"] = "built"
+        except Exception as exc:
+            result["environment_driven_client_build_status"] = self.classify_value_error(exc) if exc.__class__.__name__ == "ValueError" else exc.__class__.__name__
+        return result
 
     def list_remote_objects(self, *, max_keys: int) -> list[dict[str, str]]:
         client = self.build_remote_listing_client()
@@ -477,35 +573,191 @@ class PolygonFlatFileAdapter:
         redacted_code = "client_error"
         error_name = error.__class__.__name__
         if isinstance(error, EndpointConnectionError) or error_name == "EndpointConnectionError":
-            code = "endpoint_connection_error"
+            code = "invalid_endpoint"
             redacted_code = code
-            message = "endpoint connection error"
+            message = "invalid endpoint or endpoint connection error"
             return code, redacted_code, message
         response = getattr(error, "response", {}) if hasattr(error, "response") else {}
         error_data = response.get("Error", {}) if isinstance(response, dict) else {}
         raw_code = str(error_data.get("Code") or "client_error")
         status = response.get("ResponseMetadata", {}).get("HTTPStatusCode") if isinstance(response, dict) else None
         if isinstance(error, ClientError) or error_name == "ClientError" or isinstance(response, dict):
-            if str(status) == "403":
-                code = "forbidden"
+            if str(status) == "403" or raw_code in {"AccessDenied", "AllAccessDisabled"}:
+                code = "permission_denied"
+            elif raw_code in {"InvalidAccessKeyId", "SignatureDoesNotMatch", "InvalidToken"}:
+                code = "authentication_failure"
+            elif raw_code in {"NoSuchBucket", "InvalidBucketName", "PermanentRedirect"}:
+                code = "invalid_bucket"
+            elif raw_code in {"NoSuchKey", "404"}:
+                code = "date_object_not_found"
+            elif raw_code in {"MethodNotAllowed", "NotImplemented"}:
+                code = "invalid_prefix_path"
+            elif raw_code in {"SlowDown", "Throttling", "RequestTimeout", "RequestTimeoutException"}:
+                code = "network_client_error"
+            elif raw_code in {"AccessDenied", "AllAccessDisabled"}:
+                code = "permission_denied"
+            elif raw_code in {"AuthorizationHeaderMalformed", "InvalidRequest"}:
+                code = "authentication_failure"
             elif raw_code == "AccessDenied":
-                code = "access_denied"
-            elif raw_code == "InvalidAccessKeyId":
-                code = "invalid_access_key"
-            elif raw_code == "SignatureDoesNotMatch":
-                code = "signature_mismatch"
-            elif raw_code == "NoSuchBucket":
-                code = "bucket_not_found"
+                code = "permission_denied"
             else:
                 code = "client_error"
             redacted_code = code
             message = "remote listing failed safely"
             return code, redacted_code, message
         if isinstance(error, BotoCoreError) or error_name == "BotoCoreError":
-            code = "client_error"
+            code = "network_client_error"
             redacted_code = code
-            message = "remote listing failed safely"
+            message = "network or client error"
         return code, redacted_code, message
+
+    @staticmethod
+    def diagnose_remote_listing_error(
+        error: Exception,
+        *,
+        endpoint_url_used: str | None = None,
+        region_name: str | None = None,
+        path_style_addressing_used: bool | None = None,
+    ) -> dict[str, object]:
+        response = getattr(error, "response", {}) if hasattr(error, "response") else {}
+        error_data = response.get("Error", {}) if isinstance(response, dict) else {}
+        metadata = response.get("ResponseMetadata", {}) if isinstance(response, dict) else {}
+        error_name = error.__class__.__name__
+        raw_code = str(error_data.get("Code") or "")
+        http_status_code = metadata.get("HTTPStatusCode")
+        response_url = metadata.get("HostId") or metadata.get("RequestId")
+        code, redacted_code, message = PolygonFlatFileAdapter.classify_remote_listing_error(error)
+        endpoint_failure = code == "invalid_endpoint"
+        auth_failure = code == "authentication_failure"
+        permission_denied = code == "permission_denied"
+        bucket_failure = code == "invalid_bucket"
+        path_failure = code == "invalid_prefix_path"
+        dns_failure = error_name in {"EndpointConnectionError", "ConnectTimeoutError"}
+        timeout_failure = error_name in {"ReadTimeoutError", "ConnectTimeoutError", "ConnectionTimeoutError"}
+        ssl_failure = error_name in {"SSLError", "SSLCertVerificationError"}
+        path_style_used = bool(path_style_addressing_used) if path_style_addressing_used is not None else False
+        return {
+            "boto_exception_type": error_name,
+            "boto_root_exception_type": error_name,
+            "boto_error_code": raw_code,
+            "http_status_code": http_status_code,
+            "endpoint_url_used": endpoint_url_used,
+            "addressing_style_used": "path" if path_style_used else "virtual",
+            "signature_version_used": "s3v4",
+            "path_style_addressing_used": path_style_used,
+            "region_configured": bool(region_name),
+            "region_value_redacted": region_name or "",
+            "ssl_verification_failed": ssl_failure,
+            "connection_timed_out": timeout_failure,
+            "dns_resolution_failed": dns_failure,
+            "network_client_error": code == "network_client_error",
+            "invalid_endpoint": endpoint_failure,
+            "invalid_bucket": bucket_failure,
+            "invalid_prefix_path": path_failure,
+            "authentication_failure": auth_failure,
+            "permission_denied": permission_denied,
+            "date_object_not_found": code == "date_object_not_found",
+            "safe_classification_code": redacted_code,
+            "safe_classification_message": message,
+            "response_request_id_present": bool(response_url),
+            "redacted_exception_summary": PolygonFlatFileAdapter.redacted_exception_summary(error, endpoint_url_used=endpoint_url_used),
+        }
+
+    @staticmethod
+    def redacted_exception_summary(error: Exception, *, endpoint_url_used: str | None = None) -> dict[str, object]:
+        text = str(error) or ""
+        lower = text.lower()
+        root = getattr(error, "__cause__", None) or getattr(error, "__context__", None) or error
+        return {
+            "exception_class": error.__class__.__name__,
+            "root_exception_class": root.__class__.__name__,
+            "short_redacted_message": PolygonFlatFileAdapter._redact_exception_message(text),
+            "value_error_category": PolygonFlatFileAdapter.classify_value_error(error),
+            "message_contains_proxy": "proxy" in lower,
+            "message_contains_certificate": "certificate" in lower,
+            "message_contains_ssl": "ssl" in lower,
+            "message_contains_dns": "dns" in lower,
+            "message_contains_name_resolution": "name resolution" in lower or "name or service not known" in lower,
+            "message_contains_connection_refused": "connection refused" in lower,
+            "message_contains_connection_reset": "connection reset" in lower,
+            "message_contains_timeout": "timeout" in lower or "timed out" in lower,
+            "message_contains_host_unreachable": "host unreachable" in lower,
+            "message_contains_url_scheme": "scheme" in lower,
+            "message_contains_invalid_host": "invalid host" in lower,
+            "message_contains_port": "port" in lower,
+            "target_host": PolygonFlatFileAdapter._extract_host(endpoint_url_used),
+            "proxy_env_var_names_present": [name for name in ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY", "http_proxy", "https_proxy", "all_proxy", "no_proxy") if name in os.environ],
+        }
+
+    @staticmethod
+    def classify_value_error(error: Exception) -> str:
+        if error.__class__.__name__ != "ValueError":
+            return "not_value_error"
+        message = str(error).lower()
+        categories = {
+            "invalid header value": "invalid_header_value",
+            "invalid endpoint": "invalid_endpoint_url",
+            "endpoint url": "invalid_endpoint_url",
+            "credential": "invalid_credential_format",
+            "signature version": "unsupported_signature_version",
+            "region": "invalid_region",
+            "bucket": "invalid_bucket_name",
+            "object key": "invalid_object_key",
+        }
+        for needle, category in categories.items():
+            if needle in message:
+                return category
+        return "value_error_other"
+
+    @staticmethod
+    def _redact_exception_message(message: str) -> str:
+        lowered = message.lower()
+        if any(token in lowered for token in ("access_key", "secret", "signature", "authorization", "x-amz-credential", "x-amz-signature")):
+            return "redacted credential or signature detail"
+        return message[:240]
+
+    @staticmethod
+    def _extract_host(endpoint_url: str | None) -> str:
+        if not endpoint_url:
+            return ""
+        parsed = urlparse(endpoint_url)
+        return parsed.netloc or parsed.path
+
+    @staticmethod
+    def no_auth_endpoint_probe(endpoint_url: str | None, *, timeout_seconds: float = 5.0) -> dict[str, object]:
+        host = PolygonFlatFileAdapter._extract_host(endpoint_url)
+        if not host:
+            return {
+                "no_auth_probe_attempted": False,
+                "no_auth_probe_reachable": False,
+                "no_auth_probe_http_status_code": None,
+                "no_auth_probe_error": "missing_endpoint",
+            }
+        parsed = urlparse(endpoint_url or "https://")
+        port = parsed.port or 443
+        probe = {
+            "no_auth_probe_attempted": True,
+            "no_auth_probe_reachable": False,
+            "no_auth_probe_http_status_code": None,
+            "no_auth_probe_error": "",
+            "no_auth_probe_tcp_connected": False,
+            "no_auth_probe_tls_connected": False,
+            "no_auth_probe_host": host,
+            "no_auth_probe_port": port,
+        }
+        try:
+            connection = http.client.HTTPSConnection(host, port=port, timeout=timeout_seconds, context=ssl.create_default_context())
+            probe["no_auth_probe_tcp_connected"] = True
+            probe["no_auth_probe_tls_connected"] = True
+            connection.request("HEAD", "/", headers={"User-Agent": "polygon-stock-day-agg-read-only-probe/1.0"})
+            response = connection.getresponse()
+            probe["no_auth_probe_reachable"] = True
+            probe["no_auth_probe_http_status_code"] = response.status
+            response.read()
+            connection.close()
+        except Exception as exc:
+            probe["no_auth_probe_error"] = PolygonFlatFileAdapter._redact_exception_message(str(exc))
+        return probe
 
 
 def _sha256_file(path: Path) -> str:
