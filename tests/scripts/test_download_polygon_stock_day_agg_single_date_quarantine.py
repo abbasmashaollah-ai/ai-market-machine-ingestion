@@ -28,7 +28,7 @@ class _FakeClient:
     def list_objects_v2(self, **kwargs: object) -> dict[str, object]:
         self.calls.append(kwargs)
         if str(kwargs.get("Prefix") or "").endswith("2026/06/"):
-            return {"Contents": [{"Key": "us_stocks_sip/day_aggs_v1/2026/06/2026-06-16.csv.gz", "Size": 316221, "LastModified": "x", "ETag": "etag"}]}
+            return {"Contents": [{"Key": "us_stocks_sip/day_aggs_v1/2026/06/2026-06-26.csv.gz", "Size": 316221, "LastModified": "x", "ETag": "etag"}]}
         return {"Contents": []}
 
     def get_object(self, **kwargs: object) -> dict[str, object]:
@@ -51,14 +51,14 @@ def _run_cli(monkeypatch, argv: list[str], env: dict[str, str] | None = None) ->
 
 
 def test_wrong_approval_phrase_blocks(monkeypatch) -> None:
-    payload = _run_cli(monkeypatch, ["--date", "2026-06-16", "--approve-local-quarantine-download", "--approval-phrase", "wrong"])
+    payload = _run_cli(monkeypatch, ["--date", "2026-06-26", "--approve-local-quarantine-download", "--approval-phrase", "wrong"])
     assert payload["download_attempted"] is False
     assert payload["date_authorized"] is False
     assert any("approval phrase" in blocker for blocker in payload["blockers"])
 
 
 def test_missing_approval_phrase_blocks(monkeypatch) -> None:
-    payload = _run_cli(monkeypatch, ["--date", "2026-06-16", "--approve-local-quarantine-download"])
+    payload = _run_cli(monkeypatch, ["--date", "2026-06-26", "--approve-local-quarantine-download"])
     assert payload["download_attempted"] is False
     assert payload["date_authorized"] is False
 
@@ -78,7 +78,7 @@ def test_approved_one_date_path_permits_download_code_path(monkeypatch, tmp_path
         monkeypatch,
         [
             "--date",
-            "2026-06-16",
+            "2026-06-26",
             "--approve-local-quarantine-download",
             "--approval-phrase",
             cli.APPROVAL_PHRASE,
@@ -94,7 +94,7 @@ def test_approved_one_date_path_permits_download_code_path(monkeypatch, tmp_path
         },
     )
     assert payload["download_attempted"] is True
-    assert payload["local_quarantine_path"].endswith("polygon_stocks_day_aggs_2026-06-16.csv.gz")
+    assert payload["local_quarantine_path"].endswith("polygon_stocks_day_aggs_2026-06-26.csv.gz")
     assert payload["remote_file_read_attempted"] is False
     assert payload["parse_attempted"] is False
     assert payload["normalization_attempted"] is False

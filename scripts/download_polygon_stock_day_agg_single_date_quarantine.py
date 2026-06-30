@@ -11,8 +11,8 @@ if str(REPO_ROOT) not in sys.path:
 
 import scripts.download_polygon_flat_file_single_date_quarantine as base_cli
 
-APPROVAL_PHRASE = "APPROVE POLYGON STOCK DAY AGG 2026-06-16 QUARANTINE DOWNLOAD"
-APPROVED_DATE = "2026-06-16"
+APPROVAL_PHRASE = "APPROVE POLYGON STOCK DAY AGG 2026-06-26 QUARANTINE DOWNLOAD"
+APPROVED_DATE = "2026-06-26"
 
 
 def _build_parser() -> argparse.ArgumentParser:

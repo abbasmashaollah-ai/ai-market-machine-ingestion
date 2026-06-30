@@ -66,7 +66,11 @@ def main() -> int:
         )
         return 0
 
-    symbols_to_run = [item["symbol"] for item in per_symbol if item["recommended_action"] == "run_daily_update"]
+    symbols_to_run = [
+        item["symbol"]
+        for item in per_symbol
+        if item["recommended_action"] in {"run_daily_update", "run_small_backfill_or_daily_update"}
+    ]
     if not symbols_to_run:
         print(
             f"status=completed symbols_total={summary['symbols_total']} symbols_ran=0 "
